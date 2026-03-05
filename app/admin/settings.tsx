@@ -3,7 +3,6 @@ import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
     StatusBar, Switch, Image, Alert, Linking
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import AdminHeader from '../../src/components/AdminHeader';
@@ -107,30 +106,9 @@ export default function AdminSettings() {
     const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
     const { i18n } = useTranslation();
     const router = useRouter();
-    const { user, refreshSession } = useAuth();
-    const [notifications, setNotifications] = useState(user?.notification_sound !== 'default');
+    const { user } = useAuth();
     const [updating, setUpdating] = useState(false);
     const { isBiometricAvailable, isBiometricEnabled, isLoading: biometricLoading, toggleBiometric } = useBiometric();
-
-    const toggleNotifications = async () => {
-        if (updating) return;
-        setUpdating(true);
-        const newValue = !notifications;
-        setNotifications(newValue);
-        const soundPref = newValue ? 'custom' : 'default';
-        try {
-            await AsyncStorage.setItem('notification_sound', soundPref);
-            const { api } = await import('../../src/services/apiClient');
-            await api.put('/users/settings', { notification_sound: soundPref });
-            await refreshSession();
-        } catch (error) {
-            console.error('Failed to update notification settings', error);
-            setNotifications(!newValue);
-            Alert.alert('Error', 'Failed to update notification settings');
-        } finally {
-            setUpdating(false);
-        }
-    };
 
     const handlePress = (item: string) =>
         Alert.alert(item, 'This feature will be available in the next update.');
@@ -202,19 +180,7 @@ export default function AdminSettings() {
                             />
                         }
                     />
-                    <SettingRow
-                        icon="notifications" iconColor="#F59E0B" iconBg="#FEF3C7"
-                        label="Custom Alert Sounds"
-                        rightElement={
-                            <Switch
-                                trackColor={{ false: '#E5E7EB', true: '#FCD34D' }}
-                                thumbColor={notifications ? '#fff' : '#f4f3f4'}
-                                onValueChange={toggleNotifications}
-                                value={notifications}
-                                disabled={updating}
-                            />
-                        }
-                    />
+
                     <SettingRow
                         icon="language" iconColor="#3B82F6" iconBg="#EFF6FF"
                         label="Language (Telugu)"
@@ -325,7 +291,7 @@ export default function AdminSettings() {
                                     text: 'Logout', style: 'destructive',
                                     onPress: async () => {
                                         await AuthService.logout();
-                                        router.replace('/');
+                                        router.replace('/welcome');
                                     }
                                 }
                             ])

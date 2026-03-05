@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, TouchableOpacity, StyleSheet, Dimensions, Text, Platform } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Dimensions, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MaterialTopTabBarProps } from '@react-navigation/material-top-tabs';
 import Animated, {
@@ -30,7 +30,7 @@ const ORDERED_TABS = ['dashboard', 'students', 'payslip', 'profile'];
 const ACTIVE_G_START = '#F472B6';
 const ACTIVE_G_END = '#DB2777';
 
-export default function DriverFooter({ state, descriptors, navigation, position }: MaterialTopTabBarProps) {
+export default function DriverFooter({ state, descriptors, navigation }: MaterialTopTabBarProps) {
     const isDark = false;
 
     // Filter and sort routes to only show the main 3 tabs

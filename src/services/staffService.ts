@@ -83,7 +83,7 @@ export const StaffService = {
         return api.delete<void>(`/staff/${id}`);
     },
 
-    getClassTeacher: async (classId: string): Promise<Staff | null> => {
+    getClassTeacher: async (): Promise<Staff | null> => {
         // TODO: Implement when class-teacher mapping is available
         return null;
     },

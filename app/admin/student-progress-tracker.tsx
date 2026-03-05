@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, Dimensions, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, Dimensions } from 'react-native';
+import { Ionicons, Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AdminHeader from '../../src/components/AdminHeader';
 import { ADMIN_THEME } from '../../src/constants/adminTheme';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useTheme } from '../../src/hooks/useTheme';
-import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 const {
   width
 } = Dimensions.get('window');
@@ -169,7 +168,7 @@ export default function StudentProgressTracker() {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(), []);
   const [studentId, setStudentId] = useState('');
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<StudentTrackerData | null>(null);
@@ -337,7 +336,7 @@ const diff = sub.currMarks - sub.prevMarks;
                             <TextInput style={styles.input} placeholder="Enter Student ID (101, 102, 103)" placeholderTextColor="#94A3B8" value={studentId} onChangeText={setStudentId} />
                         </View>
                         <TouchableOpacity style={styles.searchBtn} onPress={handleSearch} disabled={loading}>
-                            {loading ? <ActivityIndicator color="#FFF" /> : <Feather name="arrow-right" size={20} color="#FFF" />}
+                            {loading ? <LogoLoader color="#FFF" /> : <Feather name="arrow-right" size={20} color="#FFF" />}
                         </TouchableOpacity>
                     </View>
 
@@ -360,7 +359,7 @@ const diff = sub.currMarks - sub.prevMarks;
             </ScrollView>
         </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = () => StyleSheet.create({
   root: {
     flex: 1
   },

@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, StatusBar, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, StatusBar, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AdminHeader from '../../src/components/AdminHeader';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LeaveService, LeaveApplication } from '../../src/services/commonServices';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 export default function AdminLeaves() {
   const {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const [leaves, setLeaves] = useState<LeaveApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +28,7 @@ export default function AdminLeaves() {
       });
       setLeaves(data);
     } catch (error) {
-      console.error('Failed to fetch leaves:', error);
+
       setError('Failed to load leave requests');
     } finally {
       setLoading(false);
@@ -43,7 +44,7 @@ export default function AdminLeaves() {
       Alert.alert('Success', `Leave request ${action}`);
       fetchLeaves(); // Refresh list
     } catch (error) {
-      console.error(`Failed to ${action} leave:`, error);
+
       Alert.alert('Error', `Failed to ${action} request`);
     }
   };
@@ -66,11 +67,9 @@ export default function AdminLeaves() {
   const renderItem = ({
     item,
     index
-  }: {
-    item: LeaveApplication;
-    index: number;
-  }) => {
-return <Animated.View entering={FadeInDown.delay(index * 100).duration(500)}>
+
+  }: {item: LeaveApplication;index: number;}) => {
+    return <Animated.View entering={FadeInDown.delay(index * 100).duration(500)}>
             <View style={styles.card}>
                 <View style={styles.headerRow}>
                     <Image source={{
@@ -86,14 +85,12 @@ return <Animated.View entering={FadeInDown.delay(index * 100).duration(500)}>
                         <Text style={styles.durationText}>{calculateDuration(item.start_date, item.end_date)}</Text>
                     </View>
                 </View>
-
                 <View style={styles.reasonBox}>
                     <Text style={styles.leaveType}>
                         {item.leave_type.toUpperCase()} • {formatDateRange(item.start_date, item.end_date)}
                     </Text>
                     <Text style={styles.reasonText}>"{item.reason}"</Text>
                 </View>
-
                 <View style={styles.actionRow}>
                     <TouchableOpacity style={[styles.actionButton, styles.rejectBtn]} onPress={() => handleAction(item.id, 'rejected')}>
                         <Ionicons name="close-circle" size={18} color="#EF4444" />
@@ -114,9 +111,8 @@ return <Animated.View entering={FadeInDown.delay(index * 100).duration(500)}>
   return <View style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
             <AdminHeader title="Leave Management" showBackButton={true} />
-
             {loading ? <View style={styles.centerContainer}>
-                    <ActivityIndicator size="large" color="#6366F1" />
+                    <LogoLoader size={60} color="#6366F1" />
                 </View> : error ? <View style={styles.centerContainer}>
                     <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
                     <Text style={[styles.emptyText, {
@@ -125,10 +121,10 @@ return <Animated.View entering={FadeInDown.delay(index * 100).duration(500)}>
                     <TouchableOpacity style={styles.retryButton} onPress={fetchLeaves}>
                         <Text style={styles.retryText}>Retry</Text>
                     </TouchableOpacity>
-                </View> : <FlatList data={leaves} keyExtractor={item => item.id} renderItem={renderItem} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false} ListHeaderComponent={leaves.length > 0 ? <Text style={styles.sectionTitle}>Pending Requests ({leaves.length})</Text> : null} ListEmptyComponent={<Text style={styles.emptyText}>No pending leave requests</Text>} refreshing={loading} onRefresh={fetchLeaves} />}
+                </View> : <FlatList data={leaves} keyExtractor={(item) => item.id} renderItem={renderItem} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false} ListHeaderComponent={leaves.length > 0 ? <Text style={styles.sectionTitle}>Pending Requests ({leaves.length})</Text> : null} ListEmptyComponent={<Text style={styles.emptyText}>No pending leave requests</Text>} refreshing={loading} onRefresh={fetchLeaves} />}
         </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card

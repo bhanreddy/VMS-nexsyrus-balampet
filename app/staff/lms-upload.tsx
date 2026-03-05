@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, KeyboardAvoidingView, Platform, StatusBar, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, KeyboardAvoidingView, Platform, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,6 +9,7 @@ import { api } from '../../src/services/apiClient';
 import { TeacherService, TeacherClassAssignment } from '../../src/services/commonServices';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 interface CreateCourseResponse {
   course: {
     id: string;
@@ -19,7 +20,7 @@ export default function StaffLMSUpload() {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const router = useRouter();
   const [topic, setTopic] = useState(''); // Serves as Course Title (Subject/Topic)
   const [subTopic, setSubTopic] = useState(''); // Serves as Material Title
@@ -45,7 +46,7 @@ export default function StaffLMSUpload() {
         setTopic(data[0].subject_name);
       }
     } catch (error) {
-      console.error('Failed to fetch assignments', error);
+
       Alert.alert('Error', 'Could not load your assigned classes');
     }
   };
@@ -93,7 +94,7 @@ export default function StaffLMSUpload() {
         onPress: () => router.back()
       }]);
     } catch (error) {
-      console.error('Upload error:', error);
+
       const msg = error instanceof Error ? error.message : 'Unknown error';
       Alert.alert('Error', 'Failed to upload content. ' + msg);
     } finally {
@@ -115,7 +116,7 @@ export default function StaffLMSUpload() {
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Select Class & Subject <Text style={styles.required}>*</Text></Text>
             {assignments.length > 0 ? <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
-              {assignments.map(assign => {
+              {assignments.map((assign) => {
                 return <TouchableOpacity key={assign.assignment_id} style={[styles.chip, selectedAssignment?.assignment_id === assign.assignment_id && styles.chipActive]} onPress={() => setSelectedAssignment(assign)}>
                   <Text style={[styles.chipText, selectedAssignment?.assignment_id === assign.assignment_id && styles.chipTextActive]}>
                     {assign.class_name}-{assign.section_name} : {assign.subject_name}
@@ -161,7 +162,7 @@ export default function StaffLMSUpload() {
               x: 1,
               y: 0
             }}>
-              {loading ? <ActivityIndicator color="#FFF" /> : <>
+              {loading ? <LogoLoader color="#FFF" /> : <>
                 <MaterialIcons name="cloud-upload" size={24} color="#FFF" />
                 <Text style={styles.uploadButtonText}>Upload Content</Text>
               </>}
@@ -173,7 +174,7 @@ export default function StaffLMSUpload() {
     </KeyboardAvoidingView>
   </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card

@@ -5,7 +5,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import ScreenLayout from '../../src/components/ScreenLayout';
 import StudentHeader from '../../src/components/StudentHeader';
 import { useTheme } from '../../src/hooks/useTheme';
-import { Theme } from '../../src/theme/themes';
 const projects = [{
   title: 'Magnetic Levitation',
   query: 'Magnetic Levitation science project DIY'
@@ -33,7 +32,7 @@ const ScienceProjectsScreen = () => {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(), []);
   const router = useRouter();
   const handlePress = (item: {
     title: string;
@@ -109,7 +108,7 @@ export default ScienceProjectsScreen;
 
 /* ============================ STYLES ============================ */
 
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = () => StyleSheet.create({
   container: {
     padding: 16,
     paddingBottom: 30

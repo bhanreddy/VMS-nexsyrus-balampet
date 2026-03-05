@@ -1,365 +1,637 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, StatusBar, KeyboardAvoidingView, Platform, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, TextInput,
+  TouchableOpacity, StatusBar, KeyboardAvoidingView,
+  Platform, Alert, Pressable, Dimensions,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AdminHeader from '../../src/components/AdminHeader';
 import { useTranslation } from 'react-i18next';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, {
+  FadeInDown, FadeIn,
+  useAnimatedStyle, useSharedValue,
+  withTiming, withSpring,
+  interpolate, Extrapolation,
+} from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../src/hooks/useAuth';
 import { StaffService } from '@/src/services/staffService';
-import { Functions } from '@/src/services/functions';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
-const InputField = ({
-  label,
-  placeholder,
-  value,
-  onChangeText,
-  keyboardType = 'default',
-  icon,
-  secureTextEntry = false
-}: any) => {
-  const {
-    theme,
-    isDark
-  } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
-  return <View style={styles.inputGroup}>
-    <Text style={styles.label}>{label}</Text>
-    <View style={styles.inputContainer}>
-      <Ionicons name={icon} size={20} color="#9CA3AF" style={styles.inputIcon} />
-      <TextInput style={styles.input} placeholder={placeholder} placeholderTextColor="#9CA3AF" value={value} onChangeText={onChangeText} keyboardType={keyboardType as any} secureTextEntry={secureTextEntry} />
-    </View>
-  </View>;
+import LogoLoader from '../../src/components/LogoLoader';
+
+const { width: SW } = Dimensions.get('window');
+
+// ─── Design tokens ────────────────────────────────────────────────────────────
+const SECTION_COLORS = {
+  personal: { accent: '#3B82F6', bg_light: '#EFF6FF', bg_dark: '#172554' },
+  employment: { accent: '#10B981', bg_light: '#ECFDF5', bg_dark: '#052E16' },
+  contact: { accent: '#F59E0B', bg_light: '#FFFBEB', bg_dark: '#451A03' },
 };
+
+const DESIGNATION_CONFIG: Record<string, { label: string; icon: string; color: string }> = {
+  '1': { label: 'Principal', icon: 'star-outline', color: '#8B5CF6' },
+  '2': { label: 'Teacher', icon: 'book-outline', color: '#3B82F6' },
+  '3': { label: 'Admin', icon: 'shield-outline', color: '#10B981' },
+  '4': { label: 'Accountant', icon: 'calculator-outline', color: '#F59E0B' },
+  '5': { label: 'Librarian', icon: 'library-outline', color: '#EC4899' },
+  '10': { label: 'Driver', icon: 'car-outline', color: '#EF4444' },
+};
+
+const GENDER_CONFIG: Record<string, { label: string; icon: string; grad: [string, string] }> = {
+  '1': { label: 'Male', icon: 'male-outline', grad: ['#3B82F6', '#6366F1'] },
+  '2': { label: 'Female', icon: 'female-outline', grad: ['#EC4899', '#F43F5E'] },
+  '3': { label: 'Other', icon: 'male-female-outline', grad: ['#10B981', '#14B8A6'] },
+};
+
+// ─── Live Staff Avatar ────────────────────────────────────────────────────────
+const LiveAvatar = ({ firstName, lastName, designationId, isDark }: any) => {
+  const initials = [firstName?.[0], lastName?.[0]].filter(Boolean).join('').toUpperCase() || '?';
+  const des = DESIGNATION_CONFIG[designationId] || DESIGNATION_CONFIG['2'];
+  const gender = GENDER_CONFIG['1'];
+
+  const gradMap: Record<string, [string, string]> = {
+    '1': ['#7C3AED', '#8B5CF6'],
+    '2': ['#1D4ED8', '#3B82F6'],
+    '3': ['#065F46', '#10B981'],
+    '4': ['#92400E', '#F59E0B'],
+    '5': ['#9D174D', '#EC4899'],
+    '10': ['#991B1B', '#EF4444'],
+  };
+  const grad = gradMap[designationId] || gradMap['2'];
+
+  return (
+    <Animated.View entering={FadeIn.duration(400)} style={avatarSt.wrap}>
+      <LinearGradient colors={grad} style={avatarSt.circle} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+        <LinearGradient
+          colors={['rgba(255,255,255,0.32)', 'rgba(255,255,255,0)']}
+          style={avatarSt.gloss}
+          start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
+        />
+        <Text style={avatarSt.initials}>{initials}</Text>
+      </LinearGradient>
+      {/* Designation badge */}
+      <View style={[avatarSt.badge, { backgroundColor: des.color }]}>
+        <Ionicons name={des.icon as any} size={10} color="#fff" />
+      </View>
+    </Animated.View>
+  );
+};
+const avatarSt = StyleSheet.create({
+  wrap: { alignItems: 'center', marginBottom: 6 },
+  circle: { width: 82, height: 82, borderRadius: 28, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  gloss: { position: 'absolute', top: 0, left: 0, right: 0, height: 42, borderRadius: 28 },
+  initials: { fontSize: 30, fontWeight: '900', color: '#fff', letterSpacing: -1 },
+  badge: {
+    position: 'absolute', bottom: 0, right: 0,
+    width: 24, height: 24, borderRadius: 12,
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 2.5, borderColor: '#fff',
+  },
+});
+
+// ─── Animated InputField ──────────────────────────────────────────────────────
+const InputField = ({
+  label, placeholder, value, onChangeText, keyboardType = 'default',
+  icon, secureTextEntry = false, required = false, accentColor = '#3B82F6', isDark = false,
+}: any) => {
+  const focused = useSharedValue(0);
+  const borderStyle = useAnimatedStyle(() => ({
+    borderColor: focused.value === 1
+      ? accentColor
+      : isDark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.09)',
+    borderWidth: focused.value === 1 ? 1.5 : 1,
+  }));
+
+  return (
+    <View style={inputSt.group}>
+      <Text style={[inputSt.label, { color: isDark ? '#64748B' : '#64748B' }]}>
+        {label}{required && <Text style={{ color: '#EF4444' }}> *</Text>}
+      </Text>
+      <Animated.View style={[
+        inputSt.wrapper,
+        { backgroundColor: isDark ? '#1E293B' : '#F8FAFC' },
+        borderStyle,
+      ]}>
+        <Animated.View style={{ marginRight: 10 }}>
+          <Ionicons
+            name={icon}
+            size={18}
+            color={isDark ? '#475569' : '#94A3B8'}
+          />
+        </Animated.View>
+        <TextInput
+          style={[inputSt.input, { color: isDark ? '#E2E8F0' : '#0F172A' }]}
+          placeholder={placeholder}
+          placeholderTextColor={isDark ? '#374151' : '#CBD5E1'}
+          value={value}
+          onChangeText={onChangeText}
+          keyboardType={keyboardType as any}
+          secureTextEntry={secureTextEntry}
+          onFocus={() => { focused.value = withTiming(1, { duration: 160 }); }}
+          onBlur={() => { focused.value = withTiming(0, { duration: 180 }); }}
+        />
+      </Animated.View>
+    </View>
+  );
+};
+const inputSt = StyleSheet.create({
+  group: { marginBottom: 14 },
+  label: { fontSize: 12, fontWeight: '700', marginBottom: 7, letterSpacing: 0.1 },
+  wrapper: {
+    flexDirection: 'row', alignItems: 'center',
+    borderRadius: 13, paddingHorizontal: 14, height: 48,
+    borderWidth: 1,
+  },
+  input: { flex: 1, fontSize: 15, fontWeight: '500' },
+});
+
+// ─── Designation Selector Card Grid ──────────────────────────────────────────
+const DesignationSelector = ({ value, onChange, isDark }: any) => {
+  const entries = Object.entries(DESIGNATION_CONFIG);
+  return (
+    <View style={desSt.group}>
+      <Text style={[desSt.label, { color: isDark ? '#64748B' : '#64748B' }]}>
+        Designation <Text style={{ color: '#EF4444' }}>*</Text>
+      </Text>
+      <View style={desSt.grid}>
+        {entries.map(([key, cfg]) => {
+          const active = value === key;
+          return (
+            <Pressable
+              key={key}
+              style={({ pressed }) => [
+                desSt.card,
+                { backgroundColor: isDark ? '#1E293B' : '#F8FAFC' },
+                { borderColor: active ? cfg.color : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)') },
+                { borderWidth: active ? 2 : 1 },
+                pressed && { opacity: 0.80 },
+              ]}
+              onPress={() => onChange(key)}
+            >
+              <View style={[desSt.iconWrap, { backgroundColor: active ? cfg.color + '20' : (isDark ? '#0F172A' : '#E2E8F0') }]}>
+                <Ionicons name={cfg.icon as any} size={16} color={active ? cfg.color : (isDark ? '#475569' : '#94A3B8')} />
+              </View>
+              <Text style={[
+                desSt.cardText,
+                { color: active ? cfg.color : (isDark ? '#64748B' : '#94A3B8') },
+                active && { fontWeight: '800' },
+              ]}>
+                {cfg.label}
+              </Text>
+              {active && (
+                <View style={[desSt.activeDot, { backgroundColor: cfg.color }]} />
+              )}
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+};
+const desSt = StyleSheet.create({
+  group: { marginBottom: 14 },
+  label: { fontSize: 12, fontWeight: '700', marginBottom: 10, letterSpacing: 0.1 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
+  card: {
+    width: (SW - 36 - 8 - 9 * 2) / 3,  // 3-col with padding
+    borderRadius: 14, padding: 12,
+    alignItems: 'center', gap: 7,
+    position: 'relative', overflow: 'hidden',
+  },
+  iconWrap: { width: 36, height: 36, borderRadius: 11, justifyContent: 'center', alignItems: 'center' },
+  cardText: { fontSize: 11, fontWeight: '600', letterSpacing: 0.1, textAlign: 'center' },
+  activeDot: { position: 'absolute', top: 7, right: 7, width: 7, height: 7, borderRadius: 4 },
+});
+
+// ─── Gender Toggle (pill-style) ───────────────────────────────────────────────
+const GenderToggle = ({ value, onChange, isDark }: any) => (
+  <View style={genSt.group}>
+    <Text style={[genSt.label, { color: isDark ? '#64748B' : '#64748B' }]}>
+      Gender <Text style={{ color: '#EF4444' }}>*</Text>
+    </Text>
+    <View style={[genSt.track, { backgroundColor: isDark ? '#1E293B' : '#F1F5F9' }]}>
+      {Object.entries(GENDER_CONFIG).map(([key, cfg]) => {
+        const active = value === key;
+        return (
+          <Pressable
+            key={key}
+            style={({ pressed }) => [
+              genSt.pill,
+              active && { backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.10, shadowRadius: 6, elevation: 3 },
+              pressed && { opacity: 0.8 },
+            ]}
+            onPress={() => onChange(key)}
+          >
+            {active ? (
+              <LinearGradient colors={cfg.grad} style={genSt.pillGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                <Ionicons name={cfg.icon as any} size={14} color="#fff" />
+                <Text style={[genSt.pillText, { color: '#fff' }]}>{cfg.label}</Text>
+              </LinearGradient>
+            ) : (
+              <View style={genSt.pillInactive}>
+                <Ionicons name={cfg.icon as any} size={14} color={isDark ? '#475569' : '#94A3B8'} />
+                <Text style={[genSt.pillText, { color: isDark ? '#475569' : '#94A3B8' }]}>{cfg.label}</Text>
+              </View>
+            )}
+          </Pressable>
+        );
+      })}
+    </View>
+  </View>
+);
+const genSt = StyleSheet.create({
+  group: { marginBottom: 14 },
+  label: { fontSize: 12, fontWeight: '700', marginBottom: 10, letterSpacing: 0.1 },
+  track: { flexDirection: 'row', borderRadius: 16, padding: 4, gap: 3 },
+  pill: { flex: 1, borderRadius: 13, overflow: 'hidden' },
+  pillGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10 },
+  pillInactive: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10 },
+  pillText: { fontSize: 13, fontWeight: '700', letterSpacing: 0.1 },
+});
+
+// ─── Section Card wrapper ─────────────────────────────────────────────────────
+const SectionCard = ({
+  title, icon, colorKey, delay, children,
+}: {
+  title: string; icon: string; colorKey: keyof typeof SECTION_COLORS; delay: number; children: React.ReactNode;
+}) => {
+  const { isDark } = useTheme();
+  const col = SECTION_COLORS[colorKey];
+  return (
+    <Animated.View
+      entering={FadeInDown.delay(delay).duration(500).springify()}
+      style={[
+        secSt.card,
+        { backgroundColor: isDark ? '#111827' : '#FFFFFF', borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' },
+      ]}
+    >
+      <View style={[secSt.bar, { backgroundColor: col.accent }]} />
+      <View style={secSt.inner}>
+        <View style={secSt.headerRow}>
+          <View style={[secSt.iconWrap, { backgroundColor: isDark ? col.bg_dark : col.bg_light }]}>
+            <Ionicons name={icon as any} size={16} color={col.accent} />
+          </View>
+          <Text style={[secSt.title, { color: isDark ? '#E2E8F0' : '#0F172A' }]}>{title}</Text>
+        </View>
+        {children}
+      </View>
+    </Animated.View>
+  );
+};
+const secSt = StyleSheet.create({
+  card: {
+    flexDirection: 'row', borderRadius: 22, marginBottom: 16, overflow: 'hidden',
+    borderWidth: 1,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.07, shadowRadius: 12, elevation: 5,
+  },
+  bar: { width: 4 },
+  inner: { flex: 1, padding: 20 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 18 },
+  iconWrap: { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  title: { fontSize: 15, fontWeight: '800', letterSpacing: -0.2 },
+});
+
+// ─── Salary display row ───────────────────────────────────────────────────────
+const SalaryField = ({ value, onChange, isDark, accentColor }: any) => {
+  const focused = useSharedValue(0);
+  const borderStyle = useAnimatedStyle(() => ({
+    borderColor: focused.value === 1 ? accentColor : (isDark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.09)'),
+    borderWidth: focused.value === 1 ? 1.5 : 1,
+  }));
+
+  return (
+    <View style={inputSt.group}>
+      <Text style={[inputSt.label, { color: isDark ? '#64748B' : '#64748B' }]}>Monthly Salary</Text>
+      <Animated.View style={[
+        inputSt.wrapper,
+        { backgroundColor: isDark ? '#1E293B' : '#F8FAFC' },
+        borderStyle,
+      ]}>
+        {/* Rupee prefix badge */}
+        <View style={[salSt.prefix, { backgroundColor: isDark ? '#0F172A' : '#E2E8F0' }]}>
+          <Text style={[salSt.prefixText, { color: isDark ? '#64748B' : '#475569' }]}>₹</Text>
+        </View>
+        <TextInput
+          style={[inputSt.input, { color: isDark ? '#E2E8F0' : '#0F172A', marginLeft: 8 }]}
+          placeholder="e.g. 45,000"
+          placeholderTextColor={isDark ? '#374151' : '#CBD5E1'}
+          value={value}
+          onChangeText={onChange}
+          keyboardType="numeric"
+          onFocus={() => { focused.value = withTiming(1, { duration: 160 }); }}
+          onBlur={() => { focused.value = withTiming(0, { duration: 180 }); }}
+        />
+        {value ? (
+          <View style={[salSt.perMonth, { backgroundColor: accentColor + '18' }]}>
+            <Text style={[salSt.perMonthText, { color: accentColor }]}>/ mo</Text>
+          </View>
+        ) : null}
+      </Animated.View>
+    </View>
+  );
+};
+const salSt = StyleSheet.create({
+  prefix: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 8, marginRight: 2 },
+  prefixText: { fontSize: 15, fontWeight: '800' },
+  perMonth: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  perMonthText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.2 },
+});
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function AddStaffScreen() {
-  const {
-    theme,
-    isDark
-  } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const { theme, isDark } = useTheme();
+  const styles = useMemo(() => getStyles(theme, isDark), [theme, isDark]);
   const router = useRouter();
-  const {
-    id
-  } = useLocalSearchParams();
-  const {
-    t
-  } = useTranslation();
-  const {
-    user
-  } = useAuth();
+  const { id } = useLocalSearchParams();
+  const { t } = useTranslation();
+  const { user } = useAuth();
+
   const [loading, setLoading] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    password: '',
-    phone: '',
-    designationId: '2',
-    // Default: Teacher
-    salary: '',
-    genderId: '1',
-    // Default: Male
-    staffCode: '',
-    dob: '',
-    // YYYY-MM-DD
-    joiningDate: new Date().toISOString().split('T')[0] // Today
+    firstName: '', lastName: '', email: '', password: '',
+    phone: '', designationId: '2', salary: '', genderId: '1',
+    staffCode: '', dob: '', joiningDate: new Date().toISOString().split('T')[0],
   });
+
+  const update = (key: string, val: string) => setFormData(p => ({ ...p, [key]: val }));
+
   useEffect(() => {
-    if (id) {
-      setIsEditMode(true);
-      loadUserData(id as string);
-    }
+    if (id) { setIsEditMode(true); loadUserData(id as string); }
   }, [id]);
+
   const loadUserData = async (userId: string) => {
     try {
       const data: any = await StaffService.getById(userId);
       if (data) {
         setFormData({
-          firstName: data.first_name || '',
-          lastName: data.last_name || '',
-          email: data.email || '',
-          password: '',
-          phone: data.phone || '',
+          firstName: data.first_name || '', lastName: data.last_name || '',
+          email: data.email || '', password: '', phone: data.phone || '',
           designationId: data.designation_id?.toString() || '2',
           salary: data.salary ? data.salary.toString() : '',
-          genderId: data.gender ? data.gender === 'Male' ? '1' : data.gender === 'Female' ? '2' : '3' : '1',
-          // Approximation
-          staffCode: data.staff_code || '',
-          dob: data.dob || '',
-          joiningDate: data.joining_date || ''
+          genderId: data.gender === 'Female' ? '2' : data.gender === 'Other' ? '3' : '1',
+          staffCode: data.staff_code || '', dob: data.dob || '',
+          joiningDate: data.joining_date || '',
         });
       }
-    } catch (e) {
-      console.error(e);
-      Alert.alert("Error", "Failed to load staff data");
-    }
+    } catch { Alert.alert('Error', 'Failed to load staff data'); }
   };
+
   const handleSave = async () => {
     if (!formData.firstName || !formData.lastName || !formData.staffCode || !formData.joiningDate) {
-      Alert.alert("Error", "Please fill required fields (Name, Staff Code, Joining Date)");
-      return;
+      Alert.alert('Required Fields', 'Please fill Name, Staff Code, and Joining Date.'); return;
     }
     if (!isEditMode && !formData.password) {
-      Alert.alert("Error", "Password is required for new staff");
-      return;
+      Alert.alert('Password Required', 'Set a password for the new staff account.'); return;
     }
     setLoading(true);
     try {
       const payload = {
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        middle_name: '',
-        email: formData.email,
-        password: formData.password || undefined,
-        phone: formData.phone,
-        designation_id: parseInt(formData.designationId),
-        department: '',
-        // Not used yet
-        salary: formData.salary ? parseFloat(formData.salary) : undefined,
-        gender_id: parseInt(formData.genderId),
-        staff_code: formData.staffCode,
-        joining_date: formData.joiningDate,
-        dob: formData.dob || undefined,
-        role_code: formData.designationId === '10' ? 'driver' : (formData.designationId === '3' ? 'admin' : 'staff')
+        first_name: formData.firstName, last_name: formData.lastName, middle_name: '',
+        email: formData.email, password: formData.password || undefined,
+        phone: formData.phone, designation_id: parseInt(formData.designationId),
+        department: '', salary: formData.salary ? parseFloat(formData.salary) : undefined,
+        gender_id: parseInt(formData.genderId), staff_code: formData.staffCode,
+        joining_date: formData.joiningDate, dob: formData.dob || undefined,
+        role_code: formData.designationId === '10' ? 'driver' : formData.designationId === '3' ? 'admin' : 'staff',
       };
       if (isEditMode) {
-        await StaffService.update(id as string, payload as any); // Partial Update
-        Alert.alert("Success", "Staff Account Updated!", [{
-          text: "OK",
-          onPress: () => router.back()
-        }]);
+        await StaffService.update(id as string, payload as any);
+        Alert.alert('Updated!', 'Staff record updated successfully.', [{ text: 'OK', onPress: () => router.back() }]);
       } else {
         await StaffService.create(payload);
-        Alert.alert("Success", "Staff Account Created!", [{
-          text: "OK",
-          onPress: () => router.back()
-        }]);
+        Alert.alert('Created!', 'New staff member added successfully.', [{ text: 'OK', onPress: () => router.back() }]);
       }
     } catch (error: any) {
-      console.error(error);
-      const errorMessage = error.message || "Failed to save staff account";
-      Alert.alert("Error", errorMessage);
-    } finally {
-      setLoading(false);
-    }
+      Alert.alert('Save Failed', error.message || 'An unexpected error occurred.');
+    } finally { setLoading(false); }
   };
-  return <View style={styles.container}>
-    <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-    <AdminHeader title={isEditMode ? "Edit Staff" : "Add Staff"} showBackButton={true} />
 
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{
-      flex: 1
-    }}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Animated.View entering={FadeInDown.delay(100).duration(500)}>
-          <Text style={styles.sectionTitle}>Personal Details</Text>
-          <View style={styles.row}>
-            <View style={styles.halfInput}>
-              <InputField label="First Name *" placeholder="Jane" value={formData.firstName} onChangeText={(t: string) => setFormData({
-                ...formData,
-                firstName: t
-              })} icon="person-outline" />
+  const desCfg = DESIGNATION_CONFIG[formData.designationId] || DESIGNATION_CONFIG['2'];
+  const heroGradMap: Record<string, [string, string]> = {
+    '1': ['#5B21B6', '#8B5CF6'], '2': ['#1D4ED8', '#3B82F6'],
+    '3': ['#065F46', '#10B981'], '4': ['#92400E', '#F59E0B'],
+    '5': ['#9D174D', '#EC4899'], '10': ['#991B1B', '#EF4444'],
+  };
+  const heroGrad: [string, string] = heroGradMap[formData.designationId] || ['#1D4ED8', '#3B82F6'];
+
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={isDark ? '#0A0F1E' : '#F1F5F9'} />
+      <AdminHeader title={isEditMode ? 'Edit Staff' : 'Add Staff'} showBackButton />
+
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+
+          {/* ── HERO CARD ── */}
+          <Animated.View entering={FadeInDown.duration(500)}>
+            <LinearGradient
+              colors={heroGrad}
+              style={styles.heroCard}
+              start={{ x: 0.1, y: 0 }} end={{ x: 0.95, y: 1 }}
+            >
+              <View style={styles.heroBlob1} />
+              <View style={styles.heroBlob2} />
+              <LinearGradient
+                colors={['rgba(255,255,255,0.16)', 'rgba(255,255,255,0)']}
+                style={styles.heroGloss}
+                start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
+              />
+
+              <LiveAvatar
+                firstName={formData.firstName}
+                lastName={formData.lastName}
+                designationId={formData.designationId}
+                isDark={isDark}
+              />
+
+              <Text style={styles.heroName}>
+                {formData.firstName || formData.lastName
+                  ? [formData.firstName, formData.lastName].filter(Boolean).join(' ')
+                  : (isEditMode ? 'Edit Profile' : 'New Staff Member')}
+              </Text>
+              <Text style={styles.heroSub}>
+                {isEditMode
+                  ? `Editing · Code: ${formData.staffCode || '—'}`
+                  : 'Fill in details to add a staff member'}
+              </Text>
+
+              {/* Designation live pill */}
+              <View style={[styles.desPill, { backgroundColor: desCfg.color + '28', borderColor: desCfg.color + '50' }]}>
+                <Ionicons name={desCfg.icon as any} size={11} color={desCfg.color} />
+                <Text style={[styles.desPillText, { color: desCfg.color }]}>{desCfg.label.toUpperCase()}</Text>
+              </View>
+
+              {/* Mode pill */}
+              <View style={styles.modePill}>
+                <Ionicons name={isEditMode ? 'pencil' : 'person-add-outline'} size={11} color="#fff" />
+                <Text style={styles.modePillText}>{isEditMode ? 'EDIT MODE' : 'NEW STAFF'}</Text>
+              </View>
+            </LinearGradient>
+          </Animated.View>
+
+          {/* ── SECTION 1: PERSONAL ── */}
+          <SectionCard title="Personal Details" icon="person-outline" colorKey="personal" delay={140}>
+            <View style={styles.row}>
+              <View style={styles.half}>
+                <InputField label="First Name" placeholder="Jane" value={formData.firstName}
+                  onChangeText={(t: string) => update('firstName', t)}
+                  icon="person-outline" required accentColor={SECTION_COLORS.personal.accent} isDark={isDark} />
+              </View>
+              <View style={styles.half}>
+                <InputField label="Last Name" placeholder="Doe" value={formData.lastName}
+                  onChangeText={(t: string) => update('lastName', t)}
+                  icon="person-outline" required accentColor={SECTION_COLORS.personal.accent} isDark={isDark} />
+              </View>
             </View>
-            <View style={styles.halfInput}>
-              <InputField label="Last Name *" placeholder="Doe" value={formData.lastName} onChangeText={(t: string) => setFormData({
-                ...formData,
-                lastName: t
-              })} icon="person-outline" />
+
+            <GenderToggle value={formData.genderId} onChange={(v: string) => update('genderId', v)} isDark={isDark} />
+
+            <InputField label="Date of Birth" placeholder="YYYY-MM-DD" value={formData.dob}
+              onChangeText={(t: string) => update('dob', t)} icon="calendar-outline"
+              accentColor={SECTION_COLORS.personal.accent} isDark={isDark} />
+          </SectionCard>
+
+          {/* ── SECTION 2: EMPLOYMENT ── */}
+          <SectionCard title="Employment Details" icon="briefcase-outline" colorKey="employment" delay={220}>
+            <View style={styles.row}>
+              <View style={styles.half}>
+                <InputField label="Staff Code" placeholder="STF-001" value={formData.staffCode}
+                  onChangeText={(t: string) => update('staffCode', t)} icon="id-card-outline"
+                  required accentColor={SECTION_COLORS.employment.accent} isDark={isDark} />
+              </View>
+              <View style={styles.half}>
+                <InputField label="Joining Date" placeholder="YYYY-MM-DD" value={formData.joiningDate}
+                  onChangeText={(t: string) => update('joiningDate', t)} icon="calendar-outline"
+                  required accentColor={SECTION_COLORS.employment.accent} isDark={isDark} />
+              </View>
             </View>
-          </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Gender *</Text>
-            <View style={styles.radioContainer}>
-              <TouchableOpacity style={[styles.radioBtn, formData.genderId === '1' && styles.radioBtnActive]} onPress={() => setFormData({
-                ...formData,
-                genderId: '1'
-              })}>
-                <Text style={[styles.radioText, formData.genderId === '1' && styles.radioTextActive]}>Male</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.radioBtn, formData.genderId === '2' && styles.radioBtnActive]} onPress={() => setFormData({
-                ...formData,
-                genderId: '2'
-              })}>
-                <Text style={[styles.radioText, formData.genderId === '2' && styles.radioTextActive]}>Female</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+            <DesignationSelector
+              value={formData.designationId}
+              onChange={(v: string) => update('designationId', v)}
+              isDark={isDark}
+            />
 
-          <InputField label="Date of Birth (YYYY-MM-DD)" placeholder="1990-01-01" value={formData.dob} onChangeText={(t: string) => setFormData({
-            ...formData,
-            dob: t
-          })} icon="calendar-outline" />
-        </Animated.View>
+            <SalaryField
+              value={formData.salary}
+              onChange={(t: string) => update('salary', t)}
+              isDark={isDark}
+              accentColor={SECTION_COLORS.employment.accent}
+            />
+          </SectionCard>
 
-        <Animated.View entering={FadeInDown.delay(200).duration(500)}>
-          <Text style={styles.sectionTitle}>Employment Details</Text>
-          <InputField label="Staff Code *" placeholder="STF-2024-001" value={formData.staffCode} onChangeText={(t: string) => setFormData({
-            ...formData,
-            staffCode: t
-          })} icon="id-card-outline" />
-          <InputField label="Joining Date (YYYY-MM-DD) *" placeholder="2024-01-01" value={formData.joiningDate} onChangeText={(t: string) => setFormData({
-            ...formData,
-            joiningDate: t
-          })} icon="calendar-outline" />
+          {/* ── SECTION 3: CONTACT ── */}
+          <SectionCard title="Contact & Login" icon="lock-closed-outline" colorKey="contact" delay={300}>
+            <InputField label="Email Address" placeholder="staff@school.edu" value={formData.email}
+              onChangeText={(t: string) => update('email', t)} keyboardType="email-address"
+              icon="mail-outline" accentColor={SECTION_COLORS.contact.accent} isDark={isDark} />
+            <InputField label="Phone Number" placeholder="+91 98765 43210" value={formData.phone}
+              onChangeText={(t: string) => update('phone', t)} keyboardType="phone-pad"
+              icon="call-outline" accentColor={SECTION_COLORS.contact.accent} isDark={isDark} />
+            {!isEditMode && (
+              <InputField label="Initial Password" placeholder="Min 6 characters" value={formData.password}
+                onChangeText={(t: string) => update('password', t)} secureTextEntry
+                icon="lock-closed-outline" required accentColor={SECTION_COLORS.contact.accent} isDark={isDark} />
+            )}
+          </SectionCard>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Designation *</Text>
-            <View style={styles.radioContainer}>
-              <TouchableOpacity style={[styles.radioBtn, formData.designationId === '1' && styles.radioBtnActive]} onPress={() => setFormData({
-                ...formData,
-                designationId: '1'
-              })}>
-                <Text style={[styles.radioText, formData.designationId === '1' && styles.radioTextActive]}>Principal</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.radioBtn, formData.designationId === '2' && styles.radioBtnActive]} onPress={() => setFormData({
-                ...formData,
-                designationId: '2'
-              })}>
-                <Text style={[styles.radioText, formData.designationId === '2' && styles.radioTextActive]}>Teacher</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.radioBtn, formData.designationId === '3' && styles.radioBtnActive]} onPress={() => setFormData({
-                ...formData,
-                designationId: '3'
-              })}>
-                <Text style={[styles.radioText, formData.designationId === '3' && styles.radioTextActive]}>Admin</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.radioBtn, formData.designationId === '10' && styles.radioBtnActive]} onPress={() => setFormData({
-                ...formData,
-                designationId: '10'
-              })}>
-                <Text style={[styles.radioText, formData.designationId === '10' && styles.radioTextActive]}>Driver</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+          {/* ── SAVE BUTTON ── */}
+          <Animated.View entering={FadeInDown.delay(380).duration(500)}>
+            <Pressable
+              style={({ pressed }) => [styles.saveWrap, pressed && { opacity: 0.88 }]}
+              onPress={handleSave}
+              disabled={loading}
+            >
+              <LinearGradient
+                colors={heroGrad}
+                style={styles.saveBtn}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+              >
+                <LinearGradient
+                  colors={['rgba(255,255,255,0.20)', 'rgba(255,255,255,0)']}
+                  style={styles.saveGloss}
+                  start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
+                />
+                {loading
+                  ? <LogoLoader color="#fff" size={22} />
+                  : <>
+                    <Ionicons name={isEditMode ? 'save-outline' : 'person-add-outline'} size={20} color="#fff" />
+                    <Text style={styles.saveTxt}>{isEditMode ? 'Save Changes' : 'Add Staff Member'}</Text>
+                    <View style={styles.saveArrow}>
+                      <Ionicons name="arrow-forward" size={14} color="rgba(255,255,255,0.75)" />
+                    </View>
+                  </>
+                }
+              </LinearGradient>
+            </Pressable>
+          </Animated.View>
 
-          <InputField label="Salary" placeholder="50000" value={formData.salary} onChangeText={(t: string) => setFormData({
-            ...formData,
-            salary: t
-          })} keyboardType="numeric" icon="cash-outline" />
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.delay(300).duration(500)}>
-          <Text style={styles.sectionTitle}>Contact & Login</Text>
-          <InputField label="Email Address" placeholder="staff@school.com" value={formData.email} onChangeText={(t: string) => setFormData({
-            ...formData,
-            email: t
-          })} keyboardType="email-address" icon="mail-outline" />
-          <InputField label="Phone Number" placeholder="+1 234 567" value={formData.phone} onChangeText={(t: string) => setFormData({
-            ...formData,
-            phone: t
-          })} keyboardType="phone-pad" icon="call-outline" />
-          {!isEditMode && <InputField label="Password *" placeholder="******" value={formData.password} onChangeText={(t: string) => setFormData({
-            ...formData,
-            password: t
-          })} secureTextEntry={true} icon="lock-closed-outline" />}
-        </Animated.View>
-
-
-        <TouchableOpacity style={styles.saveButton} activeOpacity={0.8} onPress={handleSave} disabled={loading}>
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>{isEditMode ? "Update Details" : "Create Staff Member"}</Text>}
-        </TouchableOpacity>
-
-      </ScrollView>
-    </KeyboardAvoidingView>
-  </View>;
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
+  );
 }
+
+// ─── Root Styles ──────────────────────────────────────────────────────────────
 const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.card
+  container: { flex: 1, backgroundColor: isDark ? '#0A0F1E' : '#F1F5F9' },
+  scrollContent: { padding: 18, paddingBottom: 60 },
+
+  // Hero
+  heroCard: {
+    borderRadius: 28, padding: 28, alignItems: 'center',
+    marginBottom: 24, overflow: 'hidden',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.30, shadowRadius: 28, elevation: 16,
   },
-  content: {
-    padding: 20,
-    paddingBottom: 50
+  heroBlob1: { position: 'absolute', top: -50, right: -50, width: 160, height: 160, borderRadius: 80, backgroundColor: 'rgba(255,255,255,0.08)' },
+  heroBlob2: { position: 'absolute', bottom: -30, left: -30, width: 110, height: 110, borderRadius: 55, backgroundColor: 'rgba(255,255,255,0.06)' },
+  heroGloss: { position: 'absolute', top: 0, left: 0, right: 0, height: 80, borderRadius: 28 },
+  heroName: { fontSize: 22, fontWeight: '900', color: '#fff', letterSpacing: -0.5, marginTop: 12, textAlign: 'center' },
+  heroSub: { fontSize: 13, color: 'rgba(255,255,255,0.72)', marginTop: 4, fontWeight: '500', textAlign: 'center' },
+
+  desPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5,
+    marginTop: 12, borderWidth: 1,
   },
-  inputGroup: {
-    marginBottom: 15
+  desPillText: { fontSize: 10, fontWeight: '800', letterSpacing: 1.2 },
+  modePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: 20,
+    paddingHorizontal: 12, paddingVertical: 5, marginTop: 8,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)',
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#374151',
-    marginBottom: 8
+  modePillText: { fontSize: 10, fontWeight: '800', color: '#fff', letterSpacing: 1.2 },
+
+  // Layout
+  row: { flexDirection: 'row', gap: 10 },
+  half: { flex: 1 },
+
+  // Save button
+  saveWrap: {
+    borderRadius: 18, marginTop: 8,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.28, shadowRadius: 20, elevation: 12,
   },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.background,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    height: 50
+  saveBtn: {
+    height: 58, borderRadius: 18,
+    flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
+    gap: 10, overflow: 'hidden',
   },
-  inputIcon: {
-    marginRight: 10
+  saveGloss: { position: 'absolute', top: 0, left: 0, right: 0, height: 30, borderRadius: 18 },
+  saveTxt: { fontSize: 17, fontWeight: '800', color: '#fff', letterSpacing: -0.2 },
+  saveArrow: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    justifyContent: 'center', alignItems: 'center',
   },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    color: '#1F2937'
-  },
-  saveButton: {
-    backgroundColor: '#2563EB',
-    borderRadius: 12,
-    height: 55,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 30,
-    shadowColor: '#2563EB',
-    shadowOffset: {
-      width: 0,
-      height: 4
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4
-  },
-  saveButtonText: {
-    color: theme.colors.background,
-    fontSize: 16,
-    fontWeight: 'bold'
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginTop: 10,
-    marginBottom: 15
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 10
-  },
-  halfInput: {
-    flex: 1
-  },
-  radioContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10
-  },
-  radioBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.background
-  },
-  radioBtnActive: {
-    borderColor: '#2563EB',
-    backgroundColor: '#EFF6FF'
-  },
-  radioText: {
-    color: '#374151',
-    fontSize: 14
-  },
-  radioTextActive: {
-    color: '#2563EB',
-    fontWeight: '600'
-  }
 });

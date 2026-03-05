@@ -10,7 +10,7 @@ const HostelProfileScreen = () => {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const {
     user
   } = useAuth();
@@ -85,7 +85,7 @@ const InfoRow = ({
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   return <View style={styles.row}>
         <Text style={styles.label}>{label}</Text>
         <Text style={styles.value}>{value}</Text>
@@ -94,7 +94,7 @@ const InfoRow = ({
 
 /* ============================ STYLES ============================ */
 
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     padding: 16,
     paddingBottom: 30

@@ -13,12 +13,12 @@ const loadLogoAsBase64 = async (imageAsset: any): Promise<string | null> => {
     if (!asset.localUri) return null;
 
     const base64 = await FileSystem.readAsStringAsync(asset.localUri, {
-      encoding: 'base64',
+      encoding: 'base64'
     });
 
     return `data:image/png;base64,${base64}`;
   } catch (error) {
-    console.warn("Failed to load logo for PDF:", error);
+
     return null;
   }
 };
@@ -43,9 +43,9 @@ export const generateReceiptPDF = async (transaction: FeeTransaction) => {
 
     // Load Logo
     const logoBase64 = await loadLogoAsBase64(SCHOOL_CONFIG.logo);
-    const logoHtml = logoBase64
-      ? `<img src="${logoBase64}" style="width: 60px; height: 60px; object-fit: contain;" />`
-      : `<div style="font-size: 24px; font-weight: bold;">${SCHOOL_CONFIG.name}</div>`;
+    const logoHtml = logoBase64 ?
+    `<img src="${logoBase64}" style="width: 60px; height: 60px; object-fit: contain;" />` :
+    `<div style="font-size: 24px; font-weight: bold;">${SCHOOL_CONFIG.name}</div>`;
 
     const html = `
         <html>
@@ -136,7 +136,7 @@ export const generateReceiptPDF = async (transaction: FeeTransaction) => {
     await shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
 
   } catch (error) {
-    console.error('Error generating Receipt PDF:', error);
+
     throw error;
   }
 };
@@ -152,9 +152,9 @@ export const generateInvoicePDF = async (invoice: Invoice) => {
 
     // Load Logo
     const logoBase64 = await loadLogoAsBase64(SCHOOL_CONFIG.logo);
-    const logoHtml = logoBase64
-      ? `<img src="${logoBase64}" style="width: 80px; height: 80px; object-fit: contain;" />`
-      : `<div class="logo">${SCHOOL_CONFIG.name}</div>`;
+    const logoHtml = logoBase64 ?
+    `<img src="${logoBase64}" style="width: 80px; height: 80px; object-fit: contain;" />` :
+    `<div class="logo">${SCHOOL_CONFIG.name}</div>`;
 
     const invoiceNo = `INV-${new Date(invoice.created_at).getFullYear()}-${invoice.id.slice(0, 8).toUpperCase()}`;
 
@@ -264,8 +264,7 @@ export const generateInvoicePDF = async (invoice: Invoice) => {
     await shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
 
   } catch (error) {
-    console.error('Error generating PDF:', error);
+
     throw error;
   }
 };
-

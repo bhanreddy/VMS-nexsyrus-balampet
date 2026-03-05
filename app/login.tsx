@@ -1,16 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, KeyboardAvoidingView, Platform, ScrollView, StatusBar } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/src/hooks/useAuth';
 import AnimatedInput from '@/src/components/AnimatedInput';
 import PremiumButton from '@/src/components/PremiumButton';
 import AuthHeader from '@/src/components/AuthHeader';
-import { ActivityIndicator, Alert } from 'react-native';
+import { Alert } from 'react-native';
 import AuthService from '@/src/services/authService';
+import LogoLoader from '../src/components/LogoLoader';
 
 const { width } = Dimensions.get('window');
 
@@ -25,12 +28,34 @@ const StudentLoginScreen: React.FC = () => {
 
   const { user, loading: authLoading } = useAuth();
 
+  useEffect(() => {
+    const loadSavedCredentials = async () => {
+      try {
+        const savedEmail = await AsyncStorage.getItem('student_saved_email');
+        let savedPassword = null;
+        if (Platform.OS !== 'web') {
+          savedPassword = await SecureStore.getItemAsync('student_saved_password');
+        } else {
+          savedPassword = await AsyncStorage.getItem('student_saved_password');
+        }
+
+        if (savedEmail && savedPassword) {
+          setEmail(savedEmail);
+          setPassword(savedPassword);
+        }
+      } catch (error) {
+
+      }
+    };
+    loadSavedCredentials();
+  }, []);
+
   if (authLoading || user) {
     return (
       <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#06B6D4" />
-      </SafeAreaView>
-    );
+        <LogoLoader size={60} color="#06B6D4" />
+      </SafeAreaView>);
+
   }
 
   const handleLogin = async () => {
@@ -45,13 +70,13 @@ const StudentLoginScreen: React.FC = () => {
       const userRole = response.user.role;
 
       if (userRole === 'student') {
-        if (__DEV__) console.log("Login success, waiting for AuthGuard...");
+        if (__DEV__) {}
       } else {
         Alert.alert('Access Restricted', 'This login is for students only. Please use the Staff or Admin login.');
         await AuthService.logout();
       }
     } catch (error: any) {
-      console.error("Login Error Details:", error);
+
       Alert.alert('Login Failed', error.message || 'Invalid credentials');
     } finally {
       setLoading(false);
@@ -67,62 +92,61 @@ const StudentLoginScreen: React.FC = () => {
           {/* Unified Premium Header */}
           <AuthHeader
             title={t('login.login_to') || "Student Portal"}
-            subtitle="Access your grades, timetable, and campus services."
-            glowColor="rgba(6,182,212,0.15)"
-          />
+            subtitle={t('accessYourGradesTimetable') || "Access your grades, timetable, and campus services."}
+            glowColor="rgba(6,182,212,0.15)" />
 
           {/* Overlapping Form Body */}
           <View style={styles.bodyContainer}>
             <View style={styles.overlapSection}>
 
               <Animated.View entering={FadeInDown.delay(200).duration(600).springify()} style={styles.formCard}>
-                <Text style={styles.welcomeBackText}>Welcome Back</Text>
-                <Text style={styles.subtitleText}>Sign in to continue</Text>
+                <Text style={styles.welcomeBackText}>{t('welcomeBack')}</Text>
+                <Text style={styles.subtitleText}>{t('signInToContinue')}</Text>
 
                 <View style={styles.inputWrapper}>
                   <AnimatedInput
                     icon={({ color }) => <Ionicons name="mail-outline" size={20} color={color} style={styles.inputIcon} />}
-                    placeholder="Email Address"
+                    placeholder={t('emailAddress')}
                     value={email}
-                    onChangeText={(text) => { setEmail(text); setError(false); }}
+                    onChangeText={(text) => {setEmail(text);setError(false);}}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     error={error && !email}
-                    accentColor="#06B6D4"
-                  />
+                    accentColor="#06B6D4" />
+
                 </View>
 
                 <View style={styles.inputWrapper}>
                   <AnimatedInput
                     icon={({ color }) => <Ionicons name="lock-closed-outline" size={20} color={color} style={styles.inputIcon} />}
-                    placeholder="Password"
+                    placeholder={t('password')}
                     value={password}
-                    onChangeText={(text) => { setPassword(text); setError(false); }}
+                    onChangeText={(text) => {setPassword(text);setError(false);}}
                     secureTextEntry={!showPassword}
                     error={error && !password}
                     accentColor="#06B6D4"
                     rightAccessory={
-                      <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                    <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                         <Ionicons name={showPassword ? "eye-off" : "eye"} size={22} color="#94A3B8" />
                       </TouchableOpacity>
-                    }
-                  />
+                    } />
+
                 </View>
 
                 <Animated.View entering={FadeInDown.delay(300).duration(600)}>
                   <TouchableOpacity style={styles.forgotPasswordContainer} onPress={() => router.push('/forgot-password')}>
-                    <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+                    <Text style={styles.forgotPasswordText}>{t('forgotPassword')}</Text>
                   </TouchableOpacity>
                 </Animated.View>
 
                 <Animated.View entering={FadeInUp.delay(400).springify()}>
                   <PremiumButton
-                    title="Sign In"
+                    title={t('signIn')}
                     onPress={handleLogin}
                     loading={loading}
                     colors={['#06B6D4', '#0891B2']}
-                    icon={<Ionicons name="arrow-forward" size={20} color="#fff" style={{ marginLeft: 8 }} />}
-                  />
+                    icon={<Ionicons name="arrow-forward" size={20} color="#fff" style={{ marginLeft: 8 }} />} />
+
                 </Animated.View>
 
               </Animated.View>
@@ -130,8 +154,8 @@ const StudentLoginScreen: React.FC = () => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
-  );
+    </View>);
+
 };
 
 export default StudentLoginScreen;
@@ -142,12 +166,12 @@ const styles = StyleSheet.create({
 
   bodyContainer: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 24
   },
   overlapSection: {
     marginTop: -60, // 100x SaaS Layout Technique
     zIndex: 20,
-    paddingBottom: 40,
+    paddingBottom: 40
   },
   formCard: {
     backgroundColor: '#FFFFFF',
@@ -156,10 +180,10 @@ const styles = StyleSheet.create({
     width: '100%',
     ...Platform.select({
       ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.05, shadowRadius: 24 },
-      android: { elevation: 4 },
+      android: { elevation: 4 }
     }),
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
+    borderColor: 'rgba(0,0,0,0.03)'
   },
 
   welcomeBackText: {
@@ -167,28 +191,28 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0F172A',
     marginBottom: 6,
-    letterSpacing: -0.5,
+    letterSpacing: -0.5
   },
   subtitleText: {
     fontSize: 14,
     color: '#64748B',
     marginBottom: 32,
-    fontWeight: '500',
+    fontWeight: '500'
   },
   inputWrapper: {
-    marginBottom: 16, // Strict 8pt spacing
+    marginBottom: 16 // Strict 8pt spacing
   },
   inputIcon: {
-    marginRight: 12,
+    marginRight: 12
   },
   forgotPasswordContainer: {
     alignSelf: 'flex-end',
     marginBottom: 32,
-    marginTop: 4, // Fine-tuned vertical rhythm
+    marginTop: 4 // Fine-tuned vertical rhythm
   },
   forgotPasswordText: {
     color: '#06B6D4',
     fontWeight: '600',
-    fontSize: 13,
-  },
+    fontSize: 13
+  }
 });

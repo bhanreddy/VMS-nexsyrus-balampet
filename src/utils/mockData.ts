@@ -1,5 +1,4 @@
 
-import { User, Student, Notice, AttendanceRecord } from '../types/models';
 
 export const MOCK_USERS: Record<string, any> = {
     'admin-1': {

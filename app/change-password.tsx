@@ -14,7 +14,7 @@ export default function ChangePasswordScreen() {
     const router = useRouter();
     const { theme } = useTheme();
     const { logout } = useAuth();
-    const styles = React.useMemo(() => getStyles(theme.colors), [theme.colors]);
+    const styles = React.useMemo(() => getStyles(theme.colors), [theme]);
 
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -67,7 +67,7 @@ export default function ChangePasswordScreen() {
                 {
                     text: 'OK', onPress: async () => {
                         await logout();
-                        router.replace('/');
+                        router.replace('/welcome');
                     }
                 }
             ]);

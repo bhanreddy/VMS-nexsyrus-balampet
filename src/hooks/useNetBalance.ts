@@ -2,35 +2,35 @@ import { useState, useCallback } from 'react';
 import { api } from '../services/apiClient';
 
 export interface NetBalanceData {
-    totalFee: number;
-    totalSalary: number;
-    totalExpenses: number;
-    netBalance: number;
+  totalFee: number;
+  totalSalary: number;
+  totalExpenses: number;
+  netBalance: number;
 }
 
 export function useNetBalance() {
-    const [data, setData] = useState<NetBalanceData | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<NetBalanceData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-    const fetchNetBalance = useCallback(async (startDate: string, endDate: string) => {
-        setLoading(true);
-        setError(null);
-        try {
-            const response = await api.get<NetBalanceData>(`/analytics/net-balance`, { startDate, endDate });
-            setData(response);
-        } catch (err: any) {
-            console.error('Error fetching net balance:', err);
-            setError(err.message || 'Failed to fetch net balance');
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+  const fetchNetBalance = useCallback(async (startDate: string, endDate: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await api.get<NetBalanceData>(`/analytics/net-balance`, { startDate, endDate });
+      setData(response);
+    } catch (err: any) {
 
-    return {
-        data,
-        loading,
-        error,
-        fetchNetBalance
-    };
+      setError(err.message || 'Failed to fetch net balance');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  return {
+    data,
+    loading,
+    error,
+    fetchNetBalance
+  };
 }

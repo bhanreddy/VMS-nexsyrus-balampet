@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, TextInput, Alert, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, TextInput, Alert } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AdminHeader from '../../src/components/AdminHeader';
@@ -8,7 +7,7 @@ import { ADMIN_THEME } from '../../src/constants/adminTheme';
 import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
 import { AdminService, StudentRiskProfile, HeatmapData } from '../../src/services/adminService';
 import { useTheme } from '../../src/hooks/useTheme';
-import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 const {
   width
 } = Dimensions.get('window');
@@ -35,16 +34,13 @@ function TabButton({
   title,
   active,
   onPress
-}: {
-  title: string;
-  active: boolean;
-  onPress: () => void;
-}) {
+
+}: {title: string;active: boolean;onPress: () => void;}) {
   const {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(), []);
   return <TouchableOpacity onPress={onPress} style={[styles.tabBtn, active && styles.tabBtnActive]} activeOpacity={0.7}>
             <Text style={[styles.tabText, active && styles.tabTextActive]}>{title}</Text>
         </TouchableOpacity>;
@@ -54,7 +50,7 @@ export default function SmartInsights() {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(), []);
   const [activeTab, setActiveTab] = useState<'RISK' | 'TALKING_POINTS' | 'HEATMAP'>('RISK');
   const [searchId, setSearchId] = useState('');
   const [generatedPoints, setGeneratedPoints] = useState<string[] | null>(null);
@@ -72,7 +68,7 @@ export default function SmartInsights() {
       setRiskData(risk);
       setHeatmapData(heatmap);
     } catch (error) {
-      console.error("Failed to load insights", error);
+
       Alert.alert("Error", "Failed to load smart insights.");
     } finally {
       setLoading(false);
@@ -80,9 +76,9 @@ export default function SmartInsights() {
   };
 
   // Filtered Risk Data
-  const criticalStudents = useMemo(() => riskData.filter(s => s.riskLevel === 'CRITICAL'), [riskData]);
-  const warningStudents = useMemo(() => riskData.filter(s => s.riskLevel === 'WARNING'), [riskData]);
-  const safeStudents = useMemo(() => riskData.filter(s => s.riskLevel === 'SAFE'), [riskData]);
+  const criticalStudents = useMemo(() => riskData.filter((s) => s.riskLevel === 'CRITICAL'), [riskData]);
+  const warningStudents = useMemo(() => riskData.filter((s) => s.riskLevel === 'WARNING'), [riskData]);
+  const safeStudents = useMemo(() => riskData.filter((s) => s.riskLevel === 'SAFE'), [riskData]);
 
   // Handlers
   const handleGeneratePoints = async () => {
@@ -105,7 +101,7 @@ export default function SmartInsights() {
   // --- Render Sections ---
 
   const renderRiskDashboard = () => {
-return <Animated.View entering={FadeInDown.duration(400)}>
+    return <Animated.View entering={FadeInDown.duration(400)}>
             {/* Overview Cards */}
             <View style={styles.riskOverview}>
                 <View style={[styles.riskCard, {
@@ -139,17 +135,14 @@ return <Animated.View entering={FadeInDown.duration(400)}>
                     <Text style={styles.riskLabel}>On Track</Text>
                 </View>
             </View>
-
             <Text style={styles.sectionTitle}>Students Needing Attention</Text>
-
             {criticalStudents.length === 0 && warningStudents.length === 0 && <Text style={{
         textAlign: 'center',
         color: '#666',
         marginVertical: 20
       }}>No students in critical or warning zones.</Text>}
-
-            {criticalStudents.map((student, i) => {
-return <TouchableOpacity key={student.id} style={styles.studentListCard}>
+            {criticalStudents.map((student) => {
+        return <TouchableOpacity key={student.id} style={styles.studentListCard}>
                     <View style={styles.studentListLeft}>
                         <View style={[styles.riskDot, {
               backgroundColor: getRiskColor(student.riskLevel)
@@ -161,7 +154,7 @@ return <TouchableOpacity key={student.id} style={styles.studentListCard}>
                     </View>
                     <View style={styles.factorsContainer}>
                         {student.factors.map((f, idx) => {
-return <View key={idx} style={styles.factorBadge}>
+              return <View key={idx} style={styles.factorBadge}>
                                 <Text style={styles.factorText}>{f}</Text>
                             </View>;
             })}
@@ -169,9 +162,8 @@ return <View key={idx} style={styles.factorBadge}>
                     <Feather name="chevron-right" size={20} color="#CBD5E1" />
                 </TouchableOpacity>;
       })}
-
-            {warningStudents.map((student, i) => {
-return <TouchableOpacity key={student.id} style={styles.studentListCard}>
+            {warningStudents.map((student) => {
+        return <TouchableOpacity key={student.id} style={styles.studentListCard}>
                     <View style={styles.studentListLeft}>
                         <View style={[styles.riskDot, {
               backgroundColor: getRiskColor(student.riskLevel)
@@ -183,7 +175,7 @@ return <TouchableOpacity key={student.id} style={styles.studentListCard}>
                     </View>
                     <View style={styles.factorsContainer}>
                         {student.factors.map((f, idx) => {
-return <View key={idx} style={styles.factorBadge}>
+              return <View key={idx} style={styles.factorBadge}>
                                 <Text style={styles.factorText}>{f}</Text>
                             </View>;
             })}
@@ -194,30 +186,27 @@ return <View key={idx} style={styles.factorBadge}>
         </Animated.View>;
   };
   const renderTalkingPoints = () => {
-return <Animated.View entering={FadeInRight.duration(400)}>
+    return <Animated.View entering={FadeInRight.duration(400)}>
             <Text style={styles.helperText}>
                 Identify key discussion points for parent meetings instantly.
             </Text>
-
             <View style={styles.searchBox}>
                 <Ionicons name="search" size={20} color="#94A3B8" />
                 <TextInput style={styles.searchInput} placeholder="Enter Student ID (e.g. 103)" placeholderTextColor="#94A3B8" value={searchId} onChangeText={setSearchId} />
                 <TouchableOpacity style={styles.generateBtn} onPress={handleGeneratePoints} disabled={generating}>
-                    {generating ? <ActivityIndicator size="small" color="#FFF" /> : <MaterialCommunityIcons name="magic-staff" size={20} color="#FFF" />}
+                    {generating ? <LogoLoader size={30} color="#FFF" /> : <MaterialCommunityIcons name="magic-staff" size={20} color="#FFF" />}
                 </TouchableOpacity>
             </View>
-
             {generatedPoints && <View style={styles.pointsResult}>
                     <Text style={styles.pointsTitle}>✨ AI Summary for Student {searchId}</Text>
                     {generatedPoints.map((point, i) => {
-return <View key={i} style={styles.pointRow}>
+          return <View key={i} style={styles.pointRow}>
                             <Feather name="check-circle" size={18} color={ADMIN_THEME.colors.primary} style={{
               marginTop: 2
             }} />
                             <Text style={styles.pointText}>{point}</Text>
                         </View>;
         })}
-
                     <View style={styles.actionRow}>
                         <TouchableOpacity style={styles.actionBtn}>
                             <Feather name="copy" size={16} color="#64748B" />
@@ -232,12 +221,11 @@ return <View key={i} style={styles.pointRow}>
         </Animated.View>;
   };
   const renderHeatmap = () => {
-if (!heatmapData) return <Text>No Data</Text>;
+    if (!heatmapData) return <Text>No Data</Text>;
     return <Animated.View entering={FadeInRight.duration(400)}>
                 <Text style={styles.helperText}>
                     Compare section performance across subjects. Darker colors indicate lower performance.
                 </Text>
-
                 <View style={styles.heatmapGrid}>
                     {/* Header Row */}
                     <View style={styles.hmRow}>
@@ -245,20 +233,19 @@ if (!heatmapData) return <Text>No Data</Text>;
                             <Text style={styles.hmHeaderText}>Class \ Sub</Text>
                         </View>
                         {heatmapData.subjects.map((sub, i) => {
-return <View key={i} style={[styles.hmCell, styles.hmHeaderCell]}>
+            return <View key={i} style={[styles.hmCell, styles.hmHeaderCell]}>
                                 <Text style={styles.hmHeaderText}>{sub.substring(0, 3)}</Text>
                             </View>;
           })}
                     </View>
-
                     {/* Data Rows */}
                     {heatmapData.classes.map((className, i) => {
-return <View key={i} style={styles.hmRow}>
+          return <View key={i} style={styles.hmRow}>
                             <View style={[styles.hmCell, styles.hmLabelCell]}>
                                 <Text style={styles.hmLabelText}>{className}</Text>
                             </View>
                             {heatmapData.subjects.map((sub, j) => {
-const val = heatmapData.data[className][sub];
+              const val = heatmapData.data[className][sub];
               // Color logic: < 70 Red, 70-80 Yellow, > 80 Green
               let bg = '#ECFDF5'; // Green-50
               let text = '#065F46';
@@ -282,7 +269,6 @@ const val = heatmapData.data[className][sub];
                         </View>;
         })}
                 </View>
-
                 <View style={styles.legend}>
                     <View style={styles.legendItem}>
                         <View style={[styles.legendBox, {
@@ -313,20 +299,18 @@ const val = heatmapData.data[className][sub];
       justifyContent: 'center',
       alignItems: 'center'
     }]}>
-                <ActivityIndicator size="large" color={ADMIN_THEME.colors.primary} />
+                <LogoLoader size={60} color={ADMIN_THEME.colors.primary} />
             </View>;
   }
   return <View style={styles.root}>
             <LinearGradient colors={[ADMIN_THEME.colors.background.app, '#F8FAFC']} style={StyleSheet.absoluteFill} />
             <AdminHeader title="Smart Insights Beta" showBackButton />
-
             {/* Tabs */}
             <View style={styles.tabContainer}>
                 <TabButton title="Risk Analysis" active={activeTab === 'RISK'} onPress={() => setActiveTab('RISK')} />
                 <TabButton title="Talk Points" active={activeTab === 'TALKING_POINTS'} onPress={() => setActiveTab('TALKING_POINTS')} />
                 <TabButton title="Heatmap" active={activeTab === 'HEATMAP'} onPress={() => setActiveTab('HEATMAP')} />
             </View>
-
             <ScrollView contentContainerStyle={styles.scroll}>
                 <View style={styles.content}>
                     {activeTab === 'RISK' && renderRiskDashboard()}
@@ -336,7 +320,7 @@ const val = heatmapData.data[className][sub];
             </ScrollView>
         </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = () => StyleSheet.create({
   root: {
     flex: 1
   },

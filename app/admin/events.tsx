@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AdminHeader from '../../src/components/AdminHeader';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { EventService, EventItem } from '../../src/services/commonServices';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 export default function AdminEvents() {
   const {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'UPCOMING' | 'PAST'>('UPCOMING');
@@ -27,7 +28,7 @@ export default function AdminEvents() {
       });
       setEvents(data);
     } catch (error) {
-      console.error('Failed to fetch events:', error);
+
       Alert.alert('Error', 'Failed to load events');
     } finally {
       setLoading(false);
@@ -86,11 +87,9 @@ export default function AdminEvents() {
   const renderItem = ({
     item,
     index
-  }: {
-    item: EventItem;
-    index: number;
-  }) => {
-const typeStyle = getEventTypeStyle(item.event_type);
+
+  }: {item: EventItem;index: number;}) => {
+    const typeStyle = getEventTypeStyle(item.event_type);
     return <Animated.View entering={FadeInDown.delay(index * 100).duration(500)}>
                 <View style={styles.card}>
                     <View style={styles.dateBox}>
@@ -122,7 +121,6 @@ const typeStyle = getEventTypeStyle(item.event_type);
   return <View style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
             <AdminHeader title="Event Calendar" showBackButton={true} />
-
             <View style={styles.tabs}>
                 <TouchableOpacity style={[styles.tab, activeTab === 'UPCOMING' && styles.activeTab]} onPress={() => setActiveTab('UPCOMING')}>
                     <Text style={[styles.tabText, activeTab === 'UPCOMING' && styles.activeTabText]}>Upcoming</Text>
@@ -131,17 +129,15 @@ const typeStyle = getEventTypeStyle(item.event_type);
                     <Text style={[styles.tabText, activeTab === 'PAST' && styles.activeTabText]}>Past</Text>
                 </TouchableOpacity>
             </View>
-
             {loading ? <View style={styles.centerContainer}>
-                    <ActivityIndicator size="large" color="#6366F1" />
-                </View> : <FlatList data={events} keyExtractor={item => item.id} renderItem={renderItem} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false} ListEmptyComponent={<Text style={styles.emptyText}>No events found</Text>} refreshing={loading} onRefresh={fetchEvents} />}
-
+                    <LogoLoader size={60} color="#6366F1" />
+                </View> : <FlatList data={events} keyExtractor={(item) => item.id} renderItem={renderItem} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false} ListEmptyComponent={<Text style={styles.emptyText}>No events found</Text>} refreshing={loading} onRefresh={fetchEvents} />}
             <TouchableOpacity style={styles.fab} onPress={() => Alert.alert('Create Event', 'Feature coming soon')}>
                 <Ionicons name="add" size={30} color="#fff" />
             </TouchableOpacity>
         </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card

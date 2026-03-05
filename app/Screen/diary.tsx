@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import StudentHeader from '../../src/components/StudentHeader';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../src/hooks/useAuth';
+import i18n from '@/src/i18n';
 
 // WatermelonDB
 import { withObservables } from '@nozbe/watermelondb/react';
@@ -15,22 +16,24 @@ import { sync } from '../../src/database/sync';
 import { api } from '../../src/services/apiClient';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import { t_field } from '../../src/utils/lang';
+import LogoLoader from '../../src/components/LogoLoader';
 
 // --- Diary List Component (Enhanced) ---
 
 const DiaryListRaw = ({
   tasks
-}: {
-  tasks: DiaryEntry[];
-}) => {
+
+}: {tasks: DiaryEntry[];}) => {
   const {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const {
     t
   } = useTranslation();
+
   const getSubjectStyle = (subject: string = '') => {
     const s = subject.toLowerCase();
     if (s.includes('math')) return {
@@ -56,50 +59,48 @@ const DiaryListRaw = ({
   };
   if (tasks.length === 0) {
     return <View style={styles.emptyContainer}>
-                <Ionicons name="cafe-outline" size={64} color="#E5E7EB" />
-                <Text style={styles.noWorkText}>No homework assigned today 🎉</Text>
-            </View>;
+      <Ionicons name="cafe-outline" size={64} color="#E5E7EB" />
+      <Text style={styles.noWorkText}>No homework assigned today 🎉</Text>
+    </View>;
   }
   return <View style={styles.tasksContainer}>
-            {tasks.map((item, index) => {
-const style = getSubjectStyle(item.subjectName || item.title);
+    {tasks.map((item, index) => {
+      const style = getSubjectStyle(item.subjectName || item.title);
       return <Animated.View key={item.id} entering={FadeInDown.delay(index * 100).duration(600)}>
-                        <View style={styles.taskCard}>
-                            <View style={[styles.colorStrip, {
+        <View style={styles.taskCard}>
+          <View style={[styles.colorStrip, {
             backgroundColor: style.color
           }]} />
-                            <View style={styles.cardInner}>
-                                <View style={styles.cardHeader}>
-                                    <View style={styles.subjectRow}>
-                                        <MaterialIcons name={style.icon as any} size={18} color={style.color} />
-                                        <Text style={[styles.subjectName, {
+          <View style={styles.cardInner}>
+            <View style={styles.cardHeader}>
+              <View style={styles.subjectRow}>
+                <MaterialIcons name={style.icon as any} size={18} color={style.color} />
+                <Text style={[styles.subjectName, {
                   color: style.color
                 }]}>{item.subjectName || 'General'}</Text>
-                                    </View>
-                                    {item.homeworkDueDate && <View style={styles.dueBadge}>
-                                            <Ionicons name="time-outline" size={12} color="#6B7280" />
-                                            <Text style={styles.dueText}>Due: {new Date(item.homeworkDueDate).toLocaleDateString()}</Text>
-                                        </View>}
-                                </View>
-                                <View style={styles.homeworkContent}>
-                                    <View style={{
+              </View>
+              {item.homeworkDueDate && <View style={styles.dueBadge}>
+                <Ionicons name="time-outline" size={12} color="#6B7280" />
+                <Text style={styles.dueText}>Due: {new Date(item.homeworkDueDate).toLocaleDateString()}</Text>
+              </View>}
+            </View>
+            <View style={styles.homeworkContent}>
+              <View style={{
                 flex: 1,
                 gap: 4
               }}>
-                                        {item.title && <Text style={styles.homeworkTitle}>{item.title}</Text>}
-                                        <Text style={styles.homeworkText}>{item.content}</Text>
-                                    </View>
-                                </View>
-                            </View>
-                        </View>
-                    </Animated.View>;
+                {item.title && <Text style={styles.homeworkTitle}>{t_field(item.title, item.titleTe)}</Text>}
+                <Text style={styles.homeworkText}>{t_field(item.content, item.contentTe)}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Animated.View>;
     })}
-        </View>;
+  </View>;
 };
 const enhance = withObservables(['date', 'classId'], ({
-  date,
-  classId
-}) => ({
+  date}) => ({
   tasks: database.collections.get<DiaryEntry>('diary_entries').query(Q.where('entry_date', date)
   // Q.where('class_section_id', classId) // Optional: strict class filtering
   )
@@ -113,7 +114,7 @@ export default function DiaryScreen() {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const {
     t
   } = useTranslation();
@@ -134,7 +135,7 @@ export default function DiaryScreen() {
           silent: true
         });
       } catch (e) {
-        if (__DEV__) console.warn('Log post failed:', e);
+        if (__DEV__) {}
       }
       return;
     }
@@ -147,40 +148,40 @@ export default function DiaryScreen() {
         silent: true
       });
     } catch (e) {
-      if (__DEV__) console.warn('Log post failed:', e);
+      if (__DEV__) {}
     }
     setSyncing(true);
     try {
       await sync();
     } catch (e) {
-      console.warn('Sync failed', e);
+
     } finally {
       setSyncing(false);
     }
   };
   const dateStr = selectedDate.toISOString().split('T')[0];
   return <View style={styles.container}>
-            <StudentHeader showBackButton={true} title={t('home.diary', 'Diary')} />
+    <StudentHeader showBackButton={true} title={t('home.diary', 'Diary')} />
 
-            <ScrollView style={styles.scrollContent}>
-                {/* Date Header */}
-                <View style={styles.dateHeader}>
-                    <View>
-                        <Text style={styles.dateSubtitle}>{selectedDate.toDateString()}</Text>
-                        <Text style={styles.dateTitle}>{t('diary.today_tasks', 'Today\'s Homework')}</Text>
-                    </View>
-                    <View style={styles.progressContainer}>
-                        {syncing && <ActivityIndicator size="small" color="#6366F1" />}
-                    </View>
-                </View>
+    <ScrollView style={styles.scrollContent}>
+      {/* Date Header */}
+      <View style={styles.dateHeader}>
+        <View>
+          <Text style={styles.dateSubtitle}>{selectedDate.toDateString()}</Text>
+          <Text style={styles.dateTitle}>{t('diary.today_tasks', 'Today\'s Homework')}</Text>
+        </View>
+        <View style={styles.progressContainer}>
+          {syncing && <LogoLoader size={30} color="#6366F1" />}
+        </View>
+      </View>
 
-                {/* Enhanced List with Observables */}
-                {user && <DiaryList date={dateStr} classId={(user as any).classId || ''} />}
+      {/* Enhanced List with Observables */}
+      {user && <DiaryList key={i18n.language} date={dateStr} classId={(user as any).classId || ''} />}
 
-            </ScrollView>
-        </View>;
+    </ScrollView>
+  </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card

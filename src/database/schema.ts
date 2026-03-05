@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb'
 
 export default appSchema({
-    version: 1,
+    version: 2,
     tables: [
         tableSchema({
             name: 'diary_entries',
@@ -10,7 +10,9 @@ export default appSchema({
                 { name: 'entry_date', type: 'string' },
                 { name: 'subject_id', type: 'string', isOptional: true },
                 { name: 'title', type: 'string', isOptional: true },
+                { name: 'title_te', type: 'string', isOptional: true },
                 { name: 'content', type: 'string' },
+                { name: 'content_te', type: 'string', isOptional: true },
                 { name: 'homework_due_date', type: 'string', isOptional: true },
                 { name: 'attachments', type: 'string', isOptional: true }, // Stored as JSON
                 { name: 'subject_name', type: 'string', isOptional: true },

@@ -11,7 +11,7 @@ export default function InsuranceScreen() {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const {
     user
   } = useAuth();
@@ -95,13 +95,13 @@ const CoverageItem = ({
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   return <View style={styles.coverageItem}>
         <MaterialIcons name={icon} size={22} color="#4F46E5" />
         <Text style={styles.coverageText}>{text}</Text>
     </View>;
 };
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   scrollContainer: {
     paddingBottom: 20
   },

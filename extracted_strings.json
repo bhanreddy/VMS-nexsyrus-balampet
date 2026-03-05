@@ -1,0 +1,1146 @@
+{
+  "Welcome Back": {
+    "file": "login.tsx",
+    "context": "text"
+  },
+  "Sign in to continue": {
+    "file": "login.tsx",
+    "context": "text"
+  },
+  "Forgot Password?": {
+    "file": "login.tsx, forgot-password.tsx",
+    "context": "text"
+  },
+  "Email Address": {
+    "file": "login.tsx",
+    "context": "placeholder"
+  },
+  "Password": {
+    "file": "login.tsx",
+    "context": "placeholder"
+  },
+  "Access your grades, timetable, and campus services.": {
+    "file": "login.tsx",
+    "context": "title"
+  },
+  "Sign In": {
+    "file": "login.tsx",
+    "context": "title"
+  },
+  "{SCHOOL_CONFIG.name}": {
+    "file": "index.tsx, AuthHeader.tsx, HeaderCard.tsx",
+    "context": "text"
+  },
+  "✨  WELCOME TO THE FUTURE": {
+    "file": "index.tsx",
+    "context": "text"
+  },
+  "Futuristic": {
+    "file": "index.tsx",
+    "context": "text"
+  },
+  "Next-Gen": {
+    "file": "index.tsx",
+    "context": "text"
+  },
+  "Education.": {
+    "file": "index.tsx",
+    "context": "text"
+  },
+  "Trusted by many institutions.": {
+    "file": "index.tsx",
+    "context": "text"
+  },
+  "POWERED BY NexSyrus IMS": {
+    "file": "index.tsx",
+    "context": "text"
+  },
+  "v 2.0.0": {
+    "file": "index.tsx",
+    "context": "text"
+  },
+  "{title}": {
+    "file": "index.tsx, index.tsx, results.tsx, contentDetail.tsx, settings.tsx, AdminHeader.tsx, AuthHeader.tsx, CustomButton.tsx, FeatureCard.tsx, GridItem.tsx, NetBalanceTab.tsx, PremiumButton.tsx, PremiumCard.tsx, StaffDashboardCard.tsx, StaffHeader.tsx",
+    "context": "text"
+  },
+  "{subtitle}": {
+    "file": "index.tsx, index.tsx, AuthHeader.tsx, StaffDashboardCard.tsx, StaffHeader.tsx",
+    "context": "text"
+  },
+  "Grades, attendance & portal": {
+    "file": "index.tsx",
+    "context": "title"
+  },
+  "Classes, records & reports": {
+    "file": "index.tsx",
+    "context": "title"
+  },
+  "Full school management": {
+    "file": "index.tsx",
+    "context": "title"
+  },
+  "Finance & fee tracking": {
+    "file": "index.tsx",
+    "context": "title"
+  },
+  "Driver Portal": {
+    "file": "index.tsx",
+    "context": "title"
+  },
+  "Live tracking & trip management": {
+    "file": "index.tsx",
+    "context": "title"
+  },
+  "Don't worry! It happens. Please enter your ID or Email associated with your account.": {
+    "file": "forgot-password.tsx",
+    "context": "text"
+  },
+  "SEND RESET LINK": {
+    "file": "forgot-password.tsx",
+    "context": "text"
+  },
+  "Enter ID or Email": {
+    "file": "forgot-password.tsx",
+    "context": "placeholder"
+  },
+  "Change Password": {
+    "file": "change-password.tsx",
+    "context": "text"
+  },
+  "Your new password must be at least 8 characters long and contain uppercase, lowercase, and numeric characters.": {
+    "file": "change-password.tsx",
+    "context": "text"
+  },
+  "{errorMsg}": {
+    "file": "change-password.tsx",
+    "context": "text"
+  },
+  "Current Password": {
+    "file": "change-password.tsx",
+    "context": "text"
+  },
+  "New Password": {
+    "file": "change-password.tsx",
+    "context": "text"
+  },
+  "Confirm New Password": {
+    "file": "change-password.tsx",
+    "context": "text"
+  },
+  "Enter current password": {
+    "file": "change-password.tsx",
+    "context": "placeholder"
+  },
+  "Enter new password": {
+    "file": "change-password.tsx",
+    "context": "placeholder"
+  },
+  "Confirm new password": {
+    "file": "change-password.tsx",
+    "context": "placeholder"
+  },
+  "Update Password": {
+    "file": "change-password.tsx",
+    "context": "title"
+  },
+  "{item.fee_type}": {
+    "file": "fees.tsx, fees.tsx",
+    "context": "text"
+  },
+  "₹{dueAmount.toLocaleString()}": {
+    "file": "fees.tsx",
+    "context": "text"
+  },
+  "Paid: ₹{item.amount_paid.toLocaleString()}": {
+    "file": "fees.tsx",
+    "context": "text"
+  },
+  "Due: ₹{(dueAmount - item.amount_paid).toLocaleString()}": {
+    "file": "fees.tsx",
+    "context": "text"
+  },
+  "{item.status.toUpperCase()}": {
+    "file": "fees.tsx, attendance.tsx, fees.tsx",
+    "context": "text"
+  },
+  "Total Due": {
+    "file": "fees.tsx, fees.tsx, fees.tsx",
+    "context": "text"
+  },
+  "₹{summary.balance.toLocaleString()}": {
+    "file": "fees.tsx",
+    "context": "text"
+  },
+  "Pay Now": {
+    "file": "fees.tsx, fees.tsx",
+    "context": "text"
+  },
+  "Total Fee": {
+    "file": "fees.tsx",
+    "context": "text"
+  },
+  "₹{summary.total_due.toLocaleString()}": {
+    "file": "fees.tsx",
+    "context": "text"
+  },
+  "Paid": {
+    "file": "fees.tsx, fees.tsx",
+    "context": "text"
+  },
+  "₹{summary.total_paid.toLocaleString()}": {
+    "file": "fees.tsx",
+    "context": "text"
+  },
+  "Breakdown": {
+    "file": "fees.tsx",
+    "context": "text"
+  },
+  "Receipts": {
+    "file": "fees.tsx",
+    "context": "text"
+  },
+  "No fee records found.": {
+    "file": "fees.tsx, fees.tsx",
+    "context": "text"
+  },
+  "No receipts found.": {
+    "file": "fees.tsx",
+    "context": "text"
+  },
+  "#{receipt.receipt_no}": {
+    "file": "fees.tsx",
+    "context": "text"
+  },
+  "{new Date(receipt.issued_at).toLocaleDateString()}": {
+    "file": "fees.tsx",
+    "context": "text"
+  },
+  "₹{receipt.total_amount.toLocaleString()}": {
+    "file": "fees.tsx",
+    "context": "text"
+  },
+  "Download Receipt": {
+    "file": "fees.tsx",
+    "context": "text"
+  },
+  "Fees": {
+    "file": "fees.tsx, fees.tsx",
+    "context": "title"
+  },
+  "Today's Snapshot": {
+    "file": "home.tsx",
+    "context": "text"
+  },
+  "Attendance": {
+    "file": "home.tsx",
+    "context": "text"
+  },
+  "{attPercentage}%": {
+    "file": "home.tsx",
+    "context": "text"
+  },
+  "Today's Status": {
+    "file": "home.tsx",
+    "context": "text"
+  },
+  "{todaysStatus === 'present' ? 'Present' :\r\n                                                        todaysStatus === 'absent' ? 'Absent' :\r\n                                                            todaysStatus === 'late' ? 'Late' :\r\n                                                                todaysStatus === 'half_day' ? 'Half Day' : 'Not Marked'}": {
+    "file": "home.tsx",
+    "context": "text"
+  },
+  "Academic Advisor": {
+    "file": "home.tsx",
+    "context": "text"
+  },
+  "{student?.current_enrollment?.class_teacher || \"Not Assigned\"}": {
+    "file": "home.tsx",
+    "context": "text"
+  },
+  "{recentNotices.length > 0 ? 'Recent Updates' : 'Previous Updates'}": {
+    "file": "home.tsx",
+    "context": "text"
+  },
+  "{(recentNotices.length > 0 ? recentNotices[0] : olderNotices[0])?.title || \"Notice\"}": {
+    "file": "home.tsx",
+    "context": "text"
+  },
+  "{(recentNotices.length > 0 ? recentNotices[0] : olderNotices[0])?.content}": {
+    "file": "home.tsx",
+    "context": "text"
+  },
+  "Exam Results": {
+    "file": "results.tsx",
+    "context": "text"
+  },
+  "Check your performance and progress reports": {
+    "file": "results.tsx",
+    "context": "text"
+  },
+  "No exam results available yet.": {
+    "file": "results.tsx",
+    "context": "text"
+  },
+  "{getSubtitle(item.exam_type, item.exam_count)}": {
+    "file": "results.tsx",
+    "context": "text"
+  },
+  "Last updated: {new Date(item.last_exam_date).toLocaleDateString()}": {
+    "file": "results.tsx",
+    "context": "text"
+  },
+  "{totalPeriods}": {
+    "file": "timetable.tsx",
+    "context": "text"
+  },
+  "Periods": {
+    "file": "timetable.tsx",
+    "context": "text"
+  },
+  "{completedPeriods}": {
+    "file": "timetable.tsx",
+    "context": "text"
+  },
+  "Done": {
+    "file": "timetable.tsx",
+    "context": "text"
+  },
+  "{currentPeriod?.subject?.slice(0, 8) || '—'}": {
+    "file": "timetable.tsx",
+    "context": "text"
+  },
+  "Current": {
+    "file": "timetable.tsx",
+    "context": "text"
+  },
+  "No Classes Scheduled": {
+    "file": "timetable.tsx",
+    "context": "text"
+  },
+  "Your timetable will appear here once it's configured": {
+    "file": "timetable.tsx",
+    "context": "text"
+  },
+  "{mins > 30 ? 'Lunch Break' : 'Break'} · {mins} min": {
+    "file": "timetable.tsx",
+    "context": "text"
+  },
+  "{item.startTime} - {item.endTime}": {
+    "file": "timetable.tsx, timetable.tsx",
+    "context": "text"
+  },
+  "{item.subject}": {
+    "file": "timetable.tsx",
+    "context": "text"
+  },
+  "{item.teacher}": {
+    "file": "timetable.tsx",
+    "context": "text"
+  },
+  "{item.room}": {
+    "file": "timetable.tsx",
+    "context": "text"
+  },
+  "Ongoing": {
+    "file": "timetable.tsx",
+    "context": "text"
+  },
+  "{item.text}": {
+    "file": "aiChat.tsx",
+    "context": "text"
+  },
+  "{new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}": {
+    "file": "aiChat.tsx",
+    "context": "text"
+  },
+  "Thinking...": {
+    "file": "aiChat.tsx",
+    "context": "text"
+  },
+  "Hi, Student! 👋": {
+    "file": "aiChat.tsx",
+    "context": "text"
+  },
+  "I'm your AI study assistant. Ask me anything about your subjects.": {
+    "file": "aiChat.tsx",
+    "context": "text"
+  },
+  "🍎 Explain Newton's laws": {
+    "file": "aiChat.tsx",
+    "context": "text"
+  },
+  "➗ Solve quadratic equation": {
+    "file": "aiChat.tsx",
+    "context": "text"
+  },
+  "📜 Summarize History Ch 1": {
+    "file": "aiChat.tsx",
+    "context": "text"
+  },
+  "NexSyrus AI": {
+    "file": "aiChat.tsx",
+    "context": "text"
+  },
+  "New Chat": {
+    "file": "aiChat.tsx",
+    "context": "text"
+  },
+  "AI can make mistakes. Check important info.": {
+    "file": "aiChat.tsx",
+    "context": "text"
+  },
+  "Ask a doubt...": {
+    "file": "aiChat.tsx",
+    "context": "placeholder"
+  },
+  "AI Assistant": {
+    "file": "aiChat.tsx",
+    "context": "title"
+  },
+  "{item.date}": {
+    "file": "announcements.tsx, complaints.tsx",
+    "context": "text"
+  },
+  "{item.time}": {
+    "file": "announcements.tsx",
+    "context": "text"
+  },
+  "{item.title}": {
+    "file": "announcements.tsx, complaints.tsx, diary.tsx, lms.tsx",
+    "context": "text"
+  },
+  "{item.message}": {
+    "file": "announcements.tsx",
+    "context": "text"
+  },
+  "No announcements.": {
+    "file": "announcements.tsx",
+    "context": "text"
+  },
+  "{day}": {
+    "file": "attendance.tsx",
+    "context": "text"
+  },
+  "{dayNum}": {
+    "file": "attendance.tsx",
+    "context": "text"
+  },
+  "{dateObj.toDateString()}": {
+    "file": "attendance.tsx",
+    "context": "text"
+  },
+  "{percentage}%": {
+    "file": "attendance.tsx",
+    "context": "text"
+  },
+  "{stats.present}": {
+    "file": "attendance.tsx",
+    "context": "text"
+  },
+  "{stats.absent}": {
+    "file": "attendance.tsx",
+    "context": "text"
+  },
+  "{stats.late}": {
+    "file": "attendance.tsx",
+    "context": "text"
+  },
+  "No attendance records found.": {
+    "file": "attendance.tsx",
+    "context": "text"
+  },
+  "🚌": {
+    "file": "busMap.tsx",
+    "context": "text"
+  },
+  "Arriving in {etaInfo.time} mins": {
+    "file": "busMap.tsx",
+    "context": "text"
+  },
+  "{etaInfo.distance} km away": {
+    "file": "busMap.tsx",
+    "context": "text"
+  },
+  "Behaviour Overview": {
+    "file": "complaints.tsx",
+    "context": "text"
+  },
+  "Academic Year": {
+    "file": "complaints.tsx",
+    "context": "text"
+  },
+  "Filter by severity": {
+    "file": "complaints.tsx",
+    "context": "text"
+  },
+  "{filter}": {
+    "file": "complaints.tsx",
+    "context": "text"
+  },
+  "Clean Record! Keep it up.": {
+    "file": "complaints.tsx",
+    "context": "text"
+  },
+  "{item.description}": {
+    "file": "complaints.tsx, lms.tsx",
+    "context": "text"
+  },
+  "Reported by": {
+    "file": "complaints.tsx",
+    "context": "text"
+  },
+  "{item.filedBy}": {
+    "file": "complaints.tsx",
+    "context": "text"
+  },
+  "{item.status}": {
+    "file": "complaints.tsx",
+    "context": "text"
+  },
+  "{value}": {
+    "file": "complaints.tsx, hostel.tsx, profile.tsx",
+    "context": "text"
+  },
+  "{label}": {
+    "file": "complaints.tsx, hostel.tsx, profile.tsx, settings.tsx",
+    "context": "text"
+  },
+  "{text}": {
+    "file": "complaints.tsx, insurance.tsx",
+    "context": "text"
+  },
+  "Total Remarks": {
+    "file": "complaints.tsx",
+    "context": "label"
+  },
+  "Critical": {
+    "file": "complaints.tsx",
+    "context": "label"
+  },
+  "Warnings": {
+    "file": "complaints.tsx",
+    "context": "label"
+  },
+  "{content_body}": {
+    "file": "contentDetail.tsx",
+    "context": "text"
+  },
+  "No content available.": {
+    "file": "contentDetail.tsx",
+    "context": "text"
+  },
+  "DCGD": {
+    "file": "dcgd.tsx",
+    "context": "text"
+  },
+  "Department of Career Growth and Development": {
+    "file": "dcgd.tsx",
+    "context": "text"
+  },
+  "Name: {user?.name || 'Student'}": {
+    "file": "dcgd.tsx, examLinks.tsx",
+    "context": "text"
+  },
+  "Class/sec: {user?.classId || 'N/A'}": {
+    "file": "dcgd.tsx, examLinks.tsx",
+    "context": "text"
+  },
+  "Roll No: {user?.rollNo || 'N/A'}": {
+    "file": "dcgd.tsx, examLinks.tsx",
+    "context": "text"
+  },
+  "Admission No: {(user as any)?.admissionNo || 'N/A'}": {
+    "file": "dcgd.tsx, examLinks.tsx",
+    "context": "text"
+  },
+  "Options": {
+    "file": "dcgd.tsx, weekendTest.tsx",
+    "context": "text"
+  },
+  "{option}": {
+    "file": "dcgd.tsx",
+    "context": "text"
+  },
+  "Discipline & Conduct": {
+    "file": "dcgd.tsx",
+    "context": "title"
+  },
+  "No homework assigned today 🎉": {
+    "file": "diary.tsx",
+    "context": "text"
+  },
+  "{item.subjectName || 'General'}": {
+    "file": "diary.tsx",
+    "context": "text"
+  },
+  "Due: {new Date(item.homeworkDueDate).toLocaleDateString()}": {
+    "file": "diary.tsx",
+    "context": "text"
+  },
+  "{item.content}": {
+    "file": "diary.tsx",
+    "context": "text"
+  },
+  "{selectedDate.toDateString()}": {
+    "file": "diary.tsx",
+    "context": "text"
+  },
+  "Important Exam Links": {
+    "file": "examLinks.tsx",
+    "context": "text"
+  },
+  "Links": {
+    "file": "examLinks.tsx",
+    "context": "text"
+  },
+  "{item}": {
+    "file": "examLinks.tsx",
+    "context": "text"
+  },
+  "Exams": {
+    "file": "examLinks.tsx",
+    "context": "title"
+  },
+  "Due: {new Date(item.due_date).toLocaleDateString()}": {
+    "file": "fees.tsx",
+    "context": "text"
+  },
+  "₹{item.amount_due.toLocaleString()}": {
+    "file": "fees.tsx",
+    "context": "text"
+  },
+  "₹{item.amount_paid.toLocaleString()}": {
+    "file": "fees.tsx",
+    "context": "text"
+  },
+  "My Fees": {
+    "file": "fees.tsx",
+    "context": "text"
+  },
+  "₹{feeData.summary.total_due.toLocaleString()}": {
+    "file": "fees.tsx",
+    "context": "text"
+  },
+  "Outstanding": {
+    "file": "fees.tsx",
+    "context": "text"
+  },
+  "₹{feeData.summary.balance.toLocaleString()}": {
+    "file": "fees.tsx",
+    "context": "text"
+  },
+  "Hostel Profile": {
+    "file": "hostel.tsx",
+    "context": "text"
+  },
+  "Student Hostel Information": {
+    "file": "hostel.tsx",
+    "context": "text"
+  },
+  "Hostel Details": {
+    "file": "hostel.tsx",
+    "context": "text"
+  },
+  "Location": {
+    "file": "hostel.tsx",
+    "context": "text"
+  },
+  "View on Maps": {
+    "file": "hostel.tsx",
+    "context": "text"
+  },
+  "Hostel Image": {
+    "file": "hostel.tsx",
+    "context": "text"
+  },
+  "📞 Call to Apply": {
+    "file": "hostel.tsx",
+    "context": "text"
+  },
+  "Hostel": {
+    "file": "hostel.tsx",
+    "context": "title"
+  },
+  "Name": {
+    "file": "hostel.tsx",
+    "context": "label"
+  },
+  "Hostel No": {
+    "file": "hostel.tsx",
+    "context": "label"
+  },
+  "Warden No": {
+    "file": "hostel.tsx",
+    "context": "label"
+  },
+  "Hostel Name": {
+    "file": "hostel.tsx",
+    "context": "label"
+  },
+  "Room Type": {
+    "file": "hostel.tsx",
+    "context": "label"
+  },
+  "Facilities": {
+    "file": "hostel.tsx",
+    "context": "label"
+  },
+  "Hostel Fee": {
+    "file": "hostel.tsx",
+    "context": "label"
+  },
+  "Active Insurance Plan": {
+    "file": "insurance.tsx",
+    "context": "text"
+  },
+  "Student Name": {
+    "file": "insurance.tsx",
+    "context": "text"
+  },
+  "{user?.name || 'Student'}": {
+    "file": "insurance.tsx",
+    "context": "text"
+  },
+  "Policy Number": {
+    "file": "insurance.tsx",
+    "context": "text"
+  },
+  "NX-INS-2025-001": {
+    "file": "insurance.tsx",
+    "context": "text"
+  },
+  "Coverage Amount": {
+    "file": "insurance.tsx",
+    "context": "text"
+  },
+  "₹5,00,000": {
+    "file": "insurance.tsx",
+    "context": "text"
+  },
+  "ACTIVE": {
+    "file": "insurance.tsx",
+    "context": "text"
+  },
+  "Coverage Includes": {
+    "file": "insurance.tsx",
+    "context": "text"
+  },
+  "How to Claim": {
+    "file": "insurance.tsx",
+    "context": "text"
+  },
+  "1. Inform School Admin": {
+    "file": "insurance.tsx",
+    "context": "text"
+  },
+  "2. Visit Nearest Hospital": {
+    "file": "insurance.tsx",
+    "context": "text"
+  },
+  "3. Submit Medical Reports": {
+    "file": "insurance.tsx",
+    "context": "text"
+  },
+  "4. Claim Processed by Insurance Team": {
+    "file": "insurance.tsx",
+    "context": "text"
+  },
+  "Emergency Helpline": {
+    "file": "insurance.tsx",
+    "context": "text"
+  },
+  "1800 123 456": {
+    "file": "insurance.tsx",
+    "context": "text"
+  },
+  "Download Insurance Card": {
+    "file": "insurance.tsx",
+    "context": "text"
+  },
+  "Contact Support": {
+    "file": "insurance.tsx",
+    "context": "text"
+  },
+  "Insurance": {
+    "file": "insurance.tsx",
+    "context": "title"
+  },
+  "Life Values": {
+    "file": "lifeValues.tsx, lifeValues.tsx",
+    "context": "text"
+  },
+  "Timeless wisdom for modern life.": {
+    "file": "lifeValues.tsx",
+    "context": "text"
+  },
+  "Modules": {
+    "file": "lifeValues.tsx",
+    "context": "text"
+  },
+  "🕉️": {
+    "file": "lifeValues.tsx",
+    "context": "text"
+  },
+  "{subject.title}": {
+    "file": "lifeValues.tsx",
+    "context": "text"
+  },
+  "{subject.description}": {
+    "file": "lifeValues.tsx",
+    "context": "text"
+  },
+  "No modules available yet.": {
+    "file": "lifeValues.tsx, moneyScience.tsx",
+    "context": "text"
+  },
+  "{item.duration || '10:00'}": {
+    "file": "lms.tsx",
+    "context": "text"
+  },
+  "{item.course_title}": {
+    "file": "lms.tsx",
+    "context": "text"
+  },
+  "{item.class_name}": {
+    "file": "lms.tsx",
+    "context": "text"
+  },
+  "{item.teacher_name}": {
+    "file": "lms.tsx",
+    "context": "text"
+  },
+  "{item.created_at}": {
+    "file": "lms.tsx",
+    "context": "text"
+  },
+  "{subject}": {
+    "file": "lms.tsx",
+    "context": "text"
+  },
+  "No content found": {
+    "file": "lms.tsx",
+    "context": "text"
+  },
+  "Search topics...": {
+    "file": "lms.tsx",
+    "context": "placeholder"
+  },
+  "LMS": {
+    "file": "lms.tsx",
+    "context": "title"
+  },
+  "Money Science": {
+    "file": "moneyScience.tsx, moneyScience.tsx",
+    "context": "text"
+  },
+  "Financial literacy for a brighter future.": {
+    "file": "moneyScience.tsx",
+    "context": "text"
+  },
+  "Learning Modules": {
+    "file": "moneyScience.tsx",
+    "context": "text"
+  },
+  "💰": {
+    "file": "moneyScience.tsx",
+    "context": "text"
+  },
+  "{topic.title}": {
+    "file": "moneyScience.tsx",
+    "context": "text"
+  },
+  "Age: {topic.age_group}": {
+    "file": "moneyScience.tsx",
+    "context": "text"
+  },
+  "Piggy Bank Challenge": {
+    "file": "moneyScience.tsx",
+    "context": "text"
+  },
+  "Start saving small today!": {
+    "file": "moneyScience.tsx",
+    "context": "text"
+  },
+  "🐷": {
+    "file": "moneyScience.tsx",
+    "context": "text"
+  },
+  "{student.display_name}": {
+    "file": "profile.tsx",
+    "context": "text"
+  },
+  "{enrollment.class_code} - {enrollment.section_name} | Roll: {enrollment.roll_number}": {
+    "file": "profile.tsx",
+    "context": "text"
+  },
+  "ID: {student.admission_no}": {
+    "file": "profile.tsx",
+    "context": "text"
+  },
+  "Science Projects": {
+    "file": "scienceProjects.tsx, scienceProjects.tsx",
+    "context": "text"
+  },
+  "Learn by doing • Build • Experiment": {
+    "file": "scienceProjects.tsx",
+    "context": "text"
+  },
+  "Project List & Certification": {
+    "file": "scienceProjects.tsx",
+    "context": "text"
+  },
+  "🧪": {
+    "file": "scienceProjects.tsx",
+    "context": "text"
+  },
+  "{project.title}": {
+    "file": "scienceProjects.tsx",
+    "context": "text"
+  },
+  "🏆": {
+    "file": "scienceProjects.tsx",
+    "context": "text"
+  },
+  "Get Certified!": {
+    "file": "scienceProjects.tsx",
+    "context": "text"
+  },
+  "{user?.display_name || user?.first_name || 'Student Name'}": {
+    "file": "settings.tsx",
+    "context": "text"
+  },
+  "{user?.admission_no || user?.id || 'N/A'}": {
+    "file": "settings.tsx",
+    "context": "text"
+  },
+  "SchoolIMS · v2.4.1": {
+    "file": "settings.tsx",
+    "context": "text"
+  },
+  "P{periodNum}": {
+    "file": "timetable.tsx",
+    "context": "text"
+  },
+  "{PERIOD_TIMES[periodNum as keyof typeof PERIOD_TIMES].start}": {
+    "file": "timetable.tsx",
+    "context": "text"
+  },
+  "{PERIOD_TIMES[periodNum as keyof typeof PERIOD_TIMES].end}": {
+    "file": "timetable.tsx",
+    "context": "text"
+  },
+  "{slot.subject_name}": {
+    "file": "timetable.tsx",
+    "context": "text"
+  },
+  "{slot.teacher_name}": {
+    "file": "timetable.tsx",
+    "context": "text"
+  },
+  "Room: {slot.room_no}": {
+    "file": "timetable.tsx",
+    "context": "text"
+  },
+  "Free Period": {
+    "file": "timetable.tsx",
+    "context": "text"
+  },
+  "Daily Timetable": {
+    "file": "timetable.tsx",
+    "context": "text"
+  },
+  "No timetable found": {
+    "file": "timetable.tsx",
+    "context": "text"
+  },
+  "Invalid URL provided.": {
+    "file": "webView.tsx",
+    "context": "text"
+  },
+  "Go Back": {
+    "file": "webView.tsx",
+    "context": "text"
+  },
+  "Failed to load content.": {
+    "file": "webView.tsx",
+    "context": "text"
+  },
+  "Please check your internet connection.": {
+    "file": "webView.tsx",
+    "context": "text"
+  },
+  "Error": {
+    "file": "webView.tsx",
+    "context": "title"
+  },
+  "Question": {
+    "file": "weekendTest.tsx",
+    "context": "text"
+  },
+  "{currentQuestion.question}": {
+    "file": "weekendTest.tsx",
+    "context": "text"
+  },
+  "{option.id}": {
+    "file": "weekendTest.tsx",
+    "context": "text"
+  },
+  "{option.text}": {
+    "file": "weekendTest.tsx",
+    "context": "text"
+  },
+  "Skip": {
+    "file": "weekendTest.tsx",
+    "context": "text"
+  },
+  "Next": {
+    "file": "weekendTest.tsx",
+    "context": "text"
+  },
+  "Weekend Tests": {
+    "file": "weekendTest.tsx",
+    "context": "title"
+  },
+  "App Locked": {
+    "file": "AuthGate.tsx",
+    "context": "text"
+  },
+  "Please unlock with biometrics to continue.": {
+    "file": "AuthGate.tsx",
+    "context": "text"
+  },
+  "Oops!": {
+    "file": "ErrorBoundary.tsx",
+    "context": "text"
+  },
+  "Something went wrong.": {
+    "file": "ErrorBoundary.tsx",
+    "context": "text"
+  },
+  "{this.state.error?.toString()}": {
+    "file": "ErrorBoundary.tsx",
+    "context": "text"
+  },
+  "{this.state.errorInfo?.componentStack}": {
+    "file": "ErrorBoundary.tsx",
+    "context": "text"
+  },
+  "Go Home": {
+    "file": "ErrorBoundary.tsx",
+    "context": "text"
+  },
+  "{badgeCount > 9 ? '9+' : badgeCount}": {
+    "file": "FeatureCard.tsx",
+    "context": "text"
+  },
+  "{studentName?.replace(/\\s+/g, ' ')}": {
+    "file": "HeaderCard.tsx",
+    "context": "text"
+  },
+  "{classSec}": {
+    "file": "HeaderCard.tsx",
+    "context": "text"
+  },
+  "Roll {rollNo}": {
+    "file": "HeaderCard.tsx",
+    "context": "text"
+  },
+  "Do You Really Want to Log Out?": {
+    "file": "LogoutConfirmModal.tsx",
+    "context": "text"
+  },
+  "NO": {
+    "file": "LogoutConfirmModal.tsx",
+    "context": "text"
+  },
+  "Yes": {
+    "file": "LogoutConfirmModal.tsx",
+    "context": "text"
+  },
+  "Map Tracking is only available on the mobile application.": {
+    "file": "MapWrapper.web.tsx",
+    "context": "text"
+  },
+  "{item.label}": {
+    "file": "MenuOverlay.tsx",
+    "context": "text"
+  },
+  "{initials}": {
+    "file": "MenuOverlay.tsx",
+    "context": "text"
+  },
+  "{displayName}": {
+    "file": "MenuOverlay.tsx",
+    "context": "text"
+  },
+  "{userType === 'driver' ? 'Driver' : userType === 'staff' ? 'Staff' : 'Student'}": {
+    "file": "MenuOverlay.tsx",
+    "context": "text"
+  },
+  "Logout": {
+    "file": "MenuOverlay.tsx",
+    "context": "text"
+  },
+  "{formatCurrency(amount || 0)}": {
+    "file": "NetBalanceTab.tsx",
+    "context": "text"
+  },
+  "{f.label}": {
+    "file": "NetBalanceTab.tsx",
+    "context": "text"
+  },
+  "{error}": {
+    "file": "NetBalanceTab.tsx",
+    "context": "text"
+  },
+  "Retry": {
+    "file": "NetBalanceTab.tsx",
+    "context": "text"
+  },
+  "Net Balance": {
+    "file": "NetBalanceTab.tsx",
+    "context": "text"
+  },
+  "= 0 ? '#166534' : '#991B1B' }\r\n                        ]}>\r\n                            {data.netBalance >= 0 ? '+' : ''}{formatCurrency(data.netBalance)}": {
+    "file": "NetBalanceTab.tsx",
+    "context": "text"
+  },
+  "{data.netBalance >= 0 ? 'Surplus' : 'Deficit'}": {
+    "file": "NetBalanceTab.tsx",
+    "context": "text"
+  },
+  "Total Fee Collected": {
+    "file": "NetBalanceTab.tsx",
+    "context": "title"
+  },
+  "Total Salary Paid": {
+    "file": "NetBalanceTab.tsx",
+    "context": "title"
+  },
+  "Other Expenses": {
+    "file": "NetBalanceTab.tsx",
+    "context": "title"
+  },
+  "{badge}": {
+    "file": "StaffDashboardCard.tsx",
+    "context": "text"
+  },
+  "{config.label}": {
+    "file": "StaffFooter.tsx",
+    "context": "text"
+  },
+  "En": {
+    "file": "StaffHeader.tsx",
+    "context": "text"
+  },
+  "Te": {
+    "file": "StaffHeader.tsx",
+    "context": "text"
+  },
+  "{student.name}": {
+    "file": "SwipeableStudentCard.tsx",
+    "context": "text"
+  },
+  "{student.rollNo}": {
+    "file": "SwipeableStudentCard.tsx",
+    "context": "text"
+  }
+}

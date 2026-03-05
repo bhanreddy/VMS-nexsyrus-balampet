@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, StatusBar, Modal, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, StatusBar, Modal, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Ionicons, FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 import AdminHeader from '../../src/components/AdminHeader';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useExpenses } from '../../src/hooks/useExpenses';
 import { useAuth } from '../../src/hooks/useAuth';
-import { CreateExpenseRequest, Expense, ExpenseStatus } from '../../src/types/expenses';
+import { CreateExpenseRequest, Expense } from '../../src/types/expenses';
 import { PolicyService } from '../../src/services/policyService';
 import NetBalanceTab from '../../src/components/NetBalanceTab'; // Import new component
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 
 // --- CONSTANTS ---
 const CATEGORIES = ['Education', 'Maintenance', 'Sports', 'Utility', 'Events', 'Salary', 'Other'];
@@ -18,7 +19,7 @@ export default function AdminExpenses() {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const {
     expenses,
     loading,
@@ -131,7 +132,7 @@ export default function AdminExpenses() {
       fetchExpenses(searchQuery);
       Alert.alert('Success', 'Expense deleted.');
     } catch (error) {
-      console.error(error);
+
       Alert.alert('Error', 'Failed to delete expense.');
     } finally {
       setDeleting(false);
@@ -142,11 +143,9 @@ export default function AdminExpenses() {
   const renderItem = ({
     item,
     index
-  }: {
-    item: Expense;
-    index: number;
-  }) => {
-return <Animated.View entering={FadeInDown.delay(index * 50).duration(400)}>
+
+  }: {item: Expense;index: number;}) => {
+    return <Animated.View entering={FadeInDown.delay(index * 50).duration(400)}>
             <TouchableOpacity style={styles.card} onPress={() => setSelectedExpense(item)} activeOpacity={0.7}>
                 <View style={styles.headerRow}>
                     <View style={styles.iconBox}>
@@ -158,14 +157,11 @@ return <Animated.View entering={FadeInDown.delay(index * 50).duration(400)}>
                     </View>
                     <Text style={styles.amount}>₹{item.amount.toLocaleString('en-IN')}</Text>
                 </View>
-
                 <View style={styles.divider} />
-
                 <View style={styles.footer}>
                     {item.description ? <Text style={styles.descText} numberOfLines={1}>{item.description}</Text> : <View style={{
             flex: 1
           }} />}
-
                     <View style={[styles.statusBadge, item.status === 'approved' ? styles.sApproved : item.status === 'paid' ? styles.sPaid : styles.sPending]}>
                         <Text style={[styles.statusText, item.status === 'approved' ? {
               color: '#065F46'
@@ -182,7 +178,6 @@ return <Animated.View entering={FadeInDown.delay(index * 50).duration(400)}>
   return <View style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
             <AdminHeader title="Admin Expense Tracker" showBackButton={true} />
-
             {/* TAB SWITCHER */}
             <View style={styles.tabContainer}>
                 <TouchableOpacity style={[styles.tabBtn, activeTab === 'list' && styles.activeTabBtn]} onPress={() => setActiveTab('list')}>
@@ -192,25 +187,21 @@ return <Animated.View entering={FadeInDown.delay(index * 50).duration(400)}>
                     <Text style={[styles.tabText, activeTab === 'balance' && styles.activeTabText]}>Net Balance</Text>
                 </TouchableOpacity>
             </View>
-
             {activeTab === 'list' ? <>
                     {/* SEARCH */}
                     <View style={styles.searchContainer}>
                         <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
                         <TextInput style={styles.searchInput} placeholder="Search expenses..." value={searchQuery} onChangeText={setSearchQuery} />
                     </View>
-
                     {/* LIST */}
-                    {loading && expenses.length === 0 ? <View style={styles.centered}><ActivityIndicator size="large" color="#6366F1" /></View> : <FlatList data={expenses} keyExtractor={item => item.id} renderItem={renderItem} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false} ListEmptyComponent={<View style={styles.centered}>
+                    {loading && expenses.length === 0 ? <View style={styles.centered}><LogoLoader size={60} color="#6366F1" /></View> : <FlatList data={expenses} keyExtractor={(item) => item.id} renderItem={renderItem} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false} ListEmptyComponent={<View style={styles.centered}>
                                     <Text style={styles.emptyText}>No expenses found</Text>
                                 </View>} refreshing={loading} onRefresh={() => fetchExpenses(searchQuery)} />}
-
                     {/* FAB (Admins can also add expenses) */}
                     <TouchableOpacity style={styles.fab} onPress={() => setIsAddModalVisible(true)}>
                         <Ionicons name="add" size={30} color="#fff" />
                     </TouchableOpacity>
                 </> : <NetBalanceTab />}
-
             {/* --- ADD EXPENSE MODAL --- */}
             <Modal visible={isAddModalVisible} animationType="slide" transparent={true}>
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
@@ -221,36 +212,30 @@ return <Animated.View entering={FadeInDown.delay(index * 50).duration(400)}>
                                 <Ionicons name="close" size={24} color="#374151" />
                             </TouchableOpacity>
                         </View>
-
                         <Text style={styles.label}>Title</Text>
                         <TextInput style={styles.input} placeholder="e.g. Lab Equipment" value={newTitle} onChangeText={setNewTitle} />
-
                         <Text style={styles.label}>Amount (₹)</Text>
                         <TextInput style={styles.input} placeholder="0.00" keyboardType="numeric" value={newAmount} onChangeText={setNewAmount} />
-
                         <Text style={styles.label}>Category</Text>
                         <View style={styles.categoryRow}>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                {CATEGORIES.map(cat => {
-return <TouchableOpacity key={cat} style={[styles.catChip, newCategory === cat && styles.catChipActive]} onPress={() => setNewCategory(cat)}>
+                                {CATEGORIES.map((cat) => {
+                return <TouchableOpacity key={cat} style={[styles.catChip, newCategory === cat && styles.catChipActive]} onPress={() => setNewCategory(cat)}>
                                         <Text style={[styles.catText, newCategory === cat && styles.catTextActive]}>{cat}</Text>
                                     </TouchableOpacity>;
               })}
                             </ScrollView>
                         </View>
-
                         <Text style={styles.label}>Description (Optional)</Text>
                         <TextInput style={[styles.input, {
             height: 80
           }]} multiline placeholder="Details..." value={newDescription} onChangeText={setNewDescription} />
-
                         <TouchableOpacity style={styles.submitBtn} onPress={handleAddExpense} disabled={isSubmitting}>
-                            {isSubmitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Submit Expense</Text>}
+                            {isSubmitting ? <LogoLoader color="#fff" /> : <Text style={styles.submitBtnText}>Submit Expense</Text>}
                         </TouchableOpacity>
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
-
             {/* --- DETAILS MODAL --- */}
             <Modal visible={!!selectedExpense} animationType="fade" transparent={true}>
                 <View style={styles.modalOverlay}>
@@ -262,7 +247,6 @@ return <TouchableOpacity key={cat} style={[styles.catChip, newCategory === cat &
                                         <Ionicons name="close" size={24} color="#374151" />
                                     </TouchableOpacity>
                                 </View>
-
                                 <View style={styles.detailRow}>
                                     <Text style={styles.detailLabel}>Title</Text>
                                     <Text style={styles.detailValue}>{selectedExpense.title}</Text>
@@ -300,7 +284,6 @@ return <TouchableOpacity key={cat} style={[styles.catChip, newCategory === cat &
                                         <Text style={styles.detailLabel}>Description</Text>
                                         <Text style={styles.detailLog}>{selectedExpense.description}</Text>
                                     </View>}
-
                                 <View style={styles.actionRow}>
                                     {selectedExpense.status === 'pending' && <>
                                             {/* Admin can always approve */}
@@ -308,7 +291,6 @@ return <TouchableOpacity key={cat} style={[styles.catChip, newCategory === cat &
                                                 <MaterialIcons name="check" size={20} color="#fff" />
                                                 <Text style={styles.actionText}>Approve</Text>
                                             </TouchableOpacity>
-
                                             <TouchableOpacity style={[styles.actionBtn, {
                   backgroundColor: '#EF4444'
                 }]} onPress={handleDeletePress}>
@@ -325,19 +307,16 @@ return <TouchableOpacity key={cat} style={[styles.catChip, newCategory === cat &
                     </View>
                 </View>
             </Modal>
-
             {/* --- DELETE REASON MODAL --- */}
             <Modal visible={isDeleteModalVisible} transparent={true} animationType="fade">
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>Delete/Reject Expense</Text>
                         <Text style={styles.modalSubtitle}>Please provide a reason for the audit log.</Text>
-
                         <TextInput style={[styles.input, {
             height: 80,
             textAlignVertical: 'top'
           }]} placeholder="Reason (e.g. Unjustified, Budget exceeded)" multiline value={deleteReason} onChangeText={setDeleteReason} />
-
                         <View style={{
             flexDirection: 'row',
             justifyContent: 'flex-end',
@@ -356,7 +335,7 @@ return <TouchableOpacity key={cat} style={[styles.catChip, newCategory === cat &
               padding: 10,
               borderRadius: 8
             }} disabled={deleting}>
-                                {deleting ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{
+                                {deleting ? <LogoLoader color="#fff" size={30} /> : <Text style={{
                 color: '#fff',
                 fontWeight: 'bold'
               }}>Confirm Action</Text>}
@@ -365,10 +344,9 @@ return <TouchableOpacity key={cat} style={[styles.catChip, newCategory === cat &
                     </View>
                 </View>
             </Modal>
-
         </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card

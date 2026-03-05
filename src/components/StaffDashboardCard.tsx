@@ -10,7 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useTheme } from '../hooks/useTheme';
 import { Springs } from '../utils/motion';
-import { Elevation, Radii, Shadows, Spacing, Typography } from '../theme/themes';
+import { Radii, Spacing } from '../theme/themes';
 
 const { width } = Dimensions.get('window');
 const CARD_GAP = 12;

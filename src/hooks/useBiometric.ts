@@ -16,107 +16,107 @@ import { supabase } from '../services/supabaseConfig';
  * Only usable by eligible roles (admin, staff, teacher, accountant).
  */
 export function useBiometric() {
-    const { user } = useAuth();
-    const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
-    const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuth();
+  const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
+  const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-    // ─── Init: Check device capability + current toggle state ─────────
-    useEffect(() => {
-        let mounted = true;
+  // ─── Init: Check device capability + current toggle state ─────────
+  useEffect(() => {
+    let mounted = true;
 
-        const init = async () => {
-            try {
-                // 1. Check device capability
-                const available = await BiometricService.isBiometricAvailable();
+    const init = async () => {
+      try {
+        // 1. Check device capability
+        const available = await BiometricService.isBiometricAvailable();
 
-                // 2. Check if already enabled
-                const enabled = await BiometricService.isBiometricEnabled();
+        // 2. Check if already enabled
+        const enabled = await BiometricService.isBiometricEnabled();
 
-                if (mounted) {
-                    setIsBiometricAvailable(available);
-                    setIsBiometricEnabled(enabled && available); // Auto-disable if device lost biometrics
-                }
-            } catch (error) {
-                console.warn('[useBiometric] Init failed:', error);
-            } finally {
-                if (mounted) setIsLoading(false);
-            }
-        };
-
-        init();
-        return () => { mounted = false; };
-    }, []);
-
-    // ─── Toggle Handler ───────────────────────────────────────────────
-    const toggleBiometric = useCallback(async () => {
-        if (!user) return;
-
-        // Role guard
-        if (!BiometricService.isEligibleRole(user.role)) {
-            Alert.alert('Not Available', 'Biometric login is only available for staff and admin accounts.');
-            return;
+        if (mounted) {
+          setIsBiometricAvailable(available);
+          setIsBiometricEnabled(enabled && available); // Auto-disable if device lost biometrics
         }
+      } catch (error) {
 
-        // Device guard
-        if (!isBiometricAvailable) {
-            Alert.alert(
-                'Biometric Not Available',
-                'Your device does not have biometric authentication set up. Please enroll a fingerprint or face in your device settings.'
-            );
-            return;
-        }
-
-        setIsLoading(true);
-
-        try {
-            if (isBiometricEnabled) {
-                // ── DISABLE ─────────────────────────────────────────
-                await BiometricService.clearBiometricSession();
-                setIsBiometricEnabled(false);
-                if (__DEV__) console.log('[useBiometric] Biometric disabled');
-            } else {
-                // ── ENABLE ──────────────────────────────────────────
-                // 1. Verify identity first
-                const { success, error } = await BiometricService.promptBiometric(
-                    'Verify your identity to enable biometric login'
-                );
-
-                if (!success) {
-                    if (__DEV__) console.log('[useBiometric] Biometric verification failed:', error);
-                    Alert.alert('Verification Failed', 'Could not verify your identity. Please try again.');
-                    return;
-                }
-
-                // 2. Get current Supabase session to store the refresh token
-                const { data: { session } } = await supabase.auth.getSession();
-
-                if (!session?.refresh_token) {
-                    Alert.alert('Session Error', 'Could not retrieve your current session. Please log in again.');
-                    return;
-                }
-
-                // 3. Store session securely
-                await BiometricService.storeBiometricSession(
-                    session.refresh_token,
-                    user.id
-                );
-
-                setIsBiometricEnabled(true);
-                if (__DEV__) console.log('[useBiometric] Biometric enabled for user:', user.id);
-            }
-        } catch (error) {
-            console.error('[useBiometric] Toggle error:', error);
-            Alert.alert('Error', 'An error occurred while updating biometric settings.');
-        } finally {
-            setIsLoading(false);
-        }
-    }, [user, isBiometricAvailable, isBiometricEnabled]);
-
-    return {
-        isBiometricAvailable,
-        isBiometricEnabled,
-        isLoading,
-        toggleBiometric,
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
     };
+
+    init();
+    return () => {mounted = false;};
+  }, []);
+
+  // ─── Toggle Handler ───────────────────────────────────────────────
+  const toggleBiometric = useCallback(async () => {
+    if (!user) return;
+
+    // Role guard
+    if (!BiometricService.isEligibleRole(user.role)) {
+      Alert.alert('Not Available', 'Biometric login is only available for staff and admin accounts.');
+      return;
+    }
+
+    // Device guard
+    if (!isBiometricAvailable) {
+      Alert.alert(
+        'Biometric Not Available',
+        'Your device does not have biometric authentication set up. Please enroll a fingerprint or face in your device settings.'
+      );
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      if (isBiometricEnabled) {
+        // ── DISABLE ─────────────────────────────────────────
+        await BiometricService.clearBiometricSession();
+        setIsBiometricEnabled(false);
+        if (__DEV__) {}
+      } else {
+        // ── ENABLE ──────────────────────────────────────────
+        // 1. Verify identity first
+        const { success } = await BiometricService.promptBiometric(
+          'Verify your identity to enable biometric login'
+        );
+
+        if (!success) {
+          if (__DEV__) {}
+          Alert.alert('Verification Failed', 'Could not verify your identity. Please try again.');
+          return;
+        }
+
+        // 2. Get current Supabase session to store the refresh token
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (!session?.refresh_token) {
+          Alert.alert('Session Error', 'Could not retrieve your current session. Please log in again.');
+          return;
+        }
+
+        // 3. Store session securely
+        await BiometricService.storeBiometricSession(
+          session.refresh_token,
+          user.id
+        );
+
+        setIsBiometricEnabled(true);
+        if (__DEV__) {}
+      }
+    } catch (error) {
+
+      Alert.alert('Error', 'An error occurred while updating biometric settings.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, isBiometricAvailable, isBiometricEnabled]);
+
+  return {
+    isBiometricAvailable,
+    isBiometricEnabled,
+    isLoading,
+    toggleBiometric
+  };
 }

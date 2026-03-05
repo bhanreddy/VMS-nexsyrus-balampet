@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, FlatList, Alert, ActivityIndicator, TextInput, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, FlatList, Alert, TextInput, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
@@ -9,13 +9,14 @@ import { ClassService, ClassInfo, Section, AcademicYear } from '../../src/servic
 import { ResultService, Subject } from '../../src/services/commonServices';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 type TabType = 'classes' | 'sections' | 'years' | 'subjects' | 'mappings';
 export default function AcademicManagement() {
   const {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const [activeTab, setActiveTab] = useState<TabType>('classes');
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
@@ -61,11 +62,11 @@ export default function AcademicManagement() {
         setSections(s);
         setYears(y);
         // Default year
-        const current = y.find(yr => new Date(yr.start_date) <= new Date() && new Date(yr.end_date) >= new Date());
+        const current = y.find((yr) => new Date(yr.start_date) <= new Date() && new Date(yr.end_date) >= new Date());
         if (current) setSelYearId(current.id);
       }
     } catch (error) {
-      console.error('Fetch error:', error);
+
       Alert.alert('Error', 'Failed to load academic data');
     } finally {
       setLoading(false);
@@ -122,10 +123,10 @@ export default function AcademicManagement() {
     setEndDate('');
   };
   const renderHeader = () => {
-return <View style={styles.tabContainer}>
+    return <View style={styles.tabContainer}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {(['classes', 'sections', 'years', 'subjects', 'mappings'] as TabType[]).map(tab => {
-return <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)} style={[styles.tab, activeTab === tab && styles.activeTab, {
+                {(['classes', 'sections', 'years', 'subjects', 'mappings'] as TabType[]).map((tab) => {
+          return <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)} style={[styles.tab, activeTab === tab && styles.activeTab, {
             minWidth: 100
           }]}>
                         <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
@@ -149,8 +150,7 @@ return <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)} style={[sty
           Alert.alert('Deleted', `${activeTab.slice(0, -1)} deleted successfully`);
           fetchData();
         } catch (error: any) {
-          // error is already handled by apiClient global alert
-          console.error('Delete failed:', error);
+
         }
       }
     }]);
@@ -158,11 +158,9 @@ return <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)} style={[sty
   const renderItem = ({
     item,
     index
-  }: {
-    item: any;
-    index: number;
-  }) => {
-return <Animated.View entering={FadeInDown.delay(index * 50)} layout={Layout.springify()} style={styles.itemCard}>
+
+  }: {item: any;index: number;}) => {
+    return <Animated.View entering={FadeInDown.delay(index * 50)} layout={Layout.springify()} style={styles.itemCard}>
             <View style={styles.itemInfo}>
                 <Text style={styles.itemTitle}>{item.class_name ? `${item.class_name} - ${item.section_name}` : item.name || item.code}</Text>
                 {item.code && item.name && <Text style={styles.itemSub}>{item.code}</Text>}
@@ -198,7 +196,7 @@ return <Animated.View entering={FadeInDown.delay(index * 50)} layout={Layout.spr
         const endYear = nextEnd.getFullYear();
         setNewItemCode(`${startYear}-${endYear}`);
       } catch (e) {
-        console.warn('Auto-date calc failed', e);
+
       }
     }
     setModalVisible(true);
@@ -206,37 +204,29 @@ return <Animated.View entering={FadeInDown.delay(index * 50)} layout={Layout.spr
   return <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor={ADMIN_THEME.colors.primary} />
             <AdminHeader title="Academic Structure" showBackButton />
-
             {renderHeader()}
-
             <View style={styles.content}>
-                {loading ? <ActivityIndicator size="large" color={ADMIN_THEME.colors.primary} style={{
+                {loading ? <LogoLoader size={60} color={ADMIN_THEME.colors.primary} style={{
         marginTop: 50
-      }} /> : <FlatList data={activeTab === 'classes' ? classes : activeTab === 'sections' ? sections : activeTab === 'years' ? years : activeTab === 'subjects' ? subjects : mappings} keyExtractor={item => item.id} renderItem={renderItem} contentContainerStyle={{
+      }} /> : <FlatList data={activeTab === 'classes' ? classes : activeTab === 'sections' ? sections : activeTab === 'years' ? years : activeTab === 'subjects' ? subjects : mappings} keyExtractor={(item) => item.id} renderItem={renderItem} contentContainerStyle={{
         paddingBottom: 100
       }} ListEmptyComponent={<Text style={styles.emptyText}>No {activeTab} found</Text>} />}
             </View>
-
             <TouchableOpacity style={styles.fab} onPress={handleOpenModal}>
                 <LinearGradient colors={['#6366F1', '#4F46E5']} style={styles.fabGradient}>
                     <Ionicons name="add" size={30} color="#fff" />
                 </LinearGradient>
             </TouchableOpacity>
-
             <Modal animationType="slide" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>Add New {activeTab.slice(0, -1)}</Text>
-
                         {activeTab !== 'years' && activeTab !== 'mappings' && <TextInput style={styles.input} placeholder="Name (e.g. Class 10)" value={newItemName} onChangeText={setNewItemName} />}
-
                         {activeTab !== 'mappings' && <TextInput style={styles.input} placeholder={activeTab === 'years' ? "Code (e.g. 2023-24)" : "Code (optional)"} value={newItemCode} onChangeText={setNewItemCode} />}
-
                         {activeTab === 'years' && <>
                                 <TextInput style={styles.input} placeholder="Start Date (YYYY-MM-DD)" value={startDate} onChangeText={setStartDate} />
                                 <TextInput style={styles.input} placeholder="End Date (YYYY-MM-DD)" value={endDate} onChangeText={setEndDate} />
                             </>}
-
                         {activeTab === 'mappings' && <>
                                 <Text style={{
               fontWeight: 'bold',
@@ -245,8 +235,8 @@ return <Animated.View entering={FadeInDown.delay(index * 50)} layout={Layout.spr
                                 <ScrollView horizontal style={{
               marginBottom: 10
             }}>
-                                    {classes.map(c => {
-return <TouchableOpacity key={c.id} onPress={() => setSelClassId(c.id)} style={[styles.tab, {
+                                    {classes.map((c) => {
+                return <TouchableOpacity key={c.id} onPress={() => setSelClassId(c.id)} style={[styles.tab, {
                   backgroundColor: selClassId === c.id ? '#6366F1' : '#ddd',
                   paddingHorizontal: 10,
                   marginRight: 5
@@ -257,7 +247,6 @@ return <TouchableOpacity key={c.id} onPress={() => setSelClassId(c.id)} style={[
                                         </TouchableOpacity>;
               })}
                                 </ScrollView>
-
                                 <Text style={{
               fontWeight: 'bold',
               marginBottom: 5
@@ -265,8 +254,8 @@ return <TouchableOpacity key={c.id} onPress={() => setSelClassId(c.id)} style={[
                                 <ScrollView horizontal style={{
               marginBottom: 10
             }}>
-                                    {sections.map(s => {
-return <TouchableOpacity key={s.id} onPress={() => setSelSectionId(s.id)} style={[styles.tab, {
+                                    {sections.map((s) => {
+                return <TouchableOpacity key={s.id} onPress={() => setSelSectionId(s.id)} style={[styles.tab, {
                   backgroundColor: selSectionId === s.id ? '#6366F1' : '#ddd',
                   paddingHorizontal: 10,
                   marginRight: 5
@@ -277,7 +266,6 @@ return <TouchableOpacity key={s.id} onPress={() => setSelSectionId(s.id)} style=
                                         </TouchableOpacity>;
               })}
                                 </ScrollView>
-
                                 <Text style={{
               fontWeight: 'bold',
               marginBottom: 5
@@ -285,8 +273,8 @@ return <TouchableOpacity key={s.id} onPress={() => setSelSectionId(s.id)} style=
                                 <ScrollView horizontal style={{
               marginBottom: 10
             }}>
-                                    {years.map(y => {
-return <TouchableOpacity key={y.id} onPress={() => setSelYearId(y.id)} style={[styles.tab, {
+                                    {years.map((y) => {
+                return <TouchableOpacity key={y.id} onPress={() => setSelYearId(y.id)} style={[styles.tab, {
                   backgroundColor: selYearId === y.id ? '#6366F1' : '#ddd',
                   paddingHorizontal: 10,
                   marginRight: 5
@@ -298,7 +286,6 @@ return <TouchableOpacity key={y.id} onPress={() => setSelYearId(y.id)} style={[s
               })}
                                 </ScrollView>
                             </>}
-
                         <View style={styles.modalButtons}>
                             <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setModalVisible(false)}>
                                 <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -312,7 +299,7 @@ return <TouchableOpacity key={y.id} onPress={() => setSelYearId(y.id)} style={[s
             </Modal>
         </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card

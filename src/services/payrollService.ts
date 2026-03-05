@@ -3,27 +3,26 @@ import { api } from './apiClient';
 import { PayrollEntry } from '../types/payroll';
 
 export const PayrollService = {
-    /**
-     * Fetch payroll for a specific month/year.
-     * Uses the 'generate_monthly_payroll' RPC to ensure data exists first.
-     */
-    async getPayrollForMonth(month: number, year: number): Promise<PayrollEntry[]> {
-        try {
-            // 1. Ensure payroll records exist for this month
-            const { error: rpcError } = await supabase.rpc('generate_monthly_payroll', {
-                p_month: month,
-                p_year: year
-            });
+  /**
+   * Fetch payroll for a specific month/year.
+   * Uses the 'generate_monthly_payroll' RPC to ensure data exists first.
+   */
+  async getPayrollForMonth(month: number, year: number): Promise<PayrollEntry[]> {
+    try {
+      // 1. Ensure payroll records exist for this month
+      const { error: rpcError } = await supabase.rpc('generate_monthly_payroll', {
+        p_month: month,
+        p_year: year
+      });
 
-            if (rpcError) {
-                console.error('Error generating payroll:', rpcError);
-                // Continue anyway, maybe it just failed to insert dupes or something
-            }
+      if (rpcError) {
 
-            // 2. Fetch records
-            const { data, error } = await supabase
-                .from('staff_payroll')
-                .select(`
+      }
+
+      // 2. Fetch records
+      const { data, error } = await supabase.
+      from('staff_payroll').
+      select(`
                     *,
                     staff:staff_id (
                         staff_code,
@@ -35,29 +34,29 @@ export const PayrollService = {
                             display_name
                         )
                     )
-                `)
-                .eq('payroll_month', month)
-                .eq('payroll_year', year)
-                .order('created_at', { ascending: true });
+                `).
+      eq('payroll_month', month).
+      eq('payroll_year', year).
+      order('created_at', { ascending: true });
 
-            if (error) throw error;
-            return data as PayrollEntry[];
-        } catch (err) {
-            console.error('PayrollService.getPayrollForMonth error:', err);
-            return [];
-        }
-    },
+      if (error) throw error;
+      return data as PayrollEntry[];
+    } catch (err) {
 
-    /**
-     * Mark a payroll entry as PAID.
-     */
-    async markAsPaid(id: string): Promise<boolean> {
-        try {
-            await api.put(`/payroll/${id}/pay`);
-            return true;
-        } catch (err) {
-            console.error('PayrollService.markAsPaid error:', err);
-            return false;
-        }
+      return [];
     }
+  },
+
+  /**
+   * Mark a payroll entry as PAID.
+   */
+  async markAsPaid(id: string): Promise<boolean> {
+    try {
+      await api.put(`/payroll/${id}/pay`);
+      return true;
+    } catch (err) {
+
+      return false;
+    }
+  }
 };

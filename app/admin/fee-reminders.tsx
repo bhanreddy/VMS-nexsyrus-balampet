@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Modal } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons'; // Assuming Expo
 import ScreenLayout from '../../src/components/ScreenLayout';
 import AdminHeader from '../../src/components/AdminHeader';
 import { ADMIN_THEME } from '../../src/constants/adminTheme';
 import { useAuth } from '../../src/hooks/useAuth';
-import { api, APIError } from '../../src/services/apiClient';
+import { api } from '../../src/services/apiClient';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 const COLORS = ADMIN_THEME.colors;
 const SHADOWS = ADMIN_THEME.shadows;
 interface ClassItem {
@@ -25,8 +25,7 @@ const FeeRemindersAdmin = () => {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
-  const router = useRouter();
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const {
     user
   } = useAuth();
@@ -56,7 +55,7 @@ const FeeRemindersAdmin = () => {
       const response = await api.get('/academics/classes');
       setClasses(response as ClassItem[]);
     } catch (error) {
-      console.error('Failed to fetch classes', error);
+
     }
   };
   const fetchPreview = async () => {
@@ -72,7 +71,7 @@ const FeeRemindersAdmin = () => {
       const response = await api.post('/admin/notifications/fees/send-all', payload);
       setPreviewStats(response as PreviewStats);
     } catch (error: any) {
-      console.error('Preview failed', error);
+
       if (error.statusCode === 429) {
         Alert.alert('Limit Reached', 'Daily limit reached for this batch type.');
       }
@@ -107,19 +106,17 @@ const FeeRemindersAdmin = () => {
   return <ScreenLayout>
             <AdminHeader title="Fee Reminders" showBackButton={true} />
             <ScrollView style={styles.container}>
-
                 {/* Month Selection */}
                 <View style={styles.section}>
                     <Text style={styles.label}>Select Month</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.monthSelector}>
-                        {months.map(month => {
-return <TouchableOpacity key={month} style={[styles.monthChip, selectedMonth === month && styles.selectedMonth]} onPress={() => setSelectedMonth(month)}>
+                        {months.map((month) => {
+            return <TouchableOpacity key={month} style={[styles.monthChip, selectedMonth === month && styles.selectedMonth]} onPress={() => setSelectedMonth(month)}>
                                 <Text style={[styles.monthText, selectedMonth === month && styles.selectedMonthText]}>{month}</Text>
                             </TouchableOpacity>;
           })}
                     </ScrollView>
                 </View>
-
                 {/* Class Filter */}
                 <View style={styles.section}>
                     <Text style={styles.label}>Filter by Class (Optional)</Text>
@@ -127,18 +124,17 @@ return <TouchableOpacity key={month} style={[styles.monthChip, selectedMonth ===
                         <TouchableOpacity style={[styles.classChip, !selectedClass && styles.selectedClass]} onPress={() => setSelectedClass(null)}>
                             <Text style={[styles.classText, !selectedClass && styles.selectedClassText]}>All Classes</Text>
                         </TouchableOpacity>
-                        {classes.map(cls => {
-return <TouchableOpacity key={cls.id} style={[styles.classChip, selectedClass === cls.id && styles.selectedClass]} onPress={() => setSelectedClass(cls.id)}>
+                        {classes.map((cls) => {
+            return <TouchableOpacity key={cls.id} style={[styles.classChip, selectedClass === cls.id && styles.selectedClass]} onPress={() => setSelectedClass(cls.id)}>
                                 <Text style={[styles.classText, selectedClass === cls.id && styles.selectedClassText]}>{cls.name}</Text>
                             </TouchableOpacity>;
           })}
                     </ScrollView>
                 </View>
-
                 {/* Preview Stats */}
                 <View style={styles.card}>
                     <Text style={styles.cardTitle}>Preview</Text>
-                    {loading && !previewStats ? <ActivityIndicator /> : <View>
+                    {loading && !previewStats ? <LogoLoader /> : <View>
                             <View style={styles.statRow}>
                                 <Text>Target Students:</Text>
                                 <Text style={styles.statValue}>{previewStats?.total_students || 0}</Text>
@@ -148,12 +144,10 @@ return <TouchableOpacity key={cls.id} style={[styles.classChip, selectedClass ==
                             <Text style={styles.sampleText}>{previewStats?.sample_message || '-'}</Text>
                         </View>}
                 </View>
-
                 {/* Send Button */}
                 <TouchableOpacity style={[styles.sendButton, (loading || !previewStats?.total_students) && styles.disabledButton]} disabled={loading || !previewStats?.total_students} onPress={() => setModalVisible(true)}>
                     <Text style={styles.sendButtonText}>{loading ? 'Processing...' : 'SEND ALL REMINDERS'}</Text>
                 </TouchableOpacity>
-
                 {/* Confirmation Modal */}
                 <Modal visible={modalVisible} transparent animationType="slide">
                     <View style={styles.modalOverlay}>
@@ -168,7 +162,6 @@ return <TouchableOpacity key={cls.id} style={[styles.classChip, selectedClass ==
               }}>{selectedMonth}</Text>.
                             </Text>
                             <Text style={styles.modalSubText}>This action cannot be undone.</Text>
-
                             <View style={styles.modalActions}>
                                 <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}>
                                     <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -180,12 +173,11 @@ return <TouchableOpacity key={cls.id} style={[styles.classChip, selectedClass ==
                         </View>
                     </View>
                 </Modal>
-
             </ScrollView>
         </ScreenLayout>;
 };
 export default FeeRemindersAdmin;
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     padding: 16
   },

@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, StatusBar, ScrollView, Modal, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, StatusBar, ScrollView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AdminHeader from '../../src/components/AdminHeader';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { FeeService } from '../../src/services/feeService';
-import { PolicyService } from '../../src/services/policyService';
 import { generateReceiptPDF } from '../../src/utils/pdfGenerator';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 export default function ReceiptsScreen() {
   const {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const {
     t
   } = useTranslation();
@@ -30,7 +30,7 @@ export default function ReceiptsScreen() {
     setLoading(true);
     try {
       const data = await FeeService.getTransactions();
-      const formatted = data.map(tx => ({
+      const formatted = data.map((tx) => ({
         id: tx.id,
         student: tx.student_name,
         admission_no: tx.admission_no,
@@ -45,7 +45,7 @@ export default function ReceiptsScreen() {
       }));
       setReceipts(formatted);
     } catch (error) {
-      console.error(error);
+
     } finally {
       setLoading(false);
     }
@@ -60,11 +60,9 @@ export default function ReceiptsScreen() {
   const renderReceiptItem = ({
     item,
     index
-  }: {
-    item: any;
-    index: number;
-  }) => {
-return <Animated.View entering={FadeInDown.delay(index * 100).duration(500)} style={styles.receiptCard}>
+
+  }: {item: any;index: number;}) => {
+    return <Animated.View entering={FadeInDown.delay(index * 100).duration(500)} style={styles.receiptCard}>
             <View style={[styles.receiptLeft, {
         flex: 1
       }]}>
@@ -104,37 +102,33 @@ return <Animated.View entering={FadeInDown.delay(index * 100).duration(500)} sty
   return <View style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
             <AdminHeader title="Receipts" showBackButton={true} />
-
             <View style={styles.content}>
                 {/* Search Bar */}
                 <View style={styles.searchContainer}>
                     <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
                     <TextInput style={styles.searchInput} placeholder="Search by transaction ID or Name" placeholderTextColor="#9CA3AF" value={searchQuery} onChangeText={setSearchQuery} />
                 </View>
-
                 {/* Filters */}
                 <View style={styles.filterContainer}>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{
           gap: 10
         }}>
                         {filters.map((filter, index) => {
-return <TouchableOpacity key={index} onPress={() => setSelectedFilter(filter)} style={[styles.filterChip, selectedFilter === filter && styles.activeFilterChip]}>
+            return <TouchableOpacity key={index} onPress={() => setSelectedFilter(filter)} style={[styles.filterChip, selectedFilter === filter && styles.activeFilterChip]}>
                                 <Text style={[styles.filterText, selectedFilter === filter && styles.activeFilterText]}>{filter}</Text>
                             </TouchableOpacity>;
           })}
                     </ScrollView>
                 </View>
-
-                {loading ? <ActivityIndicator size="large" color="#6366F1" style={{
+                {loading ? <LogoLoader size={60} color="#6366F1" style={{
         marginTop: 20
-      }} /> : <FlatList data={receipts} renderItem={renderReceiptItem} keyExtractor={item => item.id} showsVerticalScrollIndicator={false} contentContainerStyle={{
+      }} /> : <FlatList data={receipts} renderItem={renderReceiptItem} keyExtractor={(item) => item.id} showsVerticalScrollIndicator={false} contentContainerStyle={{
         paddingBottom: 20
       }} ListEmptyComponent={<Text style={styles.emptyText}>No receipts found</Text>} />}
             </View>
-
         </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card

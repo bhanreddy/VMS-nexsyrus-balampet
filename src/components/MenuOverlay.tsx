@@ -116,6 +116,7 @@ const MenuOverlay: React.FC<Props> = ({ visible, onClose, userType = 'student' }
         { key: 'event_photos', label: 'Event Photos', icon: 'camera-outline', link: '/Screen/eventPhotos', accent: '#F59E0B' },
         { key: 'insurance', label: 'Insurance', icon: 'shield-checkmark-outline', link: '/Screen/insurance', accent: '#10B981' },
         { key: 'money_science', label: 'Money Science', icon: 'cash-outline', link: '/Screen/moneyScience', accent: '#8B5CF6' },
+        { key: 'girl_safety', label: 'Girl Safety', icon: 'shield-checkmark-outline', link: '/girl-safety', accent: '#7C3AED' },
     ];
 
     const staffMenuItems: MenuItem[] = [

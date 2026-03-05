@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, StatusBar, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AdminHeader from '../../src/components/AdminHeader';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -8,12 +8,13 @@ import { FeeService as FeesService } from '../../src/services/feeService';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 export default function AccountsDefaulters() {
   const {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const {
     user
   } = useAuth();
@@ -45,7 +46,7 @@ export default function AccountsDefaulters() {
       }));
       setDefaulters(uiData);
     } catch (e) {
-      console.error(e);
+
     } finally {
       setLoading(false);
     }
@@ -56,11 +57,9 @@ export default function AccountsDefaulters() {
   const renderItem = ({
     item,
     index
-  }: {
-    item: any;
-    index: number;
-  }) => {
-return <Animated.View entering={FadeInDown.delay(index * 100).duration(500)}>
+
+  }: {item: any;index: number;}) => {
+    return <Animated.View entering={FadeInDown.delay(index * 100).duration(500)}>
             <View style={styles.card}>
                 <View style={styles.headerRow}>
                     <View>
@@ -72,12 +71,10 @@ return <Animated.View entering={FadeInDown.delay(index * 100).duration(500)}>
                         <Text style={styles.dueAmount}>{item.due}</Text>
                     </View>
                 </View>
-
                 <View style={styles.detailsRow}>
                     <Text style={styles.parentText}>Parent: {item.parent}</Text>
                     <Text style={styles.phoneText}>{item.phone}</Text>
                 </View>
-
                 <TouchableOpacity style={styles.remindBtn} onPress={() => handleReminder(item.name)}>
                     <Ionicons name="notifications" size={18} color="#fff" style={{
             marginRight: 8
@@ -90,17 +87,16 @@ return <Animated.View entering={FadeInDown.delay(index * 100).duration(500)}>
   return <View style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
             <AdminHeader title="Fee Defaulters" showBackButton={true} />
-
-            {loading ? <ActivityIndicator size="large" color="#EF4444" style={{
+            {loading ? <LogoLoader size={60} color="#EF4444" style={{
       marginTop: 50
-    }} /> : <FlatList data={defaulters} keyExtractor={item => item.id} renderItem={renderItem} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false} ListEmptyComponent={<Text style={{
+    }} /> : <FlatList data={defaulters} keyExtractor={(item) => item.id} renderItem={renderItem} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false} ListEmptyComponent={<Text style={{
       textAlign: 'center',
       marginTop: 20,
       color: '#666'
     }}>No defaulters found.</Text>} />}
         </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card

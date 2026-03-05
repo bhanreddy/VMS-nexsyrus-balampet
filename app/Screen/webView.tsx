@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useLocalSearchParams, useRouter } from 'expo-router'; // expo-router handles navigation
 import StudentHeader from '../../src/components/StudentHeader';
 import ScreenLayout from '../../src/components/ScreenLayout';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 export default function WebViewScreen() {
   const {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const {
     url,
     title
@@ -56,14 +57,14 @@ export default function WebViewScreen() {
         uri: uri
       }} style={styles.webview} startInLoadingState={true} renderLoading={() => {
 return <View style={styles.loadingOverlay}>
-                                <ActivityIndicator size="large" color="#4F46E5" />
+                                <LogoLoader size={60} color="#4F46E5" />
                             </View>;
       }} onLoadStart={handleLoadStart} onLoadEnd={handleLoadEnd} onError={handleError} javaScriptEnabled={true} domStorageEnabled={true} scalesPageToFit={true} // For Android text sizing
       />}
             </View>
         </ScreenLayout>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f9fafb'

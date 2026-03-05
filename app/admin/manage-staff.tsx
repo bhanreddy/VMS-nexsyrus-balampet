@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, TextInput, StatusBar, Alert, ActivityIndicator } from 'react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, TextInput, StatusBar, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import AdminHeader from '../../src/components/AdminHeader';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { StaffService, Staff } from '../../src/services/staffService';
+import { StaffService } from '../../src/services/staffService';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 interface StaffMember {
   id: string;
   first_name: string;
@@ -22,8 +22,7 @@ export default function ManageStaff() {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
-  const router = useRouter();
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const [searchQuery, setSearchQuery] = useState('');
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,7 +37,7 @@ export default function ManageStaff() {
       // Map backend data to frontend model
       // The StaffService.getAll returns Staff[] which has the fields we need (joined).
       // But we might need to handle nulls.
-      const mappedStaff: StaffMember[] = data.map(item => ({
+      const mappedStaff: StaffMember[] = data.map((item) => ({
         id: item.id,
         first_name: item.first_name || '',
         last_name: item.last_name || '',
@@ -54,13 +53,13 @@ export default function ManageStaff() {
       }));
       setStaffList(mappedStaff);
     } catch (error) {
-      console.error('Failed to fetch staff:', error);
+
       Alert.alert('Error', 'Failed to load staff list');
     } finally {
       setLoading(false);
     }
   };
-  const filteredStaff = staffList.filter(staff => (staff.display_name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) || (staff.designation?.toLowerCase() || '').includes(searchQuery.toLowerCase()));
+  const filteredStaff = staffList.filter((staff) => (staff.display_name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) || (staff.designation?.toLowerCase() || '').includes(searchQuery.toLowerCase()));
   const handleCall = (phone: string, name: string) => {
     if (!phone) {
       Alert.alert("No Phone", `No phone number available for ${name}`);
@@ -93,11 +92,9 @@ export default function ManageStaff() {
   const renderItem = ({
     item,
     index
-  }: {
-    item: StaffMember;
-    index: number;
-  }) => {
-return <Animated.View entering={FadeInDown.delay(index * 50).duration(400)}>
+
+  }: {item: StaffMember;index: number;}) => {
+    return <Animated.View entering={FadeInDown.delay(index * 50).duration(400)}>
             <TouchableOpacity style={styles.card}>
                 <Image source={{
           uri: item.photo_url || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'
@@ -129,18 +126,16 @@ return <Animated.View entering={FadeInDown.delay(index * 50).duration(400)}>
   return <View style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
             <AdminHeader title="Manage Staff" showBackButton={true} />
-
             <View style={styles.searchContainer}>
                 <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
                 <TextInput style={styles.searchInput} placeholder="Search Staff..." value={searchQuery} onChangeText={setSearchQuery} />
             </View>
-
             {loading ? <View style={styles.centerContainer}>
-                    <ActivityIndicator size="large" color="#6366F1" />
-                </View> : <FlatList data={filteredStaff} keyExtractor={item => item.id} renderItem={renderItem} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false} ListEmptyComponent={<Text style={styles.emptyText}>No staff found</Text>} refreshing={loading} onRefresh={fetchStaff} />}
+                    <LogoLoader size={60} color="#6366F1" />
+                </View> : <FlatList data={filteredStaff} keyExtractor={(item) => item.id} renderItem={renderItem} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false} ListEmptyComponent={<Text style={styles.emptyText}>No staff found</Text>} refreshing={loading} onRefresh={fetchStaff} />}
         </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card

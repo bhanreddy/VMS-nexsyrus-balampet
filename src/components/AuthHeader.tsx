@@ -14,8 +14,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SCHOOL_CONFIG } from "../constants/schoolConfig";
 import { useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const { width, height } = Dimensions.get("window");
+const { width } = Dimensions.get("window");
 
 const PALETTE = {
     voidBase: "#05050A",
@@ -69,11 +71,19 @@ interface AuthHeaderProps {
     title: string;
     subtitle: string;
     glowColor?: string; // e.g. "rgba(6,182,212,0.15)" for Cyan
+    showLangToggle?: boolean;
 }
 
-export default function AuthHeader({ title, subtitle, glowColor = "rgba(79,70,229,0.10)" }: AuthHeaderProps) {
+export default function AuthHeader({ title, subtitle, glowColor = "rgba(79,70,229,0.10)", showLangToggle = true }: AuthHeaderProps) {
     const insets = useSafeAreaInsets();
     const router = useRouter();
+    const { t, i18n } = useTranslation();
+
+    const toggleLanguage = async () => {
+        const newLang = i18n.language === 'en' ? 'te' : 'en';
+        await i18n.changeLanguage(newLang);
+        await AsyncStorage.setItem('appLanguage', newLang);
+    };
 
     return (
         <View style={[styles.headerBox, { paddingTop: insets.top + 10 }]}>
@@ -98,17 +108,33 @@ export default function AuthHeader({ title, subtitle, glowColor = "rgba(79,70,22
                     <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                         <Ionicons name="arrow-back" size={24} color="#FFF" />
                     </TouchableOpacity>
-                    <View style={styles.brandPill}>
-                        <LinearGradient
-                            colors={["rgba(255,255,255,0.04)", "transparent"]}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 0, y: 1 }}
-                            style={[StyleSheet.absoluteFill, { borderRadius: 100 }]}
-                        />
-                        <View style={styles.logoCircle}>
-                            <Image source={SCHOOL_CONFIG.logo} style={styles.logoImage} />
+
+                    <View style={styles.rightHeaderControls}>
+                        {/* Language Toggler */}
+                        {showLangToggle && (
+                            <TouchableOpacity style={styles.langToggleBtn} onPress={toggleLanguage}>
+                                <Text style={i18n.language === 'en' ? styles.langActive : styles.langInactive}>
+                                    {t('languageEnglish')}
+                                </Text>
+                                <Text style={styles.langSeparator}> | </Text>
+                                <Text style={i18n.language === 'te' ? styles.langActive : styles.langInactive}>
+                                    {t('languageTelugu')}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+
+                        <View style={styles.brandPill}>
+                            <LinearGradient
+                                colors={["rgba(255,255,255,0.04)", "transparent"]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 0, y: 1 }}
+                                style={[StyleSheet.absoluteFill, { borderRadius: 100 }]}
+                            />
+                            <View style={styles.logoCircle}>
+                                <Image source={SCHOOL_CONFIG.logo} style={styles.logoImage} />
+                            </View>
+                            <Text style={styles.brandName}>{SCHOOL_CONFIG.name}</Text>
                         </View>
-                        <Text style={styles.brandName}>{SCHOOL_CONFIG.name}</Text>
                     </View>
                 </Reveal>
 
@@ -187,5 +213,33 @@ const styles = StyleSheet.create({
         color: "rgba(255,255,255,0.6)",
         fontWeight: "500",
         lineHeight: 22,
+    },
+    rightHeaderControls: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    langToggleBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginRight: 16,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255,255,255,0.08)',
+    },
+    langActive: {
+        color: '#FFFFFF',
+        fontWeight: 'bold',
+        fontSize: 12,
+    },
+    langInactive: {
+        color: 'rgba(255,255,255,0.5)',
+        fontWeight: 'normal',
+        fontSize: 12,
+    },
+    langSeparator: {
+        color: 'rgba(255,255,255,0.3)',
+        marginHorizontal: 4,
+        fontSize: 12,
     }
 });

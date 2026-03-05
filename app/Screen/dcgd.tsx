@@ -4,14 +4,13 @@ import ScreenLayout from '../../src/components/ScreenLayout';
 import StudentHeader from '../../src/components/StudentHeader';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useTheme } from '../../src/hooks/useTheme';
-import { Theme } from '../../src/theme/themes';
 const dcgdOptions = ['CSE Foundation', 'JEE Foundation', 'IPMAT Foundation', 'NEET Foundation', 'Navodaya', 'Gurukula'];
 const DCGDScreen = () => {
   const {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(), []);
   const {
     user
   } = useAuth();
@@ -61,7 +60,7 @@ export default DCGDScreen;
 
 /* ============================ STYLES ============================ */
 
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = () => StyleSheet.create({
   container: {
     padding: 16,
     paddingBottom: 30

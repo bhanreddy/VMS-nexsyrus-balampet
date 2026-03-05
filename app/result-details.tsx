@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, StatusBar, TouchableOpacity, Dimensions, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, StatusBar, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import StudentHeader from '../src/components/StudentHeader';
-import Constants from 'expo-constants';
 import { useTranslation } from 'react-i18next';
 import { StudentService } from '../src/services/studentService';
 import { ResultService, ExamListEntry, StudentResultDetail } from '../src/services/resultService';
 import { useAuth } from '../src/hooks/useAuth';
 import { useTheme } from '../src/hooks/useTheme';
 import { Theme } from '../src/theme/themes';
+import LogoLoader from '../src/components/LogoLoader';
+
 const {
   width
 } = Dimensions.get('window');
@@ -20,7 +21,7 @@ export default function ResultDetails() {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const {
     type,
     title,
@@ -37,6 +38,7 @@ export default function ResultDetails() {
   const [examList, setExamList] = useState<ExamListEntry[]>([]);
   const [detail, setDetail] = useState<StudentResultDetail | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
+
   useEffect(() => {
     loadData();
   }, [user?.id, type, examId]);
@@ -70,7 +72,7 @@ export default function ResultDetails() {
         }
       }
     } catch (error) {
-      console.error('Failed to load result data:', error);
+
     } finally {
       setLoading(false);
     }
@@ -101,139 +103,139 @@ export default function ResultDetails() {
   };
   if (loading) {
     return <View style={styles.container}>
-                <StudentHeader showBackButton={true} title={title as string || 'Loading...'} />
-                <View style={styles.centerContainer}>
-                    <ActivityIndicator size="large" color="#4F46E5" />
-                </View>
-            </View>;
+      <StudentHeader showBackButton={true} title={title as string || 'Loading...'} />
+      <View style={styles.centerContainer}>
+        <LogoLoader size={60} color="#4F46E5" />
+      </View>
+    </View>;
   }
 
   // --- LIST VIEW ---
   if (viewMode === 'list') {
     return <View style={styles.container}>
-                <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-                <StudentHeader showBackButton={true} title={title as string || 'Results'} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StudentHeader showBackButton={true} title={title as string || 'Results'} />
 
-                <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                    {examList.length === 0 ? <View style={styles.emptyContainer}>
-                            <Text style={styles.emptyText}>No exams found for this category.</Text>
-                        </View> : <View style={styles.listContainer}>
-                            {examList.map((exam, index) => {
-return <Animated.View key={exam.id} entering={FadeInDown.delay(100 * index)}>
-                                    <TouchableOpacity style={styles.examCard} onPress={() => handleExamPress(exam)}>
-                                        <View style={styles.examHeader}>
-                                            <Text style={styles.examTitle}>{exam.name}</Text>
-                                            <Text style={styles.examDate}>{formatDate(exam.start_date)}</Text>
-                                        </View>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {examList.length === 0 ? <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>No exams found for this category.</Text>
+        </View> : <View style={styles.listContainer}>
+          {examList.map((exam: ExamListEntry, index: number) => {
+            return <Animated.View key={exam.id} entering={FadeInDown.delay(100 * index)}>
+              <TouchableOpacity style={styles.examCard} onPress={() => handleExamPress(exam)}>
+                <View style={styles.examHeader}>
+                  <Text style={styles.examTitle}>{exam.name}</Text>
+                  <Text style={styles.examDate}>{formatDate(exam.start_date)}</Text>
+                </View>
 
-                                        <View style={styles.examStats}>
-                                            <View style={styles.statItem}>
-                                                <Text style={styles.statLabel}>Subjects</Text>
-                                                <Text style={styles.statValue}>{exam.subjects_count}</Text>
-                                            </View>
-                                            <View style={styles.statDivider} />
-                                            <View style={styles.statItem}>
-                                                <Text style={styles.statLabel}>Percentage</Text>
-                                                <Text style={[styles.statValue, {
+                <View style={styles.examStats}>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statLabel}>Subjects</Text>
+                    <Text style={styles.statValue}>{exam.subjects_count}</Text>
+                  </View>
+                  <View style={styles.statDivider} />
+                  <View style={styles.statItem}>
+                    <Text style={styles.statLabel}>Percentage</Text>
+                    <Text style={[styles.statValue, {
                       color: exam.percentage >= 35 ? '#10B981' : '#EF4444'
                     }]}>
-                                                    {exam.percentage}%
-                                                </Text>
-                                            </View>
-                                            <View style={styles.statDivider} />
-                                            <View style={styles.statItem}>
-                                                <Text style={styles.statLabel}>Grade</Text>
-                                                <Text style={styles.statValue}>{getGrade(exam.percentage)}</Text>
-                                            </View>
-                                        </View>
-                                    </TouchableOpacity>
-                                </Animated.View>;
+                      {exam.percentage}%
+                    </Text>
+                  </View>
+                  <View style={styles.statDivider} />
+                  <View style={styles.statItem}>
+                    <Text style={styles.statLabel}>Grade</Text>
+                    <Text style={styles.statValue}>{getGrade(exam.percentage)}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </Animated.View>;
           })}
-                        </View>}
-                </ScrollView>
-            </View>;
+        </View>}
+      </ScrollView>
+    </View>;
   }
 
   // --- DETAIL VIEW ---
   if (!detail) {
     return <View style={styles.container}>
-                <StudentHeader showBackButton={true} title={title as string || 'Result Details'} />
-                <View style={styles.centerContainer}>
-                    <Text style={styles.emptyText}>Result details not found.</Text>
-                </View>
-            </View>;
+      <StudentHeader showBackButton={true} title={title as string || 'Result Details'} />
+      <View style={styles.centerContainer}>
+        <Text style={styles.emptyText}>Result details not found.</Text>
+      </View>
+    </View>;
   }
   return <View style={styles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-            <StudentHeader showBackButton={true} title={detail.exam_name || title as string || 'Result Details'} />
+    <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+    <StudentHeader showBackButton={true} title={detail.exam_name || title as string || 'Result Details'} />
 
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-                {/* Summary Card */}
-                <Animated.View entering={FadeInDown.delay(100).duration(600)} style={styles.summaryCard}>
-                    <LinearGradient colors={['#1F2937', '#111827']} style={styles.gradientCard} start={{
+      {/* Summary Card */}
+      <Animated.View entering={FadeInDown.delay(100).duration(600)} style={styles.summaryCard}>
+        <LinearGradient colors={['#1F2937', '#111827']} style={styles.gradientCard} start={{
           x: 0,
           y: 0
         }} end={{
           x: 1,
           y: 1
         }}>
-                        <View style={styles.summaryContent}>
-                            <View>
-                                <Text style={styles.summaryLabel}>Overall Percentage</Text>
-                                <Text style={styles.percentageText}>{detail.percentage}%</Text>
-                                <Text style={styles.gradeText}>Grade: {getGrade(detail.percentage)}</Text>
-                            </View>
-                            <View style={styles.circularProgress}>
-                                <Text style={styles.totalScoreText}>{detail.total_obtained}</Text>
-                                <Text style={styles.maxScoreText}>/ {detail.total_max}</Text>
-                            </View>
-                        </View>
-                    </LinearGradient>
-                </Animated.View>
+          <View style={styles.summaryContent}>
+            <View>
+              <Text style={styles.summaryLabel}>Overall Percentage</Text>
+              <Text style={styles.percentageText}>{detail.percentage}%</Text>
+              <Text style={styles.gradeText}>Grade: {getGrade(detail.percentage)}</Text>
+            </View>
+            <View style={styles.circularProgress}>
+              <Text style={styles.totalScoreText}>{detail.total_obtained}</Text>
+              <Text style={styles.maxScoreText}>/ {detail.total_max}</Text>
+            </View>
+          </View>
+        </LinearGradient>
+      </Animated.View>
 
-                {/* Subject List */}
-                <View style={styles.listContainer}>
-                    <Text style={styles.sectionTitle}>Subject Breakdown</Text>
+      {/* Subject List */}
+      <View style={styles.listContainer}>
+        <Text style={styles.sectionTitle}>Subject Breakdown</Text>
 
-                    {detail.subjects && detail.subjects.map((item, index) => {
-return <Animated.View key={item.subject} entering={FadeInDown.delay(300 + index * 100).duration(600)} style={styles.resultItem}>
-                            <View style={[styles.iconBox, {
+        {(detail?.subjects || []).map((item: any, index: number) => {
+          return <Animated.View key={item.subject} entering={FadeInDown.delay(300 + index * 100).duration(600)} style={styles.resultItem}>
+            <View style={[styles.iconBox, {
               backgroundColor: item.is_absent ? '#FEE2E2' : '#EFF6FF'
             }]}>
-                                <MaterialIcons name={item.is_absent ? "event-busy" : "menu-book"} size={24} color={item.is_absent ? '#EF4444' : '#3B82F6'} />
-                            </View>
+              <MaterialIcons name={item.is_absent ? "event-busy" : "menu-book"} size={24} color={item.is_absent ? '#EF4444' : '#3B82F6'} />
+            </View>
 
-                            <View style={styles.contentBox}>
-                                <View style={styles.row}>
-                                    <Text style={styles.subjectName}>{item.subject}</Text>
-                                    <Text style={styles.scoreText}>
-                                        {item.is_absent ? <Text style={[styles.scoreValue, {
+            <View style={styles.contentBox}>
+              <View style={styles.row}>
+                <Text style={styles.subjectName}>{item.subject}</Text>
+                <Text style={styles.scoreText}>
+                  {item.is_absent ? <Text style={[styles.scoreValue, {
                     color: '#EF4444'
                   }]}>Absent</Text> : <>
-                                                <Text style={[styles.scoreValue, {
+                    <Text style={[styles.scoreValue, {
                       color: '#1F2937'
                     }]}>{item.marks_obtained}</Text>
-                                                <Text style={styles.scoreTotal}> / {item.max_marks}</Text>
-                                            </>}
-                                    </Text>
-                                </View>
+                    <Text style={styles.scoreTotal}> / {item.max_marks}</Text>
+                  </>}
+                </Text>
+              </View>
 
-                                {!item.is_absent && <View style={styles.progressBarBg}>
-                                        <View style={[styles.progressBarFill, {
+              {!item.is_absent && <View style={styles.progressBarBg}>
+                <View style={[styles.progressBarFill, {
                   width: `${item.marks_obtained / item.max_marks * 100}%`,
                   backgroundColor: item.passed ? '#10B981' : '#EF4444'
                 }]} />
-                                    </View>}
-                            </View>
-                        </Animated.View>;
+              </View>}
+            </View>
+          </Animated.View>;
         })}
-                </View>
+      </View>
 
-            </ScrollView>
-        </View>;
+    </ScrollView>
+  </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card,

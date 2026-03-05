@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
-const MockComponent = ({ children, ...props }: any) => <>{children}</>;
+const MockComponent = ({ children }: any) => <>{children}</>;
 
-export const Map = ({ children, style }: any) => (
+export const Map = ({ style }: any) => (
     <View style={[style, styles.container]}>
         <Text style={styles.text}>Map Tracking is only available on the mobile application.</Text>
     </View>

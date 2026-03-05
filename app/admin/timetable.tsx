@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView, ActivityIndicator, Alert, Modal, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, ScrollView, Alert, Modal, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { ADMIN_THEME } from '../../src/constants/adminTheme';
 import AdminHeader from '../../src/components/AdminHeader';
-import { ClassService, ClassInfo, Section, ClassSection } from '../../src/services/classService';
+import { ClassService, ClassInfo, Section } from '../../src/services/classService';
 import { ResultService, Subject } from '../../src/services/commonServices';
 import { StaffService, Staff } from '../../src/services/staffService';
 import { TimetableService, TimetableSlot, Period } from '../../src/services/timetableService';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 
 // Constants
 // No days array anymore, simple daily timetable
@@ -18,7 +18,7 @@ export default function TimetableManagement() {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const [loading, setLoading] = useState(false);
   const [slots, setSlots] = useState<TimetableSlot[]>([]);
 
@@ -79,7 +79,7 @@ export default function TimetableManagement() {
       setPeriods(pds);
       if (year) setYearId(year.id);
     } catch (error) {
-      console.error(error);
+
       Alert.alert('Error', 'Failed to load metadata');
     } finally {
       setLoading(false);
@@ -98,7 +98,7 @@ export default function TimetableManagement() {
     setLoading(true);
     try {
       const mappings = await ClassService.getClassSections(yearId);
-      const match = mappings.find(m => m.class_id === selectedClassId && m.section_id === selectedSectionId);
+      const match = mappings.find((m) => m.class_id === selectedClassId && m.section_id === selectedSectionId);
       if (match) {
         setClassSectionId(match.id);
         setClassTeacherName(match.class_teacher_name || '');
@@ -111,7 +111,7 @@ export default function TimetableManagement() {
         Alert.alert('Notice', 'No Class-Section mapping found. Please assign section to class in "Academic Structure" first.');
       }
     } catch (error) {
-      console.error(error);
+
     } finally {
       setLoading(false);
     }
@@ -121,8 +121,8 @@ export default function TimetableManagement() {
       Alert.alert('Select Class', 'Please select a class and section first');
       return;
     }
-    const existing = slots.find(s => s.period_number === periodNumber);
-    const periodDef = periods.find(p => p.sort_order === periodNumber);
+    const existing = slots.find((s) => s.period_number === periodNumber);
+    const periodDef = periods.find((p) => p.sort_order === periodNumber);
 
     setActiveSlotData({
       period: periodNumber
@@ -133,8 +133,8 @@ export default function TimetableManagement() {
 
     // Auto-assign class teacher for Period 1
     if (periodNumber === 1 && !existing && classTeacherName) {
-      const classTeacherStaff = staff.find(s =>
-        (s.display_name || s.first_name || '') === classTeacherName
+      const classTeacherStaff = staff.find((s) =>
+      (s.display_name || s.first_name || '') === classTeacherName
       );
       setSelectedTeacherId(classTeacherStaff?.id || '');
     } else {
@@ -167,7 +167,7 @@ export default function TimetableManagement() {
     }
   };
   const handleDeleteSlot = async () => {
-    const existing = slots.find(s => activeSlotData && s.period_number === activeSlotData.period);
+    const existing = slots.find((s) => activeSlotData && s.period_number === activeSlotData.period);
     if (existing) {
       try {
         await TimetableService.deleteSlot(existing.id);
@@ -183,19 +183,19 @@ export default function TimetableManagement() {
     }
   };
   const getSlotDisplay = (periodNumber: number) => {
-    const slot = slots.find(s => s.period_number === periodNumber);
+    const slot = slots.find((s) => s.period_number === periodNumber);
     if (!slot) return (
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
         <Ionicons name="add-circle-outline" size={16} color="#6366F1" />
         <Text style={{ color: '#6366F1', fontSize: 13, fontWeight: '500' }}>Tap to assign</Text>
-      </View>
-    );
+      </View>);
+
     return (
       <View style={styles.slotContent}>
         <Text style={styles.slotSubject} numberOfLines={1}>{slot.subject_name}</Text>
         {slot.teacher_name && <Text style={styles.slotTeacher} numberOfLines={1}>{slot.teacher_name}</Text>}
-      </View>
-    );
+      </View>);
+
   };
 
   // --- Period Management ---
@@ -211,7 +211,7 @@ export default function TimetableManagement() {
       setManagePeriodsVisible(false);
       Alert.alert('Success', 'Timings updated successfully');
     } catch (error) {
-      console.error(error);
+
       Alert.alert('Error', 'Failed to update periods');
     } finally {
       setLoading(false);
@@ -238,12 +238,12 @@ export default function TimetableManagement() {
       await TimetableService.updatePeriods([editingPeriod]);
 
       // Optimistic update
-      const updatedPeriods = periods.map(p => p.id === editingPeriod.id ? editingPeriod : p);
+      const updatedPeriods = periods.map((p) => p.id === editingPeriod.id ? editingPeriod : p);
       setPeriods(updatedPeriods);
       setEditPeriodModalVisible(false);
       Alert.alert('Success', 'Period updated successfully');
     } catch (error) {
-      console.error(error);
+
       Alert.alert('Error', 'Failed to update period');
     } finally {
       setLoading(false);
@@ -255,29 +255,29 @@ export default function TimetableManagement() {
       'Delete Period',
       `Are you sure you want to delete "${editingPeriod.name}"? This will also remove all timetable slots assigned to this period across all classes.`,
       [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete', style: 'destructive', onPress: async () => {
-            try {
-              setLoading(true);
-              await TimetableService.deletePeriod(editingPeriod.id);
-              setPeriods(periods.filter(p => p.id !== editingPeriod.id));
-              setEditPeriodModalVisible(false);
-              // Refresh slots if a class is selected
-              if (classSectionId) {
-                const data = await TimetableService.getClassSlots(classSectionId, yearId);
-                setSlots(data);
-              }
-              Alert.alert('Success', 'Period deleted successfully');
-            } catch (error) {
-              console.error(error);
-              Alert.alert('Error', 'Failed to delete period');
-            } finally {
-              setLoading(false);
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive', onPress: async () => {
+          try {
+            setLoading(true);
+            await TimetableService.deletePeriod(editingPeriod.id);
+            setPeriods(periods.filter((p) => p.id !== editingPeriod.id));
+            setEditPeriodModalVisible(false);
+            // Refresh slots if a class is selected
+            if (classSectionId) {
+              const data = await TimetableService.getClassSlots(classSectionId, yearId);
+              setSlots(data);
             }
+            Alert.alert('Success', 'Period deleted successfully');
+          } catch (error) {
+
+            Alert.alert('Error', 'Failed to delete period');
+          } finally {
+            setLoading(false);
           }
         }
-      ]
+      }]
+
     );
   };
 
@@ -299,13 +299,13 @@ export default function TimetableManagement() {
       rows.push(
         <View
           key={period.id}
-          style={styles.rowCard}
-        >
+          style={styles.rowCard}>
+
           <TouchableOpacity
             style={styles.periodCell}
             onPress={() => handlePeriodPress(period)}
-            activeOpacity={0.6}
-          >
+            activeOpacity={0.6}>
+
             <Text style={styles.periodText}>{period.name}</Text>
             <Text style={styles.timeText}>{period.start_time.substring(0, 5)} - {period.end_time.substring(0, 5)}</Text>
             <Ionicons name="pencil-outline" size={10} color="#818CF8" style={{ marginTop: 2 }} />
@@ -313,8 +313,8 @@ export default function TimetableManagement() {
           <TouchableOpacity
             style={[styles.cell, getSlotDisplay(period.sort_order) ? styles.filledCell : null]}
             onPress={() => handlePeriodPressForSlot(period.sort_order)}
-            activeOpacity={0.6}
-          >
+            activeOpacity={0.6}>
+
             {getSlotDisplay(period.sort_order)}
           </TouchableOpacity>
         </View>
@@ -368,7 +368,7 @@ export default function TimetableManagement() {
     {/* Selectors */}
     <View style={styles.selectorContainer}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        {classes.map(c => {
+        {classes.map((c) => {
           return <TouchableOpacity key={c.id} style={[styles.chip, selectedClassId === c.id && styles.activeChip]} onPress={() => setSelectedClassId(c.id)}>
             <Text style={[styles.chipText, selectedClassId === c.id && styles.activeChipText]}>{c.name}</Text>
           </TouchableOpacity>;
@@ -378,7 +378,7 @@ export default function TimetableManagement() {
         height: 10
       }} />
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        {sections.map(s => {
+        {sections.map((s) => {
           return <TouchableOpacity key={s.id} style={[styles.chip, selectedSectionId === s.id && styles.activeChip]} onPress={() => setSelectedSectionId(s.id)}>
             <Text style={[styles.chipText, selectedSectionId === s.id && styles.activeChipText]}>{s.name}</Text>
           </TouchableOpacity>;
@@ -416,7 +416,7 @@ export default function TimetableManagement() {
         <Text style={styles.headerTitle}>Daily Schedule</Text>
       </View>
 
-      {periodsLoading ? <ActivityIndicator size="large" color={ADMIN_THEME.colors.primary} style={{
+      {periodsLoading ? <LogoLoader size={60} color={ADMIN_THEME.colors.primary} style={{
         marginTop: 20
       }} /> : renderTableRows()}
 
@@ -434,15 +434,15 @@ export default function TimetableManagement() {
           borderColor: '#C7D2FE',
           borderStyle: 'dashed',
           backgroundColor: '#EEF2FF',
-          gap: 8,
+          gap: 8
         }}
         onPress={() => {
           setNewPeriodName('');
           setNewPeriodStart('');
           setNewPeriodEnd('');
           setCreatePeriodVisible(true);
-        }}
-      >
+        }}>
+
         <Ionicons name="add-circle-outline" size={20} color="#6366F1" />
         <Text style={{ color: '#6366F1', fontWeight: '700', fontSize: 14 }}>Add New Period</Text>
       </TouchableOpacity>
@@ -475,7 +475,7 @@ export default function TimetableManagement() {
 
           <Text style={styles.label}>Subject</Text>
           <ScrollView style={styles.listContainer} nestedScrollEnabled>
-            {subjects.map(sub => {
+            {subjects.map((sub) => {
               return <TouchableOpacity key={sub.id} style={[styles.option, selectedSubjectId === sub.id && styles.activeOption]} onPress={() => setSelectedSubjectId(sub.id)}>
                 <Text style={[styles.optionText, selectedSubjectId === sub.id && styles.activeOptionText]}>
                   {sub.name} ({sub.code})
@@ -489,7 +489,7 @@ export default function TimetableManagement() {
             <TouchableOpacity onPress={() => setSelectedTeacherId('')} style={styles.option}>
               <Text style={styles.optionText}>-- No Teacher --</Text>
             </TouchableOpacity>
-            {staff.map(st => {
+            {staff.map((st) => {
               return <TouchableOpacity key={st.id} style={[styles.option, selectedTeacherId === st.id && styles.activeOption]} onPress={() => setSelectedTeacherId(st.id)}>
                 <Text style={[styles.optionText, selectedTeacherId === st.id && styles.activeOptionText]}>
                   {st.display_name || st.first_name || st.staff_code}
@@ -527,7 +527,7 @@ export default function TimetableManagement() {
               borderRadius: 8,
               padding: 12,
               marginBottom: 12
-            }]} value={editingPeriod.name} onChangeText={t => setEditingPeriod({
+            }]} value={editingPeriod.name} onChangeText={(t) => setEditingPeriod({
               ...editingPeriod,
               name: t
             })} placeholder="e.g. Period 1" />
@@ -544,7 +544,7 @@ export default function TimetableManagement() {
                 borderColor: '#D1D5DB',
                 borderRadius: 8,
                 padding: 12
-              }]} value={editingPeriod.start_time} onChangeText={t => setEditingPeriod({
+              }]} value={editingPeriod.start_time} onChangeText={(t) => setEditingPeriod({
                 ...editingPeriod,
                 start_time: t
               })} placeholder="Start" />
@@ -555,7 +555,7 @@ export default function TimetableManagement() {
                 borderColor: '#D1D5DB',
                 borderRadius: 8,
                 padding: 12
-              }]} value={editingPeriod.end_time} onChangeText={t => setEditingPeriod({
+              }]} value={editingPeriod.end_time} onChangeText={(t) => setEditingPeriod({
                 ...editingPeriod,
                 end_time: t
               })} placeholder="End" />
@@ -597,9 +597,9 @@ export default function TimetableManagement() {
               return <View key={period.id} style={styles.periodRowEdit}>
                 <Text style={styles.periodLabelEdit}>{period.name}</Text>
                 <View style={styles.timeInputContainer}>
-                  <TextInput style={styles.timeInput} value={period.start_time} onChangeText={t => updatePeriodTime(index, 'start_time', t)} placeholder="HH:MM:SS" />
+                  <TextInput style={styles.timeInput} value={period.start_time} onChangeText={(t) => updatePeriodTime(index, 'start_time', t)} placeholder="HH:MM:SS" />
                   <Text>-</Text>
-                  <TextInput style={styles.timeInput} value={period.end_time} onChangeText={t => updatePeriodTime(index, 'end_time', t)} placeholder="HH:MM:SS" />
+                  <TextInput style={styles.timeInput} value={period.end_time} onChangeText={(t) => updatePeriodTime(index, 'end_time', t)} placeholder="HH:MM:SS" />
                 </View>
               </View>;
             })}
@@ -628,8 +628,7 @@ export default function TimetableManagement() {
             style={[styles.input, { borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 8, padding: 12, marginBottom: 12 }]}
             value={newPeriodName}
             onChangeText={setNewPeriodName}
-            placeholder="e.g. Period 9"
-          />
+            placeholder="e.g. Period 9" />
 
           <Text style={styles.label}>Timings (HH:MM:SS)</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -637,15 +636,15 @@ export default function TimetableManagement() {
               style={[styles.input, { flex: 1, borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 8, padding: 12 }]}
               value={newPeriodStart}
               onChangeText={setNewPeriodStart}
-              placeholder="e.g. 14:15:00"
-            />
+              placeholder="e.g. 14:15:00" />
+
             <Text>-</Text>
             <TextInput
               style={[styles.input, { flex: 1, borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 8, padding: 12 }]}
               value={newPeriodEnd}
               onChangeText={setNewPeriodEnd}
-              placeholder="e.g. 15:00:00"
-            />
+              placeholder="e.g. 15:00:00" />
+
           </View>
 
           <View style={styles.modalButtons}>
@@ -664,19 +663,19 @@ export default function TimetableManagement() {
                   const created = await TimetableService.createPeriod({
                     name: newPeriodName,
                     start_time: newPeriodStart,
-                    end_time: newPeriodEnd,
+                    end_time: newPeriodEnd
                   });
                   setPeriods([...periods, created]);
                   setCreatePeriodVisible(false);
                   Alert.alert('Success', `"${created.name}" created successfully`);
                 } catch (error: any) {
-                  console.error(error);
+
                   Alert.alert('Error', error.response?.data?.error || 'Failed to create period');
                 } finally {
                   setLoading(false);
                 }
-              }}
-            >
+              }}>
+
               <Text style={styles.saveButtonText}>Create</Text>
             </TouchableOpacity>
           </View>
@@ -685,7 +684,7 @@ export default function TimetableManagement() {
     </Modal>
   </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card
@@ -740,7 +739,7 @@ const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     shadowColor: theme.colors.text,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: 2
   },
   periodCell: {
     width: 100,
@@ -770,7 +769,7 @@ const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     paddingHorizontal: 16
   },
   filledCell: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#F8FAFC'
   },
   slotContent: {
     alignItems: 'flex-start'
@@ -778,7 +777,7 @@ const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   slotSubject: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1F2937',
+    color: '#1F2937'
   },
   slotTeacher: {
     fontSize: 13,

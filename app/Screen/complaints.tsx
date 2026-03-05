@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import ScreenLayout from '../../src/components/ScreenLayout';
@@ -8,13 +8,17 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../src/hooks/useAuth';
 import { ComplaintService } from '../../src/services/commonServices';
-import { Complaint } from '../../src/types/models';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import { t_field } from '../../src/utils/lang';
+import LogoLoader from '../../src/components/LogoLoader';
+
 interface UIComplaint {
   id: string;
   title: string;
+  title_te?: string;
   description: string;
+  description_te?: string;
   type: string;
   severity: string;
   filedBy: string;
@@ -28,7 +32,7 @@ export default function ComplaintsScreen() {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const {
     t
   } = useTranslation();
@@ -48,13 +52,15 @@ export default function ComplaintsScreen() {
     try {
       const data = await ComplaintService.getStudentComplaints(user.id || '');
       // Map to UI format
-      const uiData = data.map(c => {
+      const uiData = data.map((c) => {
         const severity = c.priority === 'urgent' || c.priority === 'high' ? 'High' : c.priority === 'medium' ? 'Medium' : 'Low';
         const color = severity === 'High' ? '#EF4444' : severity === 'Medium' ? '#F59E0B' : '#6366F1';
         return {
           id: c.id,
           title: c.title || 'Behavior Report',
+          title_te: (c as any).title_te,
           description: c.description,
+          description_te: (c as any).description_te,
           type: c.category?.toUpperCase() || 'OTHER',
           severity,
           filedBy: c.raised_by_name || 'Staff Member',
@@ -66,12 +72,13 @@ export default function ComplaintsScreen() {
       });
       setComplaints(uiData);
     } catch (e) {
-      console.error("Failed to load complaints", e);
+
     } finally {
       setLoading(false);
     }
   };
-  const filteredComplaints = complaints.filter(c => activeFilter === 'All' ? true : c.severity === activeFilter);
+  const filteredComplaints = complaints.filter((c) => activeFilter === 'All' ? true : c.severity === activeFilter);
+
   return <ScreenLayout>
     <StudentHeader showBackButton={true} title={t('home.regular_complaints') || "Complaints"} />
 
@@ -98,8 +105,8 @@ export default function ComplaintsScreen() {
 
           <View style={styles.statsRow}>
             <StatCard label="Total Remarks" value={complaints.length.toString()} icon="list" />
-            <StatCard label="Critical" value={complaints.filter(c => c.severity === 'High').length.toString()} icon="alert-circle" accent="#EF4444" />
-            <StatCard label="Warnings" value={complaints.filter(c => c.severity === 'Medium').length.toString()} icon="warning" accent="#F59E0B" />
+            <StatCard label="Critical" value={complaints.filter((c) => c.severity === 'High').length.toString()} icon="alert-circle" accent="#EF4444" />
+            <StatCard label="Warnings" value={complaints.filter((c) => c.severity === 'Medium').length.toString()} icon="warning" accent="#F59E0B" />
           </View>
         </LinearGradient>
       </Animated.View>
@@ -108,7 +115,7 @@ export default function ComplaintsScreen() {
       <Animated.View entering={FadeInDown.delay(200).duration(600)} style={styles.filtersContainer}>
         <Text style={styles.filterLabel}>Filter by severity</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChips}>
-          {filters.map(filter => {
+          {filters.map((filter) => {
             return <Pressable key={filter} onPress={() => setActiveFilter(filter)} style={({
               pressed
             }) => {
@@ -123,7 +130,7 @@ export default function ComplaintsScreen() {
       </Animated.View>
 
       {/* ===== LIST ===== */}
-      {loading ? <ActivityIndicator color="#6366F1" /> : filteredComplaints.length === 0 ? <View style={styles.emptyState}>
+      {loading ? <LogoLoader color="#6366F1" /> : filteredComplaints.length === 0 ? <View style={styles.emptyState}>
         <Ionicons name="checkmark-circle-outline" size={48} color="#10B981" />
         <Text style={styles.emptyText}>Clean Record! Keep it up.</Text>
       </View> : filteredComplaints.map((item, index) => {
@@ -139,14 +146,14 @@ export default function ComplaintsScreen() {
                 flex: 1,
                 paddingRight: 8
               }}>
-                <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
+                <Text style={styles.title} numberOfLines={2}>{t_field(item.title, item.title_te)}</Text>
               </View>
               <SeverityBadge text={item.severity} color={item.color} icon={item.icon} />
             </View>
 
             {/* BODY: Description */}
             <View style={styles.cardBody}>
-              <Text style={styles.desc} numberOfLines={3}>{item.description}</Text>
+              <Text style={styles.desc} numberOfLines={3}>{t_field(item.description, item.description_te)}</Text>
             </View>
 
             {/* FOOTER: Reporter & Meta */}
@@ -192,7 +199,7 @@ const StatCard = ({
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   return <View style={styles.statCard}>
     <View style={[styles.statIcon, accent && {
       backgroundColor: `${accent}20`
@@ -216,7 +223,7 @@ const SeverityBadge = ({
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   return <View style={[styles.badge, {
     backgroundColor: `${color}15`,
     borderColor: `${color}40`
@@ -227,7 +234,7 @@ const SeverityBadge = ({
     }]}>{text}</Text>
   </View>;
 };
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     padding: 20,
     paddingTop: 16

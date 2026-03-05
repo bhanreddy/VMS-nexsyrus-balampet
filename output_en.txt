@@ -1,0 +1,403 @@
+| File | English String | Key | Context |
+|---|---|---|---|
+| login.tsx | Welcome Back | welcomeBack | text |
+| login.tsx | Sign in to continue | signInToContinue | text |
+| login.tsx, forgot-password.tsx | Forgot Password? | forgotPassword | text |
+| login.tsx | Email Address | emailAddress | placeholder |
+| login.tsx | Password | password | placeholder |
+| login.tsx | Access your grades, timetable, and campus services. | accessYourGradesTimetable | title |
+| login.tsx | Sign In | signIn | title |
+| index.tsx | ✨  WELCOME TO THE FUTURE | wELCOMETOTHEFUTURE | text |
+| index.tsx | Futuristic | futuristic | text |
+| index.tsx | Next-Gen | nextGen | text |
+| index.tsx | Education. | education | text |
+| index.tsx | Trusted by many institutions. | trustedByManyInstitutions | text |
+| index.tsx | POWERED BY NexSyrus IMS | pOWEREDBYNexSyrusIMS | text |
+| index.tsx | Grades, attendance & portal | gradesAttendancePortal | title |
+| index.tsx | Classes, records & reports | classesRecordsReports | title |
+| index.tsx | Full school management | fullSchoolManagement | title |
+| index.tsx | Finance & fee tracking | financeFeeTracking | title |
+| index.tsx | Driver Portal | driverPortal | title |
+| index.tsx | Live tracking & trip management | liveTrackingTripManagement | title |
+| forgot-password.tsx | Don't worry! It happens. Please enter your ID or Email associated with your account. | dontWorryItHappens | text |
+| forgot-password.tsx | SEND RESET LINK | sENDRESETLINK | text |
+| forgot-password.tsx | Enter ID or Email | enterIDOrEmail | placeholder |
+| change-password.tsx | Change Password | changePassword | text |
+| change-password.tsx | Your new password must be at least 8 characters long and contain uppercase, lowercase, and numeric characters. | yourNewPasswordMust | text |
+| change-password.tsx | Current Password | currentPassword | text |
+| change-password.tsx | New Password | newPassword | text |
+| change-password.tsx | Confirm New Password | confirmNewPassword | text |
+| change-password.tsx | Enter current password | enterCurrentPassword | placeholder |
+| change-password.tsx | Enter new password | enterNewPassword | placeholder |
+| change-password.tsx | Confirm new password | confirmNewPassword1 | placeholder |
+| change-password.tsx | Update Password | updatePassword | title |
+| fees.tsx | ₹{{amount}} | amount | text |
+| fees.tsx | Paid: ₹{{amount}} | paidAmount | text |
+| fees.tsx | Due: ₹{{amount}} | dueAmount | text |
+| fees.tsx, fees.tsx, fees.tsx | Total Due | totalDue | text |
+| fees.tsx | ₹{{amount}} | amount1 | text |
+| fees.tsx, fees.tsx | Pay Now | payNow | text |
+| fees.tsx | Total Fee | totalFee | text |
+| fees.tsx | ₹{{amount}} | amount2 | text |
+| fees.tsx, fees.tsx | Paid | paid | text |
+| fees.tsx | ₹{{amount}} | amount3 | text |
+| fees.tsx | Breakdown | breakdown | text |
+| fees.tsx | Receipts | receipts | text |
+| fees.tsx, fees.tsx | No fee records found. | noFeeRecordsFound | text |
+| fees.tsx | No receipts found. | noReceiptsFound | text |
+| fees.tsx | #{{value}} | value | text |
+| fees.tsx | ₹{{amount}} | amount4 | text |
+| fees.tsx | Download Receipt | downloadReceipt | text |
+| fees.tsx, fees.tsx | Fees | fees | title |
+| home.tsx | Today's Snapshot | todaysSnapshot | text |
+| home.tsx | Attendance | attendance | text |
+| home.tsx | {{percent}}% | percent | text |
+| home.tsx | Today's Status | todaysStatus | text |
+| home.tsx | Academic Advisor | academicAdvisor | text |
+| results.tsx | Exam Results | examResults | text |
+| results.tsx | Check your performance and progress reports | checkYourPerformanceAnd | text |
+| results.tsx | No exam results available yet. | noExamResultsAvailable | text |
+| results.tsx | Last updated: {{date}} | lastUpdatedDate | text |
+| timetable.tsx | Periods | periods | text |
+| timetable.tsx | Done | done | text |
+| timetable.tsx | Current | current | text |
+| timetable.tsx | No Classes Scheduled | noClassesScheduled | text |
+| timetable.tsx | Your timetable will appear here once it's configured | yourTimetableWillAppear | text |
+| timetable.tsx, timetable.tsx | {{value1}} - {{value2}} | value1Value2 | text |
+| timetable.tsx | Ongoing | ongoing | text |
+| aiChat.tsx | {{date}})} | date | text |
+| aiChat.tsx | Thinking... | thinking | text |
+| aiChat.tsx | Hi, Student! 👋 | hiStudent | text |
+| aiChat.tsx | I'm your AI study assistant. Ask me anything about your subjects. | imYourAIStudy | text |
+| aiChat.tsx | 🍎 Explain Newton's laws | explainNewtonsLaws | text |
+| aiChat.tsx | ➗ Solve quadratic equation | solveQuadraticEquation | text |
+| aiChat.tsx | 📜 Summarize History Ch 1 | summarizeHistoryCh1 | text |
+| aiChat.tsx | NexSyrus AI | nexSyrusAI | text |
+| aiChat.tsx | New Chat | newChat | text |
+| aiChat.tsx | AI can make mistakes. Check important info. | aICanMakeMistakes | text |
+| aiChat.tsx | Ask a doubt... | askADoubt | placeholder |
+| aiChat.tsx | AI Assistant | aIAssistant | title |
+| announcements.tsx | No announcements. | noAnnouncements | text |
+| attendance.tsx | {{percent}}% | percent1 | text |
+| attendance.tsx | No attendance records found. | noAttendanceRecordsFound | text |
+| busMap.tsx | 🚌 | key80 | text |
+| busMap.tsx | Arriving in {{date}} mins | arrivingInDateMins | text |
+| busMap.tsx | {{value}} km away | valueKmAway | text |
+| complaints.tsx | Behaviour Overview | behaviourOverview | text |
+| complaints.tsx | Academic Year | academicYear | text |
+| complaints.tsx | Filter by severity | filterBySeverity | text |
+| complaints.tsx | Clean Record! Keep it up. | cleanRecordKeepIt | text |
+| complaints.tsx | Reported by | reportedBy | text |
+| complaints.tsx | Total Remarks | totalRemarks | label |
+| complaints.tsx | Critical | critical | label |
+| complaints.tsx | Warnings | warnings | label |
+| contentDetail.tsx | No content available. | noContentAvailable | text |
+| dcgd.tsx | DCGD | dCGD | text |
+| dcgd.tsx | Department of Career Growth and Development | departmentOfCareerGrowth | text |
+| dcgd.tsx, weekendTest.tsx | Options | options | text |
+| dcgd.tsx | Discipline & Conduct | disciplineConduct | title |
+| diary.tsx | No homework assigned today 🎉 | noHomeworkAssignedToday | text |
+| diary.tsx | Due: {{date}} | dueDate | text |
+| examLinks.tsx | Important Exam Links | importantExamLinks | text |
+| examLinks.tsx | Links | links | text |
+| examLinks.tsx | Exams | exams | title |
+| fees.tsx | Due: {{amount}} | dueAmount1 | text |
+| fees.tsx | ₹{{amount}} | amount5 | text |
+| fees.tsx | ₹{{amount}} | amount6 | text |
+| fees.tsx | My Fees | myFees | text |
+| fees.tsx | ₹{{amount}} | amount7 | text |
+| fees.tsx | Outstanding | outstanding | text |
+| fees.tsx | ₹{{amount}} | amount8 | text |
+| hostel.tsx | Hostel Profile | hostelProfile | text |
+| hostel.tsx | Student Hostel Information | studentHostelInformation | text |
+| hostel.tsx | Hostel Details | hostelDetails | text |
+| hostel.tsx | Location | location | text |
+| hostel.tsx | View on Maps | viewOnMaps | text |
+| hostel.tsx | Hostel Image | hostelImage | text |
+| hostel.tsx | 📞 Call to Apply | callToApply | text |
+| hostel.tsx | Hostel | hostel | title |
+| hostel.tsx | Name | name | label |
+| hostel.tsx | Hostel No | hostelNo | label |
+| hostel.tsx | Warden No | wardenNo | label |
+| hostel.tsx | Hostel Name | hostelName | label |
+| hostel.tsx | Room Type | roomType | label |
+| hostel.tsx | Facilities | facilities | label |
+| hostel.tsx | Hostel Fee | hostelFee | label |
+| insurance.tsx | Active Insurance Plan | activeInsurancePlan | text |
+| insurance.tsx | Student Name | studentName | text |
+| insurance.tsx | Policy Number | policyNumber | text |
+| insurance.tsx | NX-INS-2025-001 | nXINS2025001 | text |
+| insurance.tsx | Coverage Amount | coverageAmount | text |
+| insurance.tsx | ₹5,00,000 | 500000 | text |
+| insurance.tsx | ACTIVE | aCTIVE | text |
+| insurance.tsx | Coverage Includes | coverageIncludes | text |
+| insurance.tsx | How to Claim | howToClaim | text |
+| insurance.tsx | 1. Inform School Admin | 1InformSchoolAdmin | text |
+| insurance.tsx | 2. Visit Nearest Hospital | 2VisitNearestHospital | text |
+| insurance.tsx | 3. Submit Medical Reports | 3SubmitMedicalReports | text |
+| insurance.tsx | 4. Claim Processed by Insurance Team | 4ClaimProcessedBy | text |
+| insurance.tsx | Emergency Helpline | emergencyHelpline | text |
+| insurance.tsx | Download Insurance Card | downloadInsuranceCard | text |
+| insurance.tsx | Contact Support | contactSupport | text |
+| insurance.tsx | Insurance | insurance | title |
+| lifeValues.tsx, lifeValues.tsx | Life Values | lifeValues | text |
+| lifeValues.tsx | Timeless wisdom for modern life. | timelessWisdomForModern | text |
+| lifeValues.tsx | Modules | modules | text |
+| lifeValues.tsx | 🕉️ | key143 | text |
+| lifeValues.tsx, moneyScience.tsx | No modules available yet. | noModulesAvailableYet | text |
+| lms.tsx | No content found | noContentFound | text |
+| lms.tsx | Search topics... | searchTopics | placeholder |
+| lms.tsx | LMS | lMS | title |
+| moneyScience.tsx, moneyScience.tsx | Money Science | moneyScience | text |
+| moneyScience.tsx | Financial literacy for a brighter future. | financialLiteracyForA | text |
+| moneyScience.tsx | Learning Modules | learningModules | text |
+| moneyScience.tsx | 💰 | key151 | text |
+| moneyScience.tsx | Age: {{value}} | ageValue | text |
+| moneyScience.tsx | Piggy Bank Challenge | piggyBankChallenge | text |
+| moneyScience.tsx | Start saving small today! | startSavingSmallToday | text |
+| moneyScience.tsx | 🐷 | key155 | text |
+| profile.tsx | {{value1}} - {{name}} | Roll: {{value2}} | value1NameRollValue2 | text |
+| profile.tsx | ID: {{name}} | iDName | text |
+| scienceProjects.tsx, scienceProjects.tsx | Science Projects | scienceProjects | text |
+| scienceProjects.tsx | Learn by doing • Build • Experiment | learnByDoingBuild | text |
+| scienceProjects.tsx | Project List & Certification | projectListCertification | text |
+| scienceProjects.tsx | 🧪 | key161 | text |
+| scienceProjects.tsx | 🏆 | key162 | text |
+| scienceProjects.tsx | Get Certified! | getCertified | text |
+| settings.tsx | SchoolIMS · v2.4.1 | schoolIMSV241 | text |
+| timetable.tsx | P{{value}} | pvalue | text |
+| timetable.tsx | Room: {{value}} | roomValue | text |
+| timetable.tsx | Free Period | freePeriod | text |
+| timetable.tsx | Daily Timetable | dailyTimetable | text |
+| timetable.tsx | No timetable found | noTimetableFound | text |
+| webView.tsx | Invalid URL provided. | invalidURLProvided | text |
+| webView.tsx | Go Back | goBack | text |
+| webView.tsx | Failed to load content. | failedToLoadContent | text |
+| webView.tsx | Please check your internet connection. | pleaseCheckYourInternet | text |
+| webView.tsx | Error | error | title |
+| weekendTest.tsx | Question | question | text |
+| weekendTest.tsx | Skip | skip | text |
+| weekendTest.tsx | Next | next | text |
+| weekendTest.tsx | Weekend Tests | weekendTests | title |
+| AuthGate.tsx | App Locked | appLocked | text |
+| AuthGate.tsx | Please unlock with biometrics to continue. | pleaseUnlockWithBiometrics | text |
+| ErrorBoundary.tsx | Oops! | oops | text |
+| ErrorBoundary.tsx | Something went wrong. | somethingWentWrong | text |
+| ErrorBoundary.tsx | Go Home | goHome | text |
+| HeaderCard.tsx | Roll {{value}} | rollValue | text |
+| LogoutConfirmModal.tsx | Do You Really Want to Log Out? | doYouReallyWant | text |
+| LogoutConfirmModal.tsx | NO | nO | text |
+| LogoutConfirmModal.tsx | Yes | yes | text |
+| MapWrapper.web.tsx | Map Tracking is only available on the mobile application. | mapTrackingIsOnly | text |
+| MenuOverlay.tsx | Logout | logout | text |
+| NetBalanceTab.tsx | Retry | retry | text |
+| NetBalanceTab.tsx | Net Balance | netBalance | text |
+| NetBalanceTab.tsx | Total Fee Collected | totalFeeCollected | title |
+| NetBalanceTab.tsx | Total Salary Paid | totalSalaryPaid | title |
+| NetBalanceTab.tsx | Other Expenses | otherExpenses | title |
+| StaffHeader.tsx | En | en | text |
+| StaffHeader.tsx | Te | te | text |
+
+```json
+{
+  "500000": "₹5,00,000",
+  "languageEnglish": "EN",
+  "languageTelugu": "తె",
+  "welcomeBack": "Welcome Back",
+  "signInToContinue": "Sign in to continue",
+  "forgotPassword": "Forgot Password?",
+  "emailAddress": "Email Address",
+  "password": "Password",
+  "accessYourGradesTimetable": "Access your grades, timetable, and campus services.",
+  "signIn": "Sign In",
+  "wELCOMETOTHEFUTURE": "✨  WELCOME TO THE FUTURE",
+  "futuristic": "Futuristic",
+  "nextGen": "Next-Gen",
+  "education": "Education.",
+  "trustedByManyInstitutions": "Trusted by many institutions.",
+  "pOWEREDBYNexSyrusIMS": "POWERED BY NexSyrus IMS",
+  "gradesAttendancePortal": "Grades, attendance & portal",
+  "classesRecordsReports": "Classes, records & reports",
+  "fullSchoolManagement": "Full school management",
+  "financeFeeTracking": "Finance & fee tracking",
+  "driverPortal": "Driver Portal",
+  "liveTrackingTripManagement": "Live tracking & trip management",
+  "dontWorryItHappens": "Don't worry! It happens. Please enter your ID or Email associated with your account.",
+  "sENDRESETLINK": "SEND RESET LINK",
+  "enterIDOrEmail": "Enter ID or Email",
+  "changePassword": "Change Password",
+  "yourNewPasswordMust": "Your new password must be at least 8 characters long and contain uppercase, lowercase, and numeric characters.",
+  "currentPassword": "Current Password",
+  "newPassword": "New Password",
+  "confirmNewPassword": "Confirm New Password",
+  "enterCurrentPassword": "Enter current password",
+  "enterNewPassword": "Enter new password",
+  "confirmNewPassword1": "Confirm new password",
+  "updatePassword": "Update Password",
+  "amount": "₹{{amount}}",
+  "paidAmount": "Paid: ₹{{amount}}",
+  "dueAmount": "Due: ₹{{amount}}",
+  "totalDue": "Total Due",
+  "amount1": "₹{{amount}}",
+  "payNow": "Pay Now",
+  "totalFee": "Total Fee",
+  "amount2": "₹{{amount}}",
+  "paid": "Paid",
+  "amount3": "₹{{amount}}",
+  "breakdown": "Breakdown",
+  "receipts": "Receipts",
+  "noFeeRecordsFound": "No fee records found.",
+  "noReceiptsFound": "No receipts found.",
+  "value": "#{{value}}",
+  "amount4": "₹{{amount}}",
+  "downloadReceipt": "Download Receipt",
+  "fees": "Fees",
+  "todaysSnapshot": "Today's Snapshot",
+  "attendance": "Attendance",
+  "percent": "{{percent}}%",
+  "todaysStatus": "Today's Status",
+  "academicAdvisor": "Academic Advisor",
+  "examResults": "Exam Results",
+  "checkYourPerformanceAnd": "Check your performance and progress reports",
+  "noExamResultsAvailable": "No exam results available yet.",
+  "lastUpdatedDate": "Last updated: {{date}}",
+  "periods": "Periods",
+  "done": "Done",
+  "current": "Current",
+  "noClassesScheduled": "No Classes Scheduled",
+  "yourTimetableWillAppear": "Your timetable will appear here once it's configured",
+  "value1Value2": "{{value1}} - {{value2}}",
+  "ongoing": "Ongoing",
+  "date": "{{date}})}",
+  "thinking": "Thinking...",
+  "hiStudent": "Hi, Student! 👋",
+  "imYourAIStudy": "I'm your AI study assistant. Ask me anything about your subjects.",
+  "explainNewtonsLaws": "🍎 Explain Newton's laws",
+  "solveQuadraticEquation": "➗ Solve quadratic equation",
+  "summarizeHistoryCh1": "📜 Summarize History Ch 1",
+  "nexSyrusAI": "NexSyrus AI",
+  "newChat": "New Chat",
+  "aICanMakeMistakes": "AI can make mistakes. Check important info.",
+  "askADoubt": "Ask a doubt...",
+  "aIAssistant": "AI Assistant",
+  "noAnnouncements": "No announcements.",
+  "percent1": "{{percent}}%",
+  "noAttendanceRecordsFound": "No attendance records found.",
+  "key80": "🚌",
+  "arrivingInDateMins": "Arriving in {{date}} mins",
+  "valueKmAway": "{{value}} km away",
+  "behaviourOverview": "Behaviour Overview",
+  "academicYear": "Academic Year",
+  "filterBySeverity": "Filter by severity",
+  "cleanRecordKeepIt": "Clean Record! Keep it up.",
+  "reportedBy": "Reported by",
+  "totalRemarks": "Total Remarks",
+  "critical": "Critical",
+  "warnings": "Warnings",
+  "noContentAvailable": "No content available.",
+  "dCGD": "DCGD",
+  "departmentOfCareerGrowth": "Department of Career Growth and Development",
+  "options": "Options",
+  "disciplineConduct": "Discipline & Conduct",
+  "noHomeworkAssignedToday": "No homework assigned today 🎉",
+  "dueDate": "Due: {{date}}",
+  "importantExamLinks": "Important Exam Links",
+  "links": "Links",
+  "exams": "Exams",
+  "dueAmount1": "Due: {{amount}}",
+  "amount5": "₹{{amount}}",
+  "amount6": "₹{{amount}}",
+  "myFees": "My Fees",
+  "amount7": "₹{{amount}}",
+  "outstanding": "Outstanding",
+  "amount8": "₹{{amount}}",
+  "hostelProfile": "Hostel Profile",
+  "studentHostelInformation": "Student Hostel Information",
+  "hostelDetails": "Hostel Details",
+  "location": "Location",
+  "viewOnMaps": "View on Maps",
+  "hostelImage": "Hostel Image",
+  "callToApply": "📞 Call to Apply",
+  "hostel": "Hostel",
+  "name": "Name",
+  "hostelNo": "Hostel No",
+  "wardenNo": "Warden No",
+  "hostelName": "Hostel Name",
+  "roomType": "Room Type",
+  "facilities": "Facilities",
+  "hostelFee": "Hostel Fee",
+  "activeInsurancePlan": "Active Insurance Plan",
+  "studentName": "Student Name",
+  "policyNumber": "Policy Number",
+  "nXINS2025001": "NX-INS-2025-001",
+  "coverageAmount": "Coverage Amount",
+  "aCTIVE": "ACTIVE",
+  "coverageIncludes": "Coverage Includes",
+  "howToClaim": "How to Claim",
+  "1InformSchoolAdmin": "1. Inform School Admin",
+  "2VisitNearestHospital": "2. Visit Nearest Hospital",
+  "3SubmitMedicalReports": "3. Submit Medical Reports",
+  "4ClaimProcessedBy": "4. Claim Processed by Insurance Team",
+  "emergencyHelpline": "Emergency Helpline",
+  "downloadInsuranceCard": "Download Insurance Card",
+  "contactSupport": "Contact Support",
+  "insurance": "Insurance",
+  "lifeValues": "Life Values",
+  "timelessWisdomForModern": "Timeless wisdom for modern life.",
+  "modules": "Modules",
+  "key143": "🕉️",
+  "noModulesAvailableYet": "No modules available yet.",
+  "noContentFound": "No content found",
+  "searchTopics": "Search topics...",
+  "lMS": "LMS",
+  "moneyScience": "Money Science",
+  "financialLiteracyForA": "Financial literacy for a brighter future.",
+  "learningModules": "Learning Modules",
+  "key151": "💰",
+  "ageValue": "Age: {{value}}",
+  "piggyBankChallenge": "Piggy Bank Challenge",
+  "startSavingSmallToday": "Start saving small today!",
+  "key155": "🐷",
+  "value1NameRollValue2": "{{value1}} - {{name}} | Roll: {{value2}}",
+  "iDName": "ID: {{name}}",
+  "scienceProjects": "Science Projects",
+  "learnByDoingBuild": "Learn by doing • Build • Experiment",
+  "projectListCertification": "Project List & Certification",
+  "key161": "🧪",
+  "key162": "🏆",
+  "getCertified": "Get Certified!",
+  "schoolIMSV241": "SchoolIMS · v2.4.1",
+  "pvalue": "P{{value}}",
+  "roomValue": "Room: {{value}}",
+  "freePeriod": "Free Period",
+  "dailyTimetable": "Daily Timetable",
+  "noTimetableFound": "No timetable found",
+  "invalidURLProvided": "Invalid URL provided.",
+  "goBack": "Go Back",
+  "failedToLoadContent": "Failed to load content.",
+  "pleaseCheckYourInternet": "Please check your internet connection.",
+  "error": "Error",
+  "question": "Question",
+  "skip": "Skip",
+  "next": "Next",
+  "weekendTests": "Weekend Tests",
+  "appLocked": "App Locked",
+  "pleaseUnlockWithBiometrics": "Please unlock with biometrics to continue.",
+  "oops": "Oops!",
+  "somethingWentWrong": "Something went wrong.",
+  "goHome": "Go Home",
+  "rollValue": "Roll {{value}}",
+  "doYouReallyWant": "Do You Really Want to Log Out?",
+  "nO": "NO",
+  "yes": "Yes",
+  "mapTrackingIsOnly": "Map Tracking is only available on the mobile application.",
+  "logout": "Logout",
+  "retry": "Retry",
+  "netBalance": "Net Balance",
+  "totalFeeCollected": "Total Fee Collected",
+  "totalSalaryPaid": "Total Salary Paid",
+  "otherExpenses": "Other Expenses",
+  "en": "En",
+  "te": "Te"
+}
+```

@@ -32,8 +32,10 @@
     },
     "android": {
       "package": "com.testapp.app",
+      "jsEngine": "hermes",
       "versionCode": 1,
       "googleServicesFile": "./google-services.json",
+      "enableShrinkResources": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/android-icon-foreground-v2.png",
         "backgroundColor": "#E6F4FE",
@@ -42,7 +44,10 @@
       "permissions": [
         "INTERNET",
         "ACCESS_NETWORK_STATE",
-        "VIBRATE"
+        "VIBRATE",
+        "POST_NOTIFICATIONS",
+        "WAKE_LOCK",
+        "RECEIVE_BOOT_COMPLETED"
       ]
     },
     "notification": {
@@ -54,12 +59,24 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
-          "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
       ],
       "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/android-icon-monochrome-v2.png",
+          "color": "#E6F4FE",
+          "sounds": [
+            "./assets/sounds/attendance_absent_alert.wav",
+            "./assets/sounds/notification_default.wav",
+            "./assets/sounds/emergency.wav",
+            "./assets/sounds/fee_reminder.wav",
+            "./assets/sounds/voice_alert.wav"
+          ]
+        }
+      ],
       "@react-native-firebase/app",
       "@react-native-firebase/messaging",
       "@react-native-community/datetimepicker",

@@ -2,117 +2,137 @@ import { useEffect } from 'react';
 import { getApp } from '@react-native-firebase/app';
 import { getMessaging, getInitialNotification, onNotificationOpenedApp } from '@react-native-firebase/messaging';
 import { useRouter } from 'expo-router';
-import { Platform, Linking } from 'react-native';
+import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { useAuth } from './useAuth';
 
-// Global variable to store deep link if user is not logged in
-let PendingNavigation: string | null = null;
+// Verified route map — fallback if deepLink missing from payload
+const NOTIFICATION_ROUTES: Record<string, string> = {
+  ATTENDANCE_ABSENT: '/Screen/attendance',
+  ATTENDANCE_PRESENT: '/Screen/attendance',
+  DIARY_UPDATED: '/Screen/diary',
+  RESULT_RELEASED: '/results',
+  COMPLAINT_CREATED: '/Screen/complaints',
+  COMPLAINT_RESPONSE: '/Screen/complaints',
+  LMS_CONTENT: '/Screen/lms',
+  TIMETABLE_UPDATED: '/Screen/timetable',
+  NOTICE_ADMIN_STUDENT: '/Screen/announcements',
+  FEE_REMINDER: '/Screen/fees',
+  FEE_COLLECTED: '/Screen/fees',
+  LEAVE_SUBMITTED: '/admin/leaves',
+  LEAVE_APPROVED: '/staff/leaves',
+  LEAVE_REJECTED: '/staff/leaves',
+  EXPENSE_CREATED: '/admin/expenses',
+  EXPENSE_APPROVED: '/accounts/expenses',
+  EXPENSE_REJECTED: '/accounts/expenses',
+  PAYROLL_SUCCESS: '/staff/payslip',
+};
+
+// Stored when notification tapped before auth is ready
+let pendingRoute: string | null = null;
+
+// Map old backend paths to avoid routing failures, since some old
+// notifications on user devices may still have the old deepLinks in their payload
+const LEGACY_ROUTES: Record<string, string> = {
+  '/student/attendance': '/Screen/attendance',
+  '/student/diary': '/Screen/diary',
+  '/student/results': '/results',
+  '/student/complaints': '/Screen/complaints',
+  '/student/lms': '/Screen/lms',
+  '/student/timetable': '/Screen/timetable',
+  '/student/notices': '/Screen/announcements',
+  '/student/fees': '/Screen/fees',
+  '/staff/payroll': '/staff/payslip',
+};
+
+function resolveRoute(data: Record<string, any> | null | undefined): string | null {
+  if (!data) return null;
+  // Priority 1 — explicit deepLink from FCM payload (already correct path)
+  if (data.deepLink && data.deepLink.trim() !== '') {
+    const link = data.deepLink.trim();
+    // Intercept legacy paths from old notifications
+    return LEGACY_ROUTES[link] || link;
+  }
+  // Priority 2 — type-based fallback map
+  if (data.type && NOTIFICATION_ROUTES[data.type]) {
+    return NOTIFICATION_ROUTES[data.type];
+  }
+  return null;
+}
 
 export function useNotificationObserver() {
-    const router = useRouter();
-    const { user, loading } = useAuth();
+  const router = useRouter();
+  const { user, loading } = useAuth();
 
-    useEffect(() => {
-        if (Platform.OS === 'web') return;
+  function navigate(route: string) {
+    // Clean any accidental protocol prefix just in case
+    const cleanRoute = '/' + route.replace(/^testapp:\/+/, '').replace(/^\/+/, '');
+    try {
+      if (!user || loading) {
+        console.log('[Notifications] Auth not ready — storing pending route:', cleanRoute);
+        pendingRoute = cleanRoute;
+        return;
+      }
+      console.log('[Notifications] Navigating to:', cleanRoute);
+      router.push(cleanRoute as any);
+    } catch (err) {
+      console.log('[Notifications] Navigation error:', err);
+    }
+  }
 
-        let isMounted = true;
-        const app = getApp();
-        const msg = getMessaging(app);
+  // Flush pending route once auth is ready
+  useEffect(() => {
+    if (user && !loading && pendingRoute) {
+      const route = pendingRoute;
+      pendingRoute = null;
+      console.log('[Notifications] Flushing pending route:', route);
+      setTimeout(() => {
+        try { router.push(route as any); } catch { }
+      }, 300);
+    }
+  }, [user, loading]);
 
-        // 1. Handle Initial Launch from Killed State
-        const checkInitialNotification = async () => {
-            const remoteMessage = await getInitialNotification(msg);
-            if (remoteMessage && isMounted) {
-                const deepLink = remoteMessage.data?.deepLink as string | undefined;
-                if (deepLink) {
-                    console.log('[NotificationObserver] Found initial deep link:', deepLink);
-                    handleDeepLink(deepLink);
-                }
-            }
-        };
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
 
-        checkInitialNotification();
+    let isMounted = true;
+    const app = getApp();
+    const msg = getMessaging(app);
 
-        // 2. Handle Background Taps (app was in background, user tapped notification)
-        const unsubscribe = onNotificationOpenedApp(msg, (remoteMessage) => {
-            const deepLink = remoteMessage.data?.deepLink as string | undefined;
-            if (deepLink) {
-                console.log('[NotificationObserver] Received deep link tap:', deepLink);
-                handleDeepLink(deepLink);
-            }
-        });
+    // CASE 1 — App KILLED, user tapped FCM notification
+    getInitialNotification(msg).then((remoteMessage) => {
+      if (!remoteMessage || !isMounted) return;
+      const route = resolveRoute(remoteMessage.data);
+      if (route) setTimeout(() => navigate(route), 500);
+    });
 
-        // 4. Handle Expo Notifications (Cold Start from killed state)
-        Notifications.getLastNotificationResponseAsync().then(response => {
-            if (response && isMounted) {
-                const data = response.notification.request.content.data;
-                const deepLink = data?.deepLink || data?.url || data?.screen;
-                if (deepLink) {
-                    console.log('[NotificationObserver] Found Expo initial deep link:', deepLink);
-                    handleDeepLink(deepLink as string);
-                }
-            }
-        });
+    // CASE 2 — App BACKGROUNDED, user tapped FCM notification
+    const unsubFCM = onNotificationOpenedApp(msg, (remoteMessage) => {
+      const route = resolveRoute(remoteMessage.data);
+      if (route) navigate(route);
+    });
 
-        // 5. Handle Expo Notifications (Foreground/Background Taps)
-        const expoSubscription = Notifications.addNotificationResponseReceivedListener(response => {
-            const data = response.notification.request.content.data;
-            const deepLink = data?.deepLink || data?.url || data?.screen;
-            if (deepLink) {
-                console.log('[NotificationObserver] Received Expo tap:', deepLink);
-                handleDeepLink(deepLink as string);
-            }
-        });
+    // CASE 3 — User tapped expo-notifications notification (all states)
+    const unsubExpo = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const data = response.notification.request.content.data;
+        const route = resolveRoute(data);
+        if (route) navigate(route);
+      }
+    );
 
-        return () => {
-            isMounted = false;
-            unsubscribe();
-            expoSubscription.remove();
-        };
-    }, []);
+    // CASE 4 — App KILLED, user tapped expo-notifications notification
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (!response || !isMounted) return;
+      const data = response.notification.request.content.data;
+      const route = resolveRoute(data);
+      if (route) setTimeout(() => navigate(route), 500);
+    });
 
-    // 3. Watch for Auth State Changes to process pending links
-    useEffect(() => {
-        if (!loading && user && PendingNavigation) {
-            console.log('[NotificationObserver] Processing pending navigation:', PendingNavigation);
-            const target = PendingNavigation;
-            PendingNavigation = null;
-            // Small delay to ensure router is ready/auth guarded and hasn't just replaced the route
-            setTimeout(() => {
-                Linking.openURL(target).catch(() => {
-                    // Fallback to router push if linking fails, ensure valid path by removing protocol and deduping slashes
-                    const cleanPath = '/' + target.replace(/^testapp:\/+/, '').replace(/^\/+/, '');
-                    router.push(cleanPath as any);
-                });
-            }, 500);
-        }
-    }, [user, loading]);
-
-    const handleDeepLink = (path: string) => {
-        // Ensure path is properly formatted as a deep link URL
-        const formattedPath = path.startsWith('testapp://')
-            ? path
-            : `testapp://${path.startsWith('/') ? path : `/${path}`}`;
-
-        console.log('[NotificationObserver] Handling deep link:', formattedPath);
-
-        // Always set pending first
-        PendingNavigation = formattedPath;
-
-        // If already logged in and not loading, navigate immediately
-        if (user && !loading) {
-            console.log('[NotificationObserver] User active, queuing navigation with delay to avoid AuthGuard collision.');
-            PendingNavigation = null;
-            setTimeout(() => {
-                Linking.openURL(formattedPath).catch(() => {
-                    // Fallback to router push if linking fails
-                    const cleanPath = '/' + path.replace(/^testapp:\/+/, '').replace(/^\/+/, '');
-                    router.push(cleanPath as any);
-                });
-            }, 500);
-        } else {
-            console.log('[NotificationObserver] User not ready, queuing navigation.');
-        }
+    return () => {
+      isMounted = false;
+      unsubFCM();
+      unsubExpo.remove();
     };
+  }, []);
 }

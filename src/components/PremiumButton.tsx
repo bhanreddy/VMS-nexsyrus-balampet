@@ -1,8 +1,9 @@
 import React, { useCallback } from 'react';
-import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, ViewStyle, TextStyle } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withSpring, Easing } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import LogoLoader from './LogoLoader';
 
 interface PremiumButtonProps {
     title: string;
@@ -67,7 +68,7 @@ const PremiumButton: React.FC<PremiumButtonProps> = ({
                     style={styles.gradient}
                 >
                     {loading ? (
-                        <ActivityIndicator color={disabled ? '#94A3B8' : '#FFFFFF'} />
+                        <LogoLoader color={disabled ? '#94A3B8' : '#FFFFFF'} />
                     ) : (
                         <>
                             <Text style={[styles.title, disabled && styles.titleDisabled, textStyle]}>

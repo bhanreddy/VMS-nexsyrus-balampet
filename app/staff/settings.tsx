@@ -3,9 +3,8 @@ import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
     StatusBar, Switch, Image, Alert, Linking
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
-import Animated, { FadeInDown, FadeInLeft, ZoomIn } from 'react-native-reanimated';
+import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import StaffHeader from '../../src/components/StaffHeader';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/hooks/useAuth';
@@ -114,17 +113,6 @@ const GS = StyleSheet.create({
 
 // ─── Stat pill ────────────────────────────────────────────────────────────────
 
-function StatPill({ icon, label, value, color }: { icon: string; label: string; value: string; color: string }) {
-    return (
-        <View style={SP.wrap}>
-            <View style={[SP.iconDot, { backgroundColor: color + '20' }]}>
-                <Ionicons name={icon as any} size={13} color={color} />
-            </View>
-            <Text style={SP.value}>{value}</Text>
-            <Text style={SP.label}>{label}</Text>
-        </View>
-    );
-}
 
 const SP = StyleSheet.create({
     wrap: { alignItems: 'center', flex: 1 },
@@ -137,38 +125,18 @@ const SP = StyleSheet.create({
 
 export default function StaffSettings() {
     const router = useRouter();
-    const { user, logout, refreshSession } = useAuth();
+    const { user, logout } = useAuth();
     const { theme, isDark, toggleTheme } = useTheme();
-    const styles = React.useMemo(() => getStyles(theme.colors), [theme.colors]);
-    const [notifications, setNotifications] = useState(user?.notification_sound !== 'default');
+    const styles = React.useMemo(() => getStyles(theme.colors), [theme]);
     const [updating, setUpdating] = useState(false);
     const { isBiometricAvailable, isBiometricEnabled, isLoading: biometricLoading, toggleBiometric } = useBiometric();
-
-    const toggleNotifications = async () => {
-        if (updating) return;
-        setUpdating(true);
-        const newVal = !notifications;
-        setNotifications(newVal);
-        const pref = newVal ? 'custom' : 'default';
-        try {
-            await AsyncStorage.setItem('notification_sound', pref);
-            const { api } = await import('../../src/services/apiClient');
-            await api.put('/users/settings', { notification_sound: pref });
-            await refreshSession();
-        } catch {
-            setNotifications(!newVal);
-            Alert.alert('Error', 'Failed to update notification settings');
-        } finally {
-            setUpdating(false);
-        }
-    };
 
     const soon = (item: string) => Alert.alert(item, 'Coming in the next update.');
 
     const handleLogout = () =>
         Alert.alert('Log Out', 'Are you sure you want to log out?', [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Log Out', style: 'destructive', onPress: async () => { await logout(); router.replace('/'); } },
+            { text: 'Log Out', style: 'destructive', onPress: async () => { await logout(); router.replace('/welcome'); } },
         ]);
 
     const chevron = <MaterialIcons name="chevron-right" size={18} color="#D1D5DB" />;
@@ -229,15 +197,7 @@ export default function StaffSettings() {
                                 thumbColor="#fff" onValueChange={toggleTheme} value={isDark} />
                         }
                     />
-                    <SettingRow
-                        icon="notifications" iconColor="#F59E0B" iconBg="#FEF3C7"
-                        label="Custom Alert Sounds" sublabel="Notification tone preference"
-                        rightElement={
-                            <Switch trackColor={{ false: '#E5E7EB', true: '#FCD34D' }}
-                                thumbColor={notifications ? '#fff' : '#f4f3f4'}
-                                onValueChange={toggleNotifications} value={notifications} disabled={updating} />
-                        }
-                    />
+
                     <SettingRow
                         icon="language" iconColor="#10B981" iconBg="#ECFDF5"
                         label="Language" sublabel="App display language"

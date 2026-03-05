@@ -1,7 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, StatusBar, Linking, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, StatusBar, Linking } from 'react-native';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -14,8 +13,7 @@ const StaffProfileScreen = () => {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
-  const router = useRouter();
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const {
     user
   } = useAuth();
@@ -176,7 +174,7 @@ const StaffProfileScreen = () => {
   </View>;
 };
 export default StaffProfileScreen;
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card

@@ -23,7 +23,10 @@
       "autoIncrement": true,
       "channel": "production",
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "apk"
+      },
+      "cache": {
+        "disabled": true
       },
       "ios": {
         "simulator": false

@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch, Platform } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { interpolateColor, interpolate, useAnimatedStyle, Extrapolation, SharedValue } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import MenuOverlay from './MenuOverlay';
-import { SCHOOL_CONFIG } from '../constants/schoolConfig';
 import { Shadows, Radii, Spacing } from '../theme/themes';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface StudentHeaderProps {
     onMenuPress?: () => void;
@@ -29,10 +29,11 @@ const StudentHeader: React.FC<StudentHeaderProps & { showBackButton?: boolean, t
         setIsTelugu(i18n.language === 'te');
     }, [i18n.language]);
 
-    const toggleLanguage = () => {
-        const newLang = !isTelugu;
-        setIsTelugu(newLang);
-        i18n.changeLanguage(newLang ? 'te' : 'en');
+    const toggleLanguage = async () => {
+        const newLang = isTelugu ? 'en' : 'te';
+        setIsTelugu(!isTelugu);
+        i18n.changeLanguage(newLang);
+        await AsyncStorage.setItem('appLanguage', newLang);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     };
 
@@ -165,7 +166,7 @@ const StudentHeader: React.FC<StudentHeaderProps & { showBackButton?: boolean, t
                             <View style={[styles.tabIconBox, { backgroundColor: 'rgba(3,105,161,0.1)' }]}>
                                 <Ionicons name="book" size={12} color="#0284C7" />
                             </View>
-                            <Animated.Text style={[styles.tabText, fontColorStyle]}>Diary</Animated.Text>
+                            <Animated.Text style={[styles.tabText, fontColorStyle]}>{t('diary', 'Diary')}</Animated.Text>
                         </Animated.View>
                     </TouchableOpacity>
 
@@ -177,7 +178,7 @@ const StudentHeader: React.FC<StudentHeaderProps & { showBackButton?: boolean, t
                             <View style={[styles.tabIconBox, { backgroundColor: 'rgba(22,163,74,0.1)' }]}>
                                 <MaterialIcons name="computer" size={12} color="#16A34A" />
                             </View>
-                            <Animated.Text style={[styles.tabText, fontColorStyle]}>LMS</Animated.Text>
+                            <Animated.Text style={[styles.tabText, fontColorStyle]}>{t('lMS', 'LMS')}</Animated.Text>
                         </Animated.View>
                     </TouchableOpacity>
                 </View>
@@ -187,7 +188,7 @@ const StudentHeader: React.FC<StudentHeaderProps & { showBackButton?: boolean, t
             <View style={styles.rightActions}>
                 {/* Language Toggle */}
                 <TouchableOpacity onPress={toggleLanguage} activeOpacity={0.7} style={styles.langToggle}>
-                    <Animated.Text style={[styles.langTextCompact, fontColorStyle]}>{isTelugu ? 'TEL' : 'ENG'}</Animated.Text>
+                    <Animated.Text style={[styles.langTextCompact, fontColorStyle]}>{isTelugu ? t('languageTelugu') : t('languageEnglish')}</Animated.Text>
                 </TouchableOpacity>
 
                 {/* Settings Button */}

@@ -15,7 +15,7 @@ export const SCHOOL_CONFIG = {
 
     // The school logo used in headers and reports
     // Ensure the image exists in assets/images/
-    logo: require('../../assets/images/icon.png'),
+    logo: require('../../assets/images/icon-v2.png'),
 
     // Optional: School Address for reports
     address: "123 School Street, City, State - 000000",

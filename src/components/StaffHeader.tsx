@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import MenuOverlay from './MenuOverlay';
 import { SCHOOL_CONFIG } from '../constants/schoolConfig';
 import { useTheme } from '../hooks/useTheme';
-import { Spacing, Radii, Shadows } from '../theme/themes';
+import { Spacing, Radii } from '../theme/themes';
 
 import Animated, { SharedValue, useAnimatedStyle, interpolateColor, interpolate, Extrapolation } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -34,7 +33,7 @@ const StaffHeader: React.FC<StaffHeaderProps> = ({
     scrollY
 }) => {
     const router = useRouter();
-    const { t, i18n } = useTranslation();
+    const { i18n } = useTranslation();
     const { theme, isDark } = useTheme();
     const [isTelugu, setIsTelugu] = useState(i18n.language === 'te');
     const [menuVisible, setMenuVisible] = useState(false);

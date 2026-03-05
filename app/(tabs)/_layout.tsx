@@ -1,14 +1,18 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoleGuard } from '../../src/hooks/useRoleGuard';
 import { ErrorBoundary } from '../../src/components/ErrorBoundary';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from '../../src/hooks/useAuth';
 
 export default function TabLayout() {
     const insets = useSafeAreaInsets();
+    const { t } = useTranslation();
+    const { user } = useAuth();
     useRoleGuard(['student']);
 
     return (
@@ -48,7 +52,7 @@ export default function TabLayout() {
                     name="home"
                     options={{
                         headerShown: false,
-                        tabBarLabel: 'Home',
+                        tabBarLabel: t('dashboard.home', 'Home'),
                         tabBarIcon: ({ focused, color }) => (
                             <View style={{ alignItems: 'center', justifyContent: 'center' }}>
                                 <Ionicons name={focused ? "home" : "home-outline"} size={22} color={color} />
@@ -62,7 +66,7 @@ export default function TabLayout() {
                     name="timetable"
                     options={{
                         headerShown: false,
-                        tabBarLabel: 'TimeTable',
+                        tabBarLabel: t('timetable.title', 'TimeTable'),
                         tabBarIcon: ({ focused, color }) => (
                             <View style={{ alignItems: 'center', justifyContent: 'center' }}>
                                 <Ionicons name={focused ? "calendar" : "calendar-outline"} size={22} color={color} />
@@ -75,7 +79,7 @@ export default function TabLayout() {
                     name="fees"
                     options={{
                         headerShown: false,
-                        tabBarLabel: 'Fees',
+                        tabBarLabel: t('fees', 'Fees'),
                         tabBarIcon: ({ focused, color }) => (
                             <View style={{ alignItems: 'center', justifyContent: 'center' }}>
                                 <Ionicons name={focused ? "wallet" : "wallet-outline"} size={22} color={color} />
@@ -88,7 +92,7 @@ export default function TabLayout() {
                     name="results"
                     options={{
                         headerShown: false,
-                        tabBarLabel: 'Results',
+                        tabBarLabel: t('menu.results', 'Results'),
                         tabBarIcon: ({ focused, color }) => (
                             <View style={{ alignItems: 'center', justifyContent: 'center' }}>
                                 <Ionicons name={focused ? "school" : "school-outline"} size={22} color={color} />
@@ -97,6 +101,7 @@ export default function TabLayout() {
                         ),
                     }}
                 />
+
             </Tabs>
         </ErrorBoundary>
     );

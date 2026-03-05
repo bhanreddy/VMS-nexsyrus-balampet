@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import ScreenLayout from '../../src/components/ScreenLayout';
@@ -7,13 +7,13 @@ import StudentHeader from '../../src/components/StudentHeader';
 import { LifeValuesService } from '../../src/services/lifeValuesService';
 import { LifeValuesModule } from '../../src/types/models';
 import { useTheme } from '../../src/hooks/useTheme';
-import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 const LifeValuesScreen = () => {
   const {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(), []);
   const router = useRouter();
   const [modules, setModules] = useState<LifeValuesModule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,7 +25,7 @@ const LifeValuesScreen = () => {
       const data = await LifeValuesService.getModules();
       setModules(data);
     } catch (err) {
-      console.error(err);
+
     } finally {
       setLoading(false);
     }
@@ -44,17 +44,14 @@ const LifeValuesScreen = () => {
   };
   return <ScreenLayout>
             <StudentHeader showBackButton={true} title="Life Values" />
-
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.container}>
                 <View style={styles.titleContainer}>
                     <Text style={styles.pageTitle}>Life Values</Text>
                     <Text style={styles.subtitle}>Timeless wisdom for modern life.</Text>
                 </View>
-
                 <Text style={styles.sectionTitle}>Modules</Text>
-
-                {loading ? <ActivityIndicator size="large" color="#006064" /> : modules.map((subject, index) => {
-return <TouchableOpacity key={subject.id} activeOpacity={0.9} onPress={() => handlePress(subject)}>
+                {loading ? <LogoLoader size={60} color="#006064" /> : modules.map((subject) => {
+        return <TouchableOpacity key={subject.id} activeOpacity={0.9} onPress={() => handlePress(subject)}>
                             <LinearGradient colors={['#e0f7fa', '#b2ebf2']} start={{
             x: 0,
             y: 0
@@ -75,14 +72,12 @@ return <TouchableOpacity key={subject.id} activeOpacity={0.9} onPress={() => han
                                         </Text>
                                     </View>
                                 </View>
-
                                 <View style={styles.arrowContainer}>
                                     <Text style={styles.arrow}>›</Text>
                                 </View>
                             </LinearGradient>
                         </TouchableOpacity>;
       })}
-
                 {!loading && modules.length === 0 && <Text style={styles.empty}>No modules available yet.</Text>}
             </ScrollView>
         </ScreenLayout>;
@@ -91,7 +86,7 @@ export default LifeValuesScreen;
 
 /* ============================ STYLES ============================ */
 
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = () => StyleSheet.create({
   container: {
     padding: 16,
     paddingBottom: 30

@@ -1,18 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AdminHeader from '../../../src/components/AdminHeader';
 import { FeeService } from '../../../src/services/feeService';
-import { StudentFee, FeeSummary, FeeResponse } from '../../../src/types/models';
+import { StudentFee, FeeResponse } from '../../../src/types/models';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../../src/hooks/useTheme';
 import { Theme } from '../../../src/theme/themes';
+import LogoLoader from '../../../src/components/LogoLoader';
 export default function StudentFeeLedger() {
   const {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const router = useRouter();
   const params = useLocalSearchParams();
   const studentId = params.studentId as string;
@@ -59,7 +60,7 @@ export default function StudentFeeLedger() {
   };
   if (loading) {
     return <View style={styles.centered}>
-                <ActivityIndicator size="large" color="#3B82F6" />
+                <LogoLoader size={60} color="#3B82F6" />
                 <Text style={styles.loadingText}>Fetching financial truth...</Text>
             </View>;
   }
@@ -150,7 +151,7 @@ const statusKey = `status${fee.status.charAt(0).toUpperCase() + fee.status.slice
             </ScrollView>
         </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card

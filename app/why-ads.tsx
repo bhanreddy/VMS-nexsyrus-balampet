@@ -50,7 +50,7 @@ export default function WhyAdsScreen() {
     const router = useRouter();
     const { theme } = useTheme();
     const { t } = useTranslation();
-    const styles = React.useMemo(() => getStyles(theme.colors), [theme.colors]);
+    const styles = React.useMemo(() => getStyles(theme.colors), [theme]);
 
     return (
         <SafeAreaView style={styles.container}>

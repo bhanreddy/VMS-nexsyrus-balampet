@@ -20,7 +20,7 @@ const InputField = ({
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   return <View style={styles.inputGroup}>
         <Text style={styles.label}>{label}</Text>
         <View style={styles.inputContainer}>
@@ -34,7 +34,7 @@ export default function AddAdminScreen() {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const router = useRouter();
   const {
     t
@@ -48,18 +48,16 @@ export default function AddAdminScreen() {
   });
   const handleSave = () => {
     // Implement save logic
-    console.log("Saved Admin", formData);
+
     router.back();
   };
   return <View style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
             <AdminHeader title={t('accounts.add_admin', 'Add New Admin')} />
-
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{
       flex: 1
     }}>
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-
                     <Animated.View entering={FadeInDown.delay(100).duration(600)} style={styles.section}>
                         <Text style={styles.sectionHeader}>{t('common.admin_details', 'Admin Details')}</Text>
                         <InputField label={t('common.full_name', 'Full Name')} placeholder="e.g. Rajesh Singh" value={formData.name} onChangeText={(text: string) => setFormData({
@@ -75,7 +73,6 @@ export default function AddAdminScreen() {
             phone: text
           })} keyboardType="phone-pad" icon="call-outline" />
                     </Animated.View>
-
                     <Animated.View entering={FadeInDown.delay(200).duration(600)} style={styles.section}>
                         <Text style={styles.sectionHeader}>{t('common.account_settings', 'Account Settings')}</Text>
                         <InputField label={t('common.role', 'Role / Privileges')} placeholder="e.g. Accounts Manager" value={formData.role} onChangeText={(text: string) => setFormData({
@@ -87,7 +84,6 @@ export default function AddAdminScreen() {
             password: text
           })} secureTextEntry={true} icon="lock-closed-outline" />
                     </Animated.View>
-
                     <Animated.View entering={FadeInDown.delay(300).duration(600)} style={{
           marginTop: 20,
           paddingBottom: 40
@@ -97,12 +93,11 @@ export default function AddAdminScreen() {
                             <Ionicons name="arrow-forward" size={20} color="#fff" />
                         </TouchableOpacity>
                     </Animated.View>
-
                 </ScrollView>
             </KeyboardAvoidingView>
         </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card

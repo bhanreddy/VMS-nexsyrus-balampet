@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, KeyboardAvoidingView, Platform, ScrollView, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, KeyboardAvoidingView, Platform, ScrollView, StatusBar, Modal, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeInUp, SlideInDown, SlideOutDown } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/src/hooks/useAuth';
 import AnimatedInput from '@/src/components/AnimatedInput';
 import PremiumButton from '@/src/components/PremiumButton';
 import AuthHeader from '@/src/components/AuthHeader';
-import { ActivityIndicator, Alert } from 'react-native';
+import { Alert } from 'react-native';
 import AuthService from '@/src/services/authService';
+import LogoLoader from '../src/components/LogoLoader';
+import { AccessControlService } from '@/src/services/accessControlService';
 
 const { width } = Dimensions.get('window');
 
@@ -23,14 +25,19 @@ const AccountsLoginScreen: React.FC = () => {
   const [error, setError] = useState(false);
   const [showPassword, setShowPassword] = useState<boolean>(false);
 
+  const [showAccessModal, setShowAccessModal] = useState(false);
+  const [accessReason, setAccessReason] = useState('');
+  const [requestingAccess, setRequestingAccess] = useState(false);
+  const [restrictedUserId, setRestrictedUserId] = useState<string | null>(null);
+
   const { user, loading: authLoading } = useAuth();
 
   if (authLoading || user) {
     return (
       <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#D97706" />
-      </SafeAreaView>
-    );
+        <LogoLoader size={60} color="#D97706" />
+      </SafeAreaView>);
+
   }
 
   const handleLogin = async () => {
@@ -43,17 +50,37 @@ const AccountsLoginScreen: React.FC = () => {
     try {
       const { user } = await AuthService.login(email, password);
       if (user.role === 'accountant') {
-        if (__DEV__) console.log("Login success, waiting for AuthGuard...");
+        if (__DEV__) { }
       } else {
         Alert.alert('Unauthorized Access', 'This portal is restricted to Accounts Department personnel only. Your attempt has been logged.', [
-          { text: 'OK', onPress: () => AuthService.logout() }
-        ]);
+          { text: 'OK', onPress: () => AuthService.logout() }]
+        );
       }
     } catch (error: any) {
-      if (__DEV__) console.error("[AccountantLogin] Authentication pipeline failed:", error);
-      Alert.alert('Login Failed', error.message || 'Invalid credentials');
+      if (error.code === 'OUT_OF_HOURS_NO_ACCESS' && error.userId) {
+        setRestrictedUserId(error.userId);
+        setShowAccessModal(true);
+      } else {
+        if (__DEV__) { }
+        Alert.alert('Login Failed', error.message || 'Invalid credentials');
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRequestAccess = async () => {
+    if (!restrictedUserId) return;
+    setRequestingAccess(true);
+    try {
+      await AccessControlService.requestOutOfHoursAccess(restrictedUserId, 'accounts', accessReason);
+      Alert.alert('Request Sent', 'Your request has been sent to the Admin for approval.');
+      setShowAccessModal(false);
+      setAccessReason('');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to submit request');
+    } finally {
+      setRequestingAccess(false);
     }
   };
 
@@ -81,14 +108,14 @@ const AccountsLoginScreen: React.FC = () => {
                 <View style={styles.inputWrapper}>
                   <AnimatedInput
                     icon={({ color }) => <FontAwesome5 name="user-alt" size={18} color={color} style={styles.inputIcon} />}
-                    placeholder="Accountant Email"
+                    placeholder={t('emailAddress') || "Accountant Email"}
                     value={email}
                     onChangeText={(text) => { setEmail(text); setError(false); }}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     error={error && !email}
-                    accentColor="#D97706"
-                  />
+                    accentColor="#D97706" />
+
                 </View>
 
                 <View style={styles.inputWrapper}>
@@ -104,8 +131,8 @@ const AccountsLoginScreen: React.FC = () => {
                       <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                         <Ionicons name={showPassword ? "eye-off" : "eye"} size={22} color="#94A3B8" />
                       </TouchableOpacity>
-                    }
-                  />
+                    } />
+
                 </View>
 
                 <Animated.View entering={FadeInDown.delay(300).duration(600)}>
@@ -120,8 +147,8 @@ const AccountsLoginScreen: React.FC = () => {
                     onPress={handleLogin}
                     loading={loading}
                     colors={['#F59E0B', '#D97706']} // Amber to Orange
-                    icon={<Ionicons name="arrow-forward" size={20} color="#fff" style={{ marginLeft: 8 }} />}
-                  />
+                    icon={<Ionicons name="arrow-forward" size={20} color="#fff" style={{ marginLeft: 8 }} />} />
+
                 </Animated.View>
               </Animated.View>
 
@@ -129,8 +156,57 @@ const AccountsLoginScreen: React.FC = () => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
-  );
+
+      {/* Access Restricted Modal */}
+      <Modal visible={showAccessModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalBackdrop} onPress={() => setShowAccessModal(false)} activeOpacity={1} />
+          <Animated.View
+            entering={SlideInDown.springify().damping(15)}
+            exiting={SlideOutDown}
+            style={styles.modalContent}
+          >
+            <View style={styles.modalHeader}>
+              <View style={styles.iconCircle}>
+                <Ionicons name="lock-closed" size={32} color="#D97706" />
+              </View>
+              <Text style={styles.modalTitle}>Access Restricted</Text>
+              <Text style={styles.modalSubtitle}>
+                The Accounts portal is restricted to school hours. You need administrator approval to log in.
+              </Text>
+            </View>
+
+            <View style={styles.modalBody}>
+              <Text style={styles.inputLabel}>Reason for access (optional)</Text>
+              <TextInput
+                style={styles.reasonInput}
+                placeholder="Why do you need access outside hours?"
+                placeholderTextColor="#94A3B8"
+                value={accessReason}
+                onChangeText={setAccessReason}
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+            </View>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAccessModal(false)}>
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <PremiumButton
+                title="Request Access"
+                onPress={handleRequestAccess}
+                loading={requestingAccess}
+                colors={['#F59E0B', '#D97706']}
+                style={{ flex: 1, marginLeft: 12 }}
+              />
+            </View>
+          </Animated.View>
+        </View>
+      </Modal>
+    </View>);
+
 };
 
 export default AccountsLoginScreen;
@@ -141,12 +217,12 @@ const styles = StyleSheet.create({
 
   bodyContainer: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 24
   },
   overlapSection: {
     marginTop: -60, // 100x SaaS Layout Technique
     zIndex: 20,
-    paddingBottom: 40,
+    paddingBottom: 40
   },
   formCard: {
     backgroundColor: '#FFFFFF',
@@ -155,10 +231,10 @@ const styles = StyleSheet.create({
     width: '100%',
     ...Platform.select({
       ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.05, shadowRadius: 24 },
-      android: { elevation: 4 },
+      android: { elevation: 4 }
     }),
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
+    borderColor: 'rgba(0,0,0,0.03)'
   },
 
   welcomeBackText: {
@@ -166,28 +242,109 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0F172A',
     marginBottom: 6,
-    letterSpacing: -0.5,
+    letterSpacing: -0.5
   },
   subtitleText: {
     fontSize: 14,
     color: '#64748B',
     marginBottom: 32,
-    fontWeight: '500',
+    fontWeight: '500'
   },
   inputWrapper: {
-    marginBottom: 16, // Strict 8pt spacing
+    marginBottom: 16 // Strict 8pt spacing
   },
   inputIcon: {
-    marginRight: 12,
+    marginRight: 12
   },
   forgotPasswordContainer: {
     alignSelf: 'flex-end',
     marginBottom: 32,
-    marginTop: 4, // Fine-tuned vertical rhythm
+    marginTop: 4 // Fine-tuned vertical rhythm
   },
   forgotPasswordText: {
     color: '#D97706', // Orange 600
     fontWeight: '600',
-    fontSize: 13,
+    fontSize: 13
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: 24,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 24,
+    elevation: 20,
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  iconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(217, 119, 6, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 16,
+  },
+  modalBody: {
+    marginBottom: 24,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 8,
+  },
+  reasonInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 16,
+    padding: 16,
+    fontSize: 15,
+    color: '#0F172A',
+    minHeight: 100,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 16,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+  },
+  cancelBtnText: {
+    color: '#475569',
+    fontSize: 15,
+    fontWeight: '600',
+  }
 });

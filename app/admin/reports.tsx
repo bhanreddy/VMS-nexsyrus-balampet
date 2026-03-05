@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Dimensions, StatusBar, ActivityIndicator } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Dimensions, StatusBar } from 'react-native';
 import AdminHeader from '../../src/components/AdminHeader';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
@@ -7,6 +7,7 @@ import { useAnalytics, TimeRange } from '../../src/hooks/useAnalytics';
 import { LineChart, BarChart } from 'react-native-gifted-charts';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 const {
   width
 } = Dimensions.get('window');
@@ -22,7 +23,7 @@ const KPICard = ({
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   return <Animated.View entering={FadeInDown.delay(delay).duration(500)} style={styles.kpiCard}>
         <View style={[styles.iconBox, {
       backgroundColor: color + '20'
@@ -46,7 +47,7 @@ const InsightItem = ({
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   return <Animated.View entering={FadeInDown.delay(600 + index * 100)} style={[styles.insightRow, insight.severity === 'high' && styles.insightHigh]}>
         <MaterialIcons name={insight.severity === 'high' ? "error-outline" : "info-outline"} size={20} color={insight.severity === 'high' ? "#EF4444" : "#3B82F6"} />
         <Text style={styles.insightText}>{insight.message}</Text>
@@ -57,7 +58,7 @@ export default function AdminReports() {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const {
     financials,
     attendance,
@@ -92,7 +93,12 @@ return <TouchableOpacity key={r} style={[styles.filterBtn, range === r && styles
       })}
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={loading} onRefresh={refreshData} />}>
+            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={loading} onRefresh={refreshData}  tintColor="transparent" colors={['transparent']} progressBackgroundColor="transparent" />}>
+                {loading && (
+                    <View style={{ width: '100%', alignItems: 'center', paddingVertical: 20 }}>
+                        <LogoLoader size={30} />
+                    </View>
+                )}
                 {/* 1. FINANCIALS SECTION */}
                 <Text style={styles.sectionHeader}>Financial Health</Text>
                 <View style={styles.kpiGrid}>
@@ -104,7 +110,7 @@ return <TouchableOpacity key={r} style={[styles.filterBtn, range === r && styles
                 {/* FINANCIAL CHART */}
                 <Animated.View entering={FadeInDown.delay(400)} style={styles.chartCard}>
                     <Text style={styles.chartTitle}>Revenue Trend ({range})</Text>
-                    {loading ? <ActivityIndicator color="#6366F1" /> : <LineChart data={lineData} color="#6366F1" thickness={3} startFillColor="rgba(99, 102, 241, 0.3)" endFillColor="rgba(99, 102, 241, 0.01)" startOpacity={0.9} endOpacity={0.2} initialSpacing={10} noOfSections={4} yAxisTextStyle={{
+                    {loading ? <LogoLoader color="#6366F1" /> : <LineChart data={lineData} color="#6366F1" thickness={3} startFillColor="rgba(99, 102, 241, 0.3)" endFillColor="rgba(99, 102, 241, 0.01)" startOpacity={0.9} endOpacity={0.2} initialSpacing={10} noOfSections={4} yAxisTextStyle={{
           color: '#9CA3AF',
           fontSize: 10
         }} xAxisLabelTextStyle={{
@@ -123,7 +129,7 @@ return <TouchableOpacity key={r} style={[styles.filterBtn, range === r && styles
                 {/* ATTENDANCE CHART */}
                 <Animated.View entering={FadeInDown.delay(700)} style={styles.chartCard}>
                     <Text style={styles.chartTitle}>Attendance Volatility</Text>
-                    {loading ? <ActivityIndicator color="#3B82F6" /> : <BarChart data={attendanceData} barWidth={22} barBorderRadius={4} frontColor="#3B82F6" yAxisTextStyle={{
+                    {loading ? <LogoLoader color="#3B82F6" /> : <BarChart data={attendanceData} barWidth={22} barBorderRadius={4} frontColor="#3B82F6" yAxisTextStyle={{
           color: '#9CA3AF',
           fontSize: 10
         }} xAxisLabelTextStyle={{
@@ -146,7 +152,7 @@ return <TouchableOpacity key={r} style={[styles.filterBtn, range === r && styles
             </ScrollView>
         </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card

@@ -12,7 +12,7 @@ export default function StudentDetails() {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const router = useRouter();
   const {
     id
@@ -49,7 +49,7 @@ export default function StudentDetails() {
         remarks: ''
       });
     } catch (error) {
-      console.error(error);
+
       Alert.alert("Error", "Failed to fetch student details");
     } finally {
       setLoading(false);
@@ -70,7 +70,7 @@ export default function StudentDetails() {
         onPress: () => router.back()
       }]);
     } catch (error) {
-      console.error(error);
+
       Alert.alert("Error", "Failed to update details");
     }
   };
@@ -104,7 +104,7 @@ export default function StudentDetails() {
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Full Name</Text>
-        <TextInput style={styles.input} value={formData.name} onChangeText={text => setFormData({
+        <TextInput style={styles.input} value={formData.name} onChangeText={(text) => setFormData({
           ...formData,
           name: text
         })} />
@@ -148,7 +148,7 @@ export default function StudentDetails() {
 
       <View style={styles.inputGroup}>
         <Text style={styles.label}>Teacher Remarks</Text>
-        <TextInput style={[styles.input, styles.textArea]} value={formData.remarks} multiline numberOfLines={4} textAlignVertical="top" onChangeText={text => setFormData({
+        <TextInput style={[styles.input, styles.textArea]} value={formData.remarks} multiline numberOfLines={4} textAlignVertical="top" onChangeText={(text) => setFormData({
           ...formData,
           remarks: text
         })} />
@@ -170,7 +170,7 @@ export default function StudentDetails() {
     </ScrollView>
   </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card

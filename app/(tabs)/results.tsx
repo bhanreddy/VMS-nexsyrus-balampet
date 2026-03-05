@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Image, Platform, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, RefreshControl } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import StudentHeader from '../../src/components/StudentHeader';
@@ -12,6 +11,7 @@ import { ResultService, ExamSummary } from '../../src/services/resultService';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 
 // Config for visual styling based on exam type
 const EXAM_TYPE_CONFIG: Record<string, {
@@ -62,7 +62,7 @@ const ResultsScreen = () => {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const {
     t
   } = useTranslation();
@@ -87,7 +87,7 @@ const ResultsScreen = () => {
       const data = await ResultService.getSummary(student.id);
       setSummary(data || []);
     } catch (error) {
-      console.error('Failed to load results summary:', error);
+
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -119,7 +119,7 @@ const ResultsScreen = () => {
     return <ScreenLayout>
       <StudentHeader title={'Results'} />
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#4F46E5" />
+        <LogoLoader size={60} color="#4F46E5" />
       </View>
     </ScreenLayout>;
   }
@@ -127,7 +127,12 @@ const ResultsScreen = () => {
 
     <StudentHeader title={'Results'} />
 
-    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
+    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="transparent" colors={['transparent']} progressBackgroundColor="transparent" />}>
+                {refreshing &&
+      <View style={{ width: '100%', alignItems: 'center', paddingVertical: 20 }}>
+                        <LogoLoader size={30} />
+                    </View>
+      }
       <Animated.View entering={FadeInUp.delay(100).duration(600)} style={styles.headerSection}>
         <Text style={styles.pageTitle}>Exam Results</Text>
         <Text style={styles.pageSubtitle}>Check your performance and progress reports</Text>
@@ -169,7 +174,7 @@ const ResultsScreen = () => {
   </ScreenLayout>;
 };
 export default ResultsScreen;
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card,

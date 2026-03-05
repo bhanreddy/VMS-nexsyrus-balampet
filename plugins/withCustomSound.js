@@ -16,10 +16,10 @@ const withCustomSound = (config) => {
                 fs.mkdirSync(resPath, { recursive: true });
             }
 
-            const soundFiles = ['attendance_absent_alert.wav', 'notification_alert.wav'];
+            const soundFiles = ['attendance_absent_alert.wav', 'default.wav', 'emergency.wav', 'fee_reminder.wav', 'voice_alert.wav'];
 
             soundFiles.forEach(fileName => {
-                const sourceFile = path.join(projectRoot, fileName);
+                const sourceFile = path.join(projectRoot, 'assets', 'sounds', fileName);
                 const destFile = path.join(resPath, fileName);
 
                 if (fs.existsSync(sourceFile)) {

@@ -1,20 +1,16 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, Text, StyleSheet, Dimensions, ScrollView, StatusBar, BackHandler, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, StatusBar, BackHandler, Pressable } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring, withTiming, useAnimatedScrollHandler } from 'react-native-reanimated';
+import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring, useAnimatedScrollHandler } from 'react-native-reanimated';
 import StaffHeader from '@/src/components/StaffHeader';
 import StaffDashboardCard from '@/src/components/StaffDashboardCard';
 import { useAuth } from '@/src/hooks/useAuth';
-import { StudentService } from '@/src/services/studentService';
 import { AttendanceService } from '@/src/services/attendanceService';
 import { LeaveService } from '@/src/services/commonServices';
-import type { DailyAttendance } from '@/src/types/schema';
 import { useTheme } from '@/src/hooks/useTheme';
-import { Spacing, Radii, Typography, Shadows, Elevation, CardGradients, Theme } from '@/src/theme/themes';
+import { Spacing, Radii, Shadows, CardGradients } from '@/src/theme/themes';
 import { Springs } from '@/src/utils/motion';
 const {
   width
@@ -50,16 +46,9 @@ function AttendanceWidget({
   data,
   onPress,
   theme,
-  isDark,
-  loading
-}: {
-  data: DashboardMetrics | null;
-  onPress: () => void;
-  theme: any;
-  isDark: boolean;
-  loading: boolean;
-}) {
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  isDark
+}: {data: DashboardMetrics | null;onPress: () => void;theme: any;isDark: boolean;loading: boolean;}) {
+  const styles = React.useMemo(() => getStyles(), []);
   const scale = useSharedValue(1);
   const animStyle = useAnimatedStyle(() => ({
     transform: [{
@@ -180,18 +169,12 @@ function AlertRow({
   subtitle,
   onPress,
   theme
-}: {
-  icon: string;
-  color: string;
-  title: string;
-  subtitle: string;
-  onPress: () => void;
-  theme: any;
-}) {
+
+}: {icon: string;color: string;title: string;subtitle: string;onPress: () => void;theme: any;}) {
   const {
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(), []);
   return <Pressable onPress={onPress} style={({
     pressed
   }) => {
@@ -234,7 +217,7 @@ export default function StaffDashboard() {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(), []);
   useEffect(() => {
     const loadData = async () => {
       if (!user) return;
@@ -252,8 +235,8 @@ export default function StaffDashboard() {
         if (myClass) {
           detectedClassId = myClass.class_section_id;
           studentCount = myClass.total_students;
-          presentCount = myClass.students.filter(s => s.status === 'present').length;
-          absentCount = myClass.students.filter(s => s.status === 'absent').length;
+          presentCount = myClass.students.filter((s) => s.status === 'present').length;
+          absentCount = myClass.students.filter((s) => s.status === 'absent').length;
         }
 
         setData({
@@ -264,7 +247,7 @@ export default function StaffDashboard() {
           classId: detectedClassId
         });
       } catch (e) {
-        console.error("Error loading dashboard data:", e);
+
       } finally {
         setLoading(false);
       }
@@ -379,7 +362,7 @@ export default function StaffDashboard() {
     </Animated.ScrollView>
   </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = () => StyleSheet.create({
   container: {
     flex: 1
   },

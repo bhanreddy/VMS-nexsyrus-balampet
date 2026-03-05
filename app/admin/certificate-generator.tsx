@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, Dimensions, ActivityIndicator, Image, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, Dimensions, Image } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AdminHeader from '../../src/components/AdminHeader';
 import { ADMIN_THEME } from '../../src/constants/adminTheme';
-import Animated, { FadeIn, FadeInDown, SlideInUp } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { StudentService } from '../../src/services/studentService';
 import { SCHOOL_CONFIG } from '@/src/constants/schoolConfig';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 const {
   width
 } = Dimensions.get('window');
@@ -31,8 +31,7 @@ export default function CertificateGenerator() {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
-  const router = useRouter();
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const [studentId, setStudentId] = useState('');
   const [loading, setLoading] = useState(false);
   const [studentData, setStudentData] = useState<StudentData | null>(null);
@@ -56,7 +55,7 @@ export default function CertificateGenerator() {
       const searchResults = await StudentService.search(studentId);
       if (searchResults && searchResults.length > 0) {
         // If multiple results, ideally show a picker. For now, prefer exact match on admission_no or just take first.
-        const exactMatch = searchResults.find(s => s.admission_no === studentId);
+        const exactMatch = searchResults.find((s) => s.admission_no === studentId);
         student = exactMatch || searchResults[0];
       }
 
@@ -65,9 +64,9 @@ export default function CertificateGenerator() {
         try {
           student = await StudentService.getById(studentId);
         } catch (e) {
+
           // Not found by ID either
-        }
-      }
+        }}
       if (!student) {
         Alert.alert('Error', 'Student not found');
         return;
@@ -79,7 +78,7 @@ export default function CertificateGenerator() {
       const sec = currentEnrollment?.section_name || '';
 
       // Parents: backend returns flat objects with relation string
-      const fatherObj = student.parents?.find(p => p.relation === 'Father');
+      const fatherObj = student.parents?.find((p) => p.relation === 'Father');
       const father = fatherObj ? `${fatherObj.first_name} ${fatherObj.last_name}` : 'Guardian';
       const mappedData: StudentData = {
         id: student.id,
@@ -93,7 +92,7 @@ export default function CertificateGenerator() {
       };
       setStudentData(mappedData);
     } catch (error) {
-      console.log(error);
+
       Alert.alert('Error', 'Student not found or error fetching data.');
     } finally {
       setLoading(false);
@@ -124,7 +123,7 @@ export default function CertificateGenerator() {
   // --- Render Helpers ---
 
   const renderCertificatePreview = () => {
-if (!studentData || !selectedType) return null;
+    if (!studentData || !selectedType) return null;
     const isTC = selectedType === 'TC';
     const title = isTC ? 'TRANSFER CERTIFICATE' : 'BONAFIDE CERTIFICATE';
     return <Animated.View entering={FadeInDown.springify()} style={styles.previewContainer}>
@@ -144,12 +143,9 @@ if (!studentData || !selectedType) return null;
                             <Text style={styles.affiliation}>Affiliated to CBSE, New Delhi (No. 123456)</Text>
                         </View>
                     </View>
-
                     <View style={styles.divider} />
-
                     <Text style={styles.certTitle}>{title}</Text>
                     <Text style={styles.certRef}>Ref No: NHS/{selectedType}/{new Date().getFullYear()}/042</Text>
-
                     <View style={styles.certBody}>
                         <Text style={styles.certText}>
                             This is to certify that <Text style={styles.bold}>{studentData.name}</Text>,
@@ -159,14 +155,12 @@ if (!studentData || !selectedType) return null;
                             <Text style={styles.bold}> {studentData.class}</Text> during the academic year
                             <Text style={styles.bold}> {studentData.academicYear}</Text>.
                         </Text>
-
                         {isTC && <Text style={[styles.certText, {
             marginTop: 16
           }]}>
                                 His/Her date of birth as per our records is <Text style={styles.bold}>{studentData.dob}</Text>.
                                 All school dues have been cleared. We wish him/her all the best for future endeavors.
                             </Text>}
-
                         {!isTC && <Text style={[styles.certText, {
             marginTop: 16
           }]}>
@@ -174,7 +168,6 @@ if (!studentData || !selectedType) return null;
                                 general purposes.
                             </Text>}
                     </View>
-
                     <View style={styles.certFooter}>
                         <View style={styles.signatureBox}>
                             <Text style={styles.signLabel}>Date: {new Date().toLocaleDateString()}</Text>
@@ -184,7 +177,6 @@ if (!studentData || !selectedType) return null;
                             <Text style={styles.signLabel}>Principal Signature</Text>
                         </View>
                     </View>
-
                     {/* Watermark */}
                     <View style={styles.watermark}>
                         <Image source={SCHOOL_CONFIG.logo} style={{
@@ -195,14 +187,12 @@ if (!studentData || !selectedType) return null;
           }} />
                     </View>
                 </View>
-
                 {/* Action Buttons for Certificate */}
                 <View style={styles.actionRow}>
                     <TouchableOpacity style={styles.secondaryBtn} onPress={() => setGenerated(false)}>
                         <Feather name="edit-2" size={18} color={ADMIN_THEME.colors.text.secondary} />
                         <Text style={styles.secondaryBtnText}>Edit / Close</Text>
                     </TouchableOpacity>
-
                     <TouchableOpacity style={styles.downloadBtn} onPress={handleDownloadPDF}>
                         <LinearGradient colors={[ADMIN_THEME.colors.primary, '#818CF8']} start={{
             x: 0,
@@ -221,10 +211,8 @@ if (!studentData || !selectedType) return null;
   return <View style={styles.root}>
             <LinearGradient colors={[ADMIN_THEME.colors.background.app, '#F0F4FF']} style={StyleSheet.absoluteFill} />
             <AdminHeader title="Certificate Gen." showBackButton />
-
             <ScrollView contentContainerStyle={styles.scroll}>
                 <View style={styles.content}>
-
                     {/* 1. Input Section */}
                     <Text style={styles.sectionTitle}>Student Details</Text>
                     <View style={styles.searchCard}>
@@ -235,11 +223,10 @@ if (!studentData || !selectedType) return null;
                                 <TextInput style={styles.input} placeholder="e.g. 101, 102..." placeholderTextColor={ADMIN_THEME.colors.text.muted} value={studentId} onChangeText={setStudentId} />
                             </View>
                             <TouchableOpacity style={[styles.searchBtn, loading && styles.disabledBtn]} onPress={handleSearch} disabled={loading}>
-                                {loading ? <ActivityIndicator size="small" color="#FFF" /> : <Feather name="arrow-right" size={20} color="#FFF" />}
+                                {loading ? <LogoLoader size={30} color="#FFF" /> : <Feather name="arrow-right" size={20} color="#FFF" />}
                             </TouchableOpacity>
                         </View>
                     </View>
-
                     {/* 2. Selection Section (Visible after search) */}
                     {studentData && !generated && <Animated.View entering={FadeIn.duration(400)} style={styles.selectionSection}>
                             <View style={styles.studentInfoCard}>
@@ -255,7 +242,6 @@ if (!studentData || !selectedType) return null;
                                     <Text style={styles.verifiedText}>Verified</Text>
                                 </View>
                             </View>
-
                             <Text style={[styles.sectionTitle, {
             marginTop: 24
           }]}>Select Certificate Type</Text>
@@ -271,7 +257,6 @@ if (!studentData || !selectedType) return null;
                                         <Text style={styles.typeDesc}>For students leaving the school/transferring.</Text>
                                     </LinearGradient>
                                 </TouchableOpacity>
-
                                 <TouchableOpacity style={styles.typeCard} onPress={() => generateCertificate('BONAFIDE')} activeOpacity={0.8}>
                                     <LinearGradient colors={['#FFF', '#F8FAFC']} style={styles.typeCardGradient}>
                                         <View style={[styles.iconBox, {
@@ -285,15 +270,13 @@ if (!studentData || !selectedType) return null;
                                 </TouchableOpacity>
                             </View>
                         </Animated.View>}
-
                     {/* 3. Generated Preview */}
                     {generated && renderCertificatePreview()}
-
                 </View>
             </ScrollView>
         </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   root: {
     flex: 1
   },

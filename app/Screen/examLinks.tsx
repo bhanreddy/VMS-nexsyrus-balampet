@@ -5,13 +5,12 @@ import StudentHeader from '../../src/components/StudentHeader';
 const examLinks = ['Scholarship Exams', '"SFI" Talent Test', 'Navodaya Application', 'Gurkula Application', 'PolyCET Application', 'IIIT Application'];
 import { useAuth } from '../../src/hooks/useAuth';
 import { useTheme } from '../../src/hooks/useTheme';
-import { Theme } from '../../src/theme/themes';
 const ExamLinksScreen = () => {
   const {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(), []);
   const {
     user
   } = useAuth();
@@ -57,7 +56,7 @@ export default ExamLinksScreen;
 
 /* ============================ STYLES ============================ */
 
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = () => StyleSheet.create({
   container: {
     padding: 16,
     paddingBottom: 30

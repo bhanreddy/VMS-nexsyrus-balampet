@@ -6,11 +6,12 @@ import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { api } from '../../src/services/apiClient';
 import { TimetableService, TimetableSlot } from '../../src/services/timetableService';
 import { useAuth } from '../../src/hooks/useAuth';
-import { ActivityIndicator } from 'react-native';
+;
 import ScreenLayout from '../../src/components/ScreenLayout';
 import StudentHeader from '../../src/components/StudentHeader';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 
 const { width } = Dimensions.get('window');
 
@@ -32,7 +33,7 @@ const SUBJECT_ICONS: Record<string, string> = {
   music: 'musical-notes-outline',
   sports: 'football-outline',
   library: 'library-outline',
-  default: 'school-outline',
+  default: 'school-outline'
 };
 
 const getSubjectIcon = (name: string): string => {
@@ -45,9 +46,8 @@ const getSubjectIcon = (name: string): string => {
 
 // Subject color palette
 const SUBJECT_COLORS: string[] = [
-  '#6366F1', '#8B5CF6', '#EC4899', '#EF4444', '#F97316',
-  '#EAB308', '#22C55E', '#14B8A6', '#06B6D4', '#3B82F6',
-];
+'#6366F1', '#8B5CF6', '#EC4899', '#EF4444', '#F97316',
+'#EAB308', '#22C55E', '#14B8A6', '#06B6D4', '#3B82F6'];
 
 const getSubjectColor = (name: string): string => {
   let hash = 0;
@@ -59,8 +59,8 @@ interface ProcessedItem {
   type: 'class' | 'break';
   id: string;
   startTime: string; // HH:MM
-  endTime: string;   // HH:MM
-  startRaw: string;  // HH:MM:SS
+  endTime: string; // HH:MM
+  startRaw: string; // HH:MM:SS
   endRaw: string;
   subject?: string;
   teacher?: string;
@@ -93,16 +93,16 @@ const TimeTableScreen = () => {
         setSlots(data);
       }
     } catch (err) {
-      console.error("Failed to load timetable", err);
+
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  useEffect(() => { loadTimetable(); }, [user]);
+  useEffect(() => {loadTimetable();}, [user]);
 
-  const onRefresh = () => { setRefreshing(true); loadTimetable(); };
+  const onRefresh = () => {setRefreshing(true);loadTimetable();};
 
   // Process slots: sort + insert gap breaks
   const processedItems: ProcessedItem[] = useMemo(() => {
@@ -122,7 +122,7 @@ const TimeTableScreen = () => {
             endTime: slot.start_time.slice(0, 5),
             startRaw: prevEnd,
             endRaw: slot.start_time,
-            periodNumber: 0,
+            periodNumber: 0
           });
         }
       }
@@ -137,7 +137,7 @@ const TimeTableScreen = () => {
         subject: slot.subject_name || 'N/A',
         teacher: slot.teacher_name || 'N/A',
         room: slot.room_no || 'N/A',
-        periodNumber: slot.period_number,
+        periodNumber: slot.period_number
       });
     });
 
@@ -164,14 +164,14 @@ const TimeTableScreen = () => {
   };
 
   // Count stats
-  const totalPeriods = processedItems.filter(i => i.type === 'class').length;
-  const completedPeriods = processedItems.filter(i => i.type === 'class' && isPast(i.endRaw)).length;
-  const currentPeriod = processedItems.find(i => i.type === 'class' && isActive(i.startRaw, i.endRaw));
+  const totalPeriods = processedItems.filter((i) => i.type === 'class').length;
+  const completedPeriods = processedItems.filter((i) => i.type === 'class' && isPast(i.endRaw)).length;
+  const currentPeriod = processedItems.find((i) => i.type === 'class' && isActive(i.startRaw, i.endRaw));
 
   const durationMinutes = (startRaw: string, endRaw: string): number => {
     const [sh, sm] = startRaw.split(':').map(Number);
     const [eh, em] = endRaw.split(':').map(Number);
-    return (eh * 60 + em) - (sh * 60 + sm);
+    return eh * 60 + em - (sh * 60 + sm);
   };
 
   return (
@@ -182,8 +182,13 @@ const TimeTableScreen = () => {
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
-      >
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="transparent" colors={['transparent']} progressBackgroundColor="transparent" />}>
+
+                {refreshing &&
+        <View style={{ width: '100%', alignItems: 'center', paddingVertical: 20 }}>
+                        <LogoLoader size={30} />
+                    </View>
+        }
         {/* Header Stats */}
         <Animated.View entering={FadeInUp.duration(600)} style={styles.statsRow}>
           <View style={[styles.statCard, { backgroundColor: isDark ? '#1E1B4B' : '#EEF2FF' }]}>
@@ -204,24 +209,24 @@ const TimeTableScreen = () => {
         </Animated.View>
 
         {/* Timeline */}
-        {loading ? (
-          <ActivityIndicator size="large" color="#6366F1" style={{ marginTop: 60 }} />
-        ) : processedItems.length === 0 ? (
-          <Animated.View entering={FadeInDown.delay(200).duration(600)} style={styles.emptyState}>
+        {loading ?
+        <LogoLoader size={60} color="#6366F1" style={{ marginTop: 60 }} /> :
+        processedItems.length === 0 ?
+        <Animated.View entering={FadeInDown.delay(200).duration(600)} style={styles.emptyState}>
             <Ionicons name="calendar-outline" size={56} color={isDark ? '#374151' : '#D1D5DB'} />
             <Text style={styles.emptyTitle}>No Classes Scheduled</Text>
             <Text style={styles.emptySubtitle}>Your timetable will appear here once it's configured</Text>
-          </Animated.View>
-        ) : (
-          <View style={styles.timeline}>
-            {processedItems.map((item, index) => {
-              const active = isActive(item.startRaw, item.endRaw);
-              const past = isPast(item.endRaw);
+          </Animated.View> :
 
-              if (item.type === 'break') {
-                const mins = durationMinutes(item.startRaw, item.endRaw);
-                return (
-                  <Animated.View key={item.id} entering={FadeInDown.delay(index * 60).duration(500)} style={styles.breakRow}>
+        <View style={styles.timeline}>
+            {processedItems.map((item, index) => {
+            const active = isActive(item.startRaw, item.endRaw);
+            const past = isPast(item.endRaw);
+
+            if (item.type === 'break') {
+              const mins = durationMinutes(item.startRaw, item.endRaw);
+              return (
+                <Animated.View key={item.id} entering={FadeInDown.delay(index * 60).duration(500)} style={styles.breakRow}>
                     {/* Timeline connector */}
                     <View style={styles.timelineConnector}>
                       <View style={[styles.connectorLine, past && styles.connectorLinePast]} />
@@ -236,25 +241,25 @@ const TimeTableScreen = () => {
                       </Text>
                       <Text style={styles.breakTime}>{item.startTime} - {item.endTime}</Text>
                     </View>
-                  </Animated.View>
-                );
-              }
+                  </Animated.View>);
 
-              const color = getSubjectColor(item.subject || '');
-              const icon = getSubjectIcon(item.subject || '');
+            }
 
-              return (
-                <Animated.View key={item.id} entering={FadeInDown.delay(index * 60).duration(500)} style={styles.periodRow}>
+            const color = getSubjectColor(item.subject || '');
+            const icon = getSubjectIcon(item.subject || '');
+
+            return (
+              <Animated.View key={item.id} entering={FadeInDown.delay(index * 60).duration(500)} style={styles.periodRow}>
                   {/* Timeline connector */}
                   <View style={styles.timelineConnector}>
                     {index > 0 && <View style={[styles.connectorLine, past && styles.connectorLinePast]} />}
                     {index === 0 && <View style={{ flex: 1 }} />}
                     <View style={[
-                      styles.timelineDot,
-                      active && styles.timelineDotActive,
-                      past && styles.timelineDotPast,
-                      { borderColor: active ? color : past ? '#D1D5DB' : '#C7D2FE' }
-                    ]}>
+                  styles.timelineDot,
+                  active && styles.timelineDotActive,
+                  past && styles.timelineDotPast,
+                  { borderColor: active ? color : past ? '#D1D5DB' : '#C7D2FE' }]
+                  }>
                       {active && <View style={[styles.timelineDotInner, { backgroundColor: color }]} />}
                       {past && <Ionicons name="checkmark" size={10} color="#9CA3AF" />}
                     </View>
@@ -264,11 +269,11 @@ const TimeTableScreen = () => {
 
                   {/* Period Card */}
                   <View style={[
-                    styles.periodCard,
-                    active && styles.periodCardActive,
-                    past && styles.periodCardPast,
-                    active && { borderColor: color + '40' }
-                  ]}>
+                styles.periodCard,
+                active && styles.periodCardActive,
+                past && styles.periodCardPast,
+                active && { borderColor: color + '40' }]
+                }>
                     {/* Active glow bar */}
                     {active && <View style={[styles.activeBar, { backgroundColor: color }]} />}
 
@@ -286,9 +291,9 @@ const TimeTableScreen = () => {
 
                       {/* Subject name */}
                       <Text style={[
-                        styles.subjectName,
-                        past && styles.subjectNamePast,
-                      ]}>{item.subject}</Text>
+                    styles.subjectName,
+                    past && styles.subjectNamePast]
+                    }>{item.subject}</Text>
 
                       {/* Details row */}
                       <View style={styles.detailsRow}>
@@ -296,33 +301,33 @@ const TimeTableScreen = () => {
                           <Ionicons name="person-outline" size={13} color={isDark ? '#94A3B8' : '#64748B'} />
                           <Text style={styles.detailText}>{item.teacher}</Text>
                         </View>
-                        {item.room && item.room !== 'N/A' && (
-                          <View style={styles.detailChip}>
+                        {item.room && item.room !== 'N/A' &&
+                      <View style={styles.detailChip}>
                             <Ionicons name="location-outline" size={13} color={isDark ? '#94A3B8' : '#64748B'} />
                             <Text style={styles.detailText}>{item.room}</Text>
                           </View>
-                        )}
+                      }
                       </View>
 
                       {/* Active status badge */}
-                      {active && (
-                        <View style={[styles.activeBadge, { backgroundColor: color + '15' }]}>
+                      {active &&
+                    <View style={[styles.activeBadge, { backgroundColor: color + '15' }]}>
                           <View style={[styles.activePulse, { backgroundColor: color }]} />
                           <Text style={[styles.activeBadgeText, { color }]}>Ongoing</Text>
                         </View>
-                      )}
+                    }
                     </View>
                   </View>
-                </Animated.View>
-              );
-            })}
+                </Animated.View>);
+
+          })}
           </View>
-        )}
+        }
 
         <View style={{ height: 100 }} />
       </ScrollView>
-    </ScreenLayout>
-  );
+    </ScreenLayout>);
+
 };
 
 export default TimeTableScreen;
@@ -330,10 +335,10 @@ export default TimeTableScreen;
 const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.background
   },
   scrollContent: {
-    paddingTop: 16,
+    paddingTop: 16
   },
 
   /* Stats */
@@ -341,51 +346,51 @@ const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 16,
     gap: 10,
-    marginBottom: 20,
+    marginBottom: 20
   },
   statCard: {
     flex: 1,
     alignItems: 'center',
     paddingVertical: 14,
     borderRadius: 14,
-    gap: 4,
+    gap: 4
   },
   statValue: {
     fontSize: 16,
     fontWeight: '800',
-    letterSpacing: -0.3,
+    letterSpacing: -0.3
   },
   statLabel: {
     fontSize: 11,
     fontWeight: '600',
     color: theme.colors.textSecondary,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.5
   },
 
   /* Timeline Structure */
   timeline: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 16
   },
   periodRow: {
     flexDirection: 'row',
-    minHeight: 100,
+    minHeight: 100
   },
   breakRow: {
     flexDirection: 'row',
-    minHeight: 52,
+    minHeight: 52
   },
   timelineConnector: {
     width: 32,
-    alignItems: 'center',
+    alignItems: 'center'
   },
   connectorLine: {
     width: 2,
     flex: 1,
-    backgroundColor: '#C7D2FE',
+    backgroundColor: '#C7D2FE'
   },
   connectorLinePast: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: '#E5E7EB'
   },
   timelineDot: {
     width: 20,
@@ -394,29 +399,29 @@ const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     borderWidth: 2,
     backgroundColor: theme.colors.background,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   timelineDotActive: {
     width: 22,
     height: 22,
     borderRadius: 11,
-    borderWidth: 2.5,
+    borderWidth: 2.5
   },
   timelineDotPast: {
     backgroundColor: theme.colors.background,
-    borderColor: '#D1D5DB',
+    borderColor: '#D1D5DB'
   },
   timelineDotInner: {
     width: 8,
     height: 8,
-    borderRadius: 4,
+    borderRadius: 4
   },
   breakDot: {
     width: 22,
     height: 22,
     borderRadius: 11,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
 
   /* Period Card */
@@ -431,31 +436,31 @@ const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     overflow: 'hidden',
     ...Platform.select({
       ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8 },
-      android: { elevation: 2 },
-    }),
+      android: { elevation: 2 }
+    })
   },
   periodCardActive: {
     borderWidth: 1.5,
     ...Platform.select({
       ios: { shadowOpacity: 0.12, shadowRadius: 12 },
-      android: { elevation: 4 },
-    }),
+      android: { elevation: 4 }
+    })
   },
   periodCardPast: {
-    opacity: 0.6,
+    opacity: 0.6
   },
   activeBar: {
     height: 3,
-    width: '100%',
+    width: '100%'
   },
   periodCardInner: {
     padding: 14,
-    gap: 8,
+    gap: 8
   },
   periodTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   timeChip: {
     flexDirection: 'row',
@@ -464,43 +469,43 @@ const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#F8FAFC',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 8
   },
   timeChipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6B7280',
+    color: '#6B7280'
   },
   subjectIcon: {
     width: 34,
     height: 34,
     borderRadius: 10,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   subjectName: {
     fontSize: 17,
     fontWeight: '700',
     color: theme.colors.text,
-    letterSpacing: -0.2,
+    letterSpacing: -0.2
   },
   subjectNamePast: {
-    color: theme.colors.textSecondary,
+    color: theme.colors.textSecondary
   },
   detailsRow: {
     flexDirection: 'row',
     gap: 12,
-    flexWrap: 'wrap',
+    flexWrap: 'wrap'
   },
   detailChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 4
   },
   detailText: {
     fontSize: 12,
     fontWeight: '500',
-    color: isDark ? '#94A3B8' : '#64748B',
+    color: isDark ? '#94A3B8' : '#64748B'
   },
   activeBadge: {
     flexDirection: 'row',
@@ -510,18 +515,18 @@ const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
     gap: 6,
-    marginTop: 2,
+    marginTop: 2
   },
   activePulse: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: 3
   },
   activeBadgeText: {
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.3,
-    textTransform: 'uppercase',
+    textTransform: 'uppercase'
   },
 
   /* Break */
@@ -537,34 +542,34 @@ const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: isDark ? '#854D0E33' : '#FDE68A',
+    borderColor: isDark ? '#854D0E33' : '#FDE68A'
   },
   breakText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#B45309',
+    color: '#B45309'
   },
   breakTime: {
     fontSize: 11,
     fontWeight: '500',
-    color: '#D97706',
+    color: '#D97706'
   },
 
   /* Empty State */
   emptyState: {
     alignItems: 'center',
     paddingTop: 80,
-    gap: 12,
+    gap: 12
   },
   emptyTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: theme.colors.textSecondary,
+    color: theme.colors.textSecondary
   },
   emptySubtitle: {
     fontSize: 14,
     color: theme.colors.textTertiary,
     textAlign: 'center',
-    paddingHorizontal: 40,
-  },
+    paddingHorizontal: 40
+  }
 });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Linking, StatusBar, TextInput, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Linking, StatusBar, TextInput, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -7,6 +7,7 @@ import StudentHeader from '../../src/components/StudentHeader';
 import { api } from '../../src/services/apiClient';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 interface LMSMaterial {
   id: string;
   title: string; // subTopic
@@ -24,7 +25,7 @@ export default function LMSPage() {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('All');
   const [materials, setMaterials] = useState<LMSMaterial[]>([]);
@@ -40,7 +41,7 @@ export default function LMSPage() {
       const data: any[] = await api.get('/lms/all-materials');
 
       // Map to UI model
-      const mapped: LMSMaterial[] = data.map(m => ({
+      const mapped: LMSMaterial[] = data.map((m) => ({
         id: m.id,
         title: m.title,
         description: m.description,
@@ -54,26 +55,24 @@ export default function LMSPage() {
       }));
       setMaterials(mapped);
     } catch (error) {
-      console.error('Failed to load LMS feed', error);
+
     } finally {
       setLoading(false);
     }
   };
-  const filteredContent = materials.filter(item => {
+  const filteredContent = materials.filter((item) => {
     const matchesSearch = item.course_title.toLowerCase().includes(searchQuery.toLowerCase()) || item.title.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesSubject = selectedSubject === 'All' || item.course_title === selectedSubject;
     return matchesSearch && matchesSubject;
   });
   const handleOpenVideo = (url: string) => {
-    Linking.openURL(url).catch(err => console.error("Couldn't load page", err));
+    Linking.openURL(url).catch(() => {});
   };
   const renderItem = ({
     item,
     index
-  }: {
-    item: LMSMaterial;
-    index: number;
-  }) => {
+
+  }: {item: LMSMaterial;index: number;}) => {
     return <Animated.View entering={FadeInDown.delay(index * 100).duration(600)}>
       <TouchableOpacity style={styles.card} activeOpacity={0.9} onPress={() => handleOpenVideo(item.content_url)}>
         <View style={styles.thumbnailContainer}>
@@ -125,7 +124,7 @@ export default function LMSPage() {
 
     <View style={styles.tabsContainer}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsContent}>
-        {SUBJECTS.map(subject => {
+        {SUBJECTS.map((subject) => {
           return <TouchableOpacity key={subject} style={[styles.tabItem, selectedSubject === subject && styles.activeTabItem]} onPress={() => setSelectedSubject(subject)}>
             <Text style={[styles.tabText, selectedSubject === subject && styles.activeTabText]}>
               {subject}
@@ -147,14 +146,14 @@ export default function LMSPage() {
       justifyContent: 'center',
       alignItems: 'center'
     }}>
-      <ActivityIndicator size="large" color="#3B82F6" />
-    </View> : <FlatList data={filteredContent} renderItem={renderItem} keyExtractor={item => item.id} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false} ListEmptyComponent={<View style={styles.emptyState}>
+      <LogoLoader size={60} color="#3B82F6" />
+    </View> : <FlatList data={filteredContent} renderItem={renderItem} keyExtractor={(item) => item.id} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false} ListEmptyComponent={<View style={styles.emptyState}>
       <MaterialIcons name="video-library" size={64} color="#E5E7EB" />
       <Text style={styles.emptyText}>No content found</Text>
     </View>} />}
   </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card

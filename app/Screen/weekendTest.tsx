@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import ScreenLayout from '../../src/components/ScreenLayout';
 import StudentHeader from '../../src/components/StudentHeader';
 import { useTheme } from '../../src/hooks/useTheme';
-import { Theme } from '../../src/theme/themes';
 
 /* ===================== DATA MODEL (BACKEND READY) ===================== */
 
@@ -45,7 +44,7 @@ const WeekendTestScreen = () => {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(), []);
   const [timeLeft, setTimeLeft] = useState(20);
   const [currentQuestion, setCurrentQuestion] = useState<Question>(QUESTION_DATA);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -133,7 +132,7 @@ export default WeekendTestScreen;
 
 /* ===================== STYLES ===================== */
 
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = () => StyleSheet.create({
   container: {
     padding: 16,
     paddingBottom: 40

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, TextInput, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AdminHeader from '../../src/components/AdminHeader';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -8,12 +8,13 @@ import { ClassService, ClassInfo } from '../../src/services/classService';
 import { Modal, Switch, ScrollView } from 'react-native';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 export default function AdminNotices() {
   const {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -37,7 +38,7 @@ export default function AdminNotices() {
       const data = await ClassService.getClasses();
       setClasses(data);
     } catch (e) {
-      console.warn('Failed to fetch classes', e);
+
     }
   };
   const fetchNotices = async () => {
@@ -46,7 +47,7 @@ export default function AdminNotices() {
       const data = await NoticeService.getAll();
       setNotices(data);
     } catch (error) {
-      console.error('Failed to fetch notices:', error);
+
       Alert.alert('Error', 'Failed to load notices');
     } finally {
       setLoading(false);
@@ -93,7 +94,7 @@ export default function AdminNotices() {
         };
     }
   };
-  const filteredNotices = notices.filter(notice => notice.title.toLowerCase().includes(searchQuery.toLowerCase()) || notice.content.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredNotices = notices.filter((notice) => notice.title.toLowerCase().includes(searchQuery.toLowerCase()) || notice.content.toLowerCase().includes(searchQuery.toLowerCase()));
   const handleCreate = async () => {
     if (!title.trim() || !content.trim()) {
       Alert.alert('Error', 'Title and Content are required');
@@ -135,11 +136,9 @@ export default function AdminNotices() {
   const renderItem = ({
     item,
     index
-  }: {
-    item: Notice;
-    index: number;
-  }) => {
-const priorityColors = getPriorityColor(item.priority);
+
+  }: {item: Notice;index: number;}) => {
+    const priorityColors = getPriorityColor(item.priority);
     return <Animated.View entering={FadeInDown.delay(index * 100).duration(500)}>
                 <TouchableOpacity style={styles.card}>
                     <View style={styles.cardHeader}>
@@ -154,9 +153,7 @@ const priorityColors = getPriorityColor(item.priority);
                             </Text>
                         </View>
                     </View>
-
                     <Text style={styles.content} numberOfLines={2}>{item.content}</Text>
-
                     <View style={styles.footer}>
                         <View style={styles.audienceRow}>
                             <Ionicons name="people" size={14} color="#6B7280" />
@@ -172,20 +169,16 @@ const priorityColors = getPriorityColor(item.priority);
   return <View style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
             <AdminHeader title="Notice Board" showBackButton={true} />
-
             <View style={styles.searchContainer}>
                 <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
                 <TextInput style={styles.searchInput} placeholder="Search notices..." value={searchQuery} onChangeText={setSearchQuery} />
             </View>
-
             {loading ? <View style={styles.centerContainer}>
-                    <ActivityIndicator size="large" color="#EC4899" />
-                </View> : <FlatList data={filteredNotices} keyExtractor={item => item.id} renderItem={renderItem} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false} refreshing={loading} onRefresh={fetchNotices} ListEmptyComponent={<Text style={styles.emptyText}>No notices found</Text>} />}
-
+                    <LogoLoader size={60} color="#EC4899" />
+                </View> : <FlatList data={filteredNotices} keyExtractor={(item) => item.id} renderItem={renderItem} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false} refreshing={loading} onRefresh={fetchNotices} ListEmptyComponent={<Text style={styles.emptyText}>No notices found</Text>} />}
             <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)}>
                 <Ionicons name="create" size={28} color="#fff" />
             </TouchableOpacity>
-
             <Modal animationType="slide" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
@@ -195,27 +188,23 @@ const priorityColors = getPriorityColor(item.priority);
                                 <Ionicons name="close" size={24} color="#6B7280" />
                             </TouchableOpacity>
                         </View>
-
                         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{
             paddingBottom: 20
           }}>
                             <Text style={styles.label}>Title</Text>
                             <TextInput style={styles.input} placeholder="Notice Title" value={title} onChangeText={setTitle} />
-
                             <Text style={styles.label}>Content</Text>
                             <TextInput style={[styles.input, styles.textArea]} placeholder="Notice Details..." value={content} onChangeText={setContent} multiline numberOfLines={4} textAlignVertical="top" />
-
                             <Text style={styles.label}>Audience</Text>
                             <View style={styles.pillContainer}>
-                                {['all', 'students', 'staff', 'parents', 'class'].map(a => {
-return <TouchableOpacity key={a} style={[styles.pill, audience === a && styles.activePill]} onPress={() => setAudience(a as any)}>
+                                {['all', 'students', 'staff', 'parents', 'class'].map((a) => {
+                return <TouchableOpacity key={a} style={[styles.pill, audience === a && styles.activePill]} onPress={() => setAudience(a as any)}>
                                         <Text style={[styles.pillText, audience === a && styles.activePillText]}>
                                             {a.charAt(0).toUpperCase() + a.slice(1)}
                                         </Text>
                                     </TouchableOpacity>;
               })}
                             </View>
-
                             {audience === 'class' && <View style={{
               marginTop: 10
             }}>
@@ -223,8 +212,8 @@ return <TouchableOpacity key={a} style={[styles.pill, audience === a && styles.a
                                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{
                 marginBottom: 10
               }}>
-                                        {classes.map(c => {
-return <TouchableOpacity key={c.id} style={[styles.pill, targetClassId === c.id && styles.activePill]} onPress={() => setTargetClassId(c.id)}>
+                                        {classes.map((c) => {
+                  return <TouchableOpacity key={c.id} style={[styles.pill, targetClassId === c.id && styles.activePill]} onPress={() => setTargetClassId(c.id)}>
                                                 <Text style={[styles.pillText, targetClassId === c.id && styles.activePillText]}>
                                                     {c.name}
                                                 </Text>
@@ -232,18 +221,16 @@ return <TouchableOpacity key={c.id} style={[styles.pill, targetClassId === c.id 
                 })}
                                     </ScrollView>
                                 </View>}
-
                             <Text style={styles.label}>Priority</Text>
                             <View style={styles.pillContainer}>
-                                {['low', 'medium', 'high'].map(p => {
-return <TouchableOpacity key={p} style={[styles.pill, priority === p && styles.activePill]} onPress={() => setPriority(p)}>
+                                {['low', 'medium', 'high'].map((p) => {
+                return <TouchableOpacity key={p} style={[styles.pill, priority === p && styles.activePill]} onPress={() => setPriority(p)}>
                                         <Text style={[styles.pillText, priority === p && styles.activePillText]}>
                                             {p.charAt(0).toUpperCase() + p.slice(1)}
                                         </Text>
                                     </TouchableOpacity>;
               })}
                             </View>
-
                             <View style={styles.rowBetween}>
                                 <Text style={styles.label}>Pin to Top</Text>
                                 <Switch value={isPinned} onValueChange={setIsPinned} trackColor={{
@@ -251,9 +238,8 @@ return <TouchableOpacity key={p} style={[styles.pill, priority === p && styles.a
                 true: "#EC4899"
               }} thumbColor={isPinned ? "#fff" : "#f4f3f4"} />
                             </View>
-
                             <TouchableOpacity style={[styles.createBtn, creating && styles.disabledBtn]} onPress={handleCreate} disabled={creating}>
-                                {creating ? <ActivityIndicator color="#fff" /> : <Text style={styles.createBtnText}>Publish Notice</Text>}
+                                {creating ? <LogoLoader color="#fff" /> : <Text style={styles.createBtnText}>Publish Notice</Text>}
                             </TouchableOpacity>
                         </ScrollView>
                     </View>
@@ -261,7 +247,7 @@ return <TouchableOpacity key={p} style={[styles.pill, priority === p && styles.a
             </Modal>
         </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card

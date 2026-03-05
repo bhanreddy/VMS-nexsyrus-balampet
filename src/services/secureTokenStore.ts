@@ -26,12 +26,12 @@ const SESSION_HEARTBEAT_KEY = 'sb_last_session_write';
  * Supabase stores session as: { "access_token": "...", "refresh_token": "...", ... }
  */
 function extractRefreshToken(sessionJson: string): string | null {
-    try {
-        const parsed = JSON.parse(sessionJson);
-        return parsed?.refresh_token || null;
-    } catch {
-        return null;
-    }
+  try {
+    const parsed = JSON.parse(sessionJson);
+    return parsed?.refresh_token || null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -39,39 +39,39 @@ function extractRefreshToken(sessionJson: string): string | null {
  * Safe to call repeatedly — small payload, no chunking risk.
  */
 async function backupRefreshToken(refreshToken: string): Promise<void> {
-    try {
-        if (Platform.OS === 'web') return; // SecureStore not available on web
-        await SecureStore.setItemAsync(SECURE_REFRESH_TOKEN_KEY, refreshToken);
-    } catch (error) {
-        // Non-fatal: SecureStore backup is a safety net, not primary storage
-        if (__DEV__) console.warn('[SecureTokenStore] Failed to backup refresh token:', error);
-    }
+  try {
+    if (Platform.OS === 'web') return; // SecureStore not available on web
+    await SecureStore.setItemAsync(SECURE_REFRESH_TOKEN_KEY, refreshToken);
+  } catch (error) {
+    // Non-fatal: SecureStore backup is a safety net, not primary storage
+    if (__DEV__) {}
+  }
 }
 
 /**
  * Retrieve the backup refresh token from SecureStore.
  */
 async function getBackupRefreshToken(): Promise<string | null> {
-    try {
-        if (Platform.OS === 'web') return null;
-        return await SecureStore.getItemAsync(SECURE_REFRESH_TOKEN_KEY);
-    } catch (error) {
-        if (__DEV__) console.warn('[SecureTokenStore] Failed to read backup refresh token:', error);
-        return null;
-    }
+  try {
+    if (Platform.OS === 'web') return null;
+    return await SecureStore.getItemAsync(SECURE_REFRESH_TOKEN_KEY);
+  } catch (error) {
+    if (__DEV__) {}
+    return null;
+  }
 }
 
 /**
  * Clear the backup refresh token from SecureStore.
  */
 async function clearBackupRefreshToken(): Promise<void> {
-    try {
-        if (Platform.OS === 'web') return;
-        await SecureStore.deleteItemAsync(SECURE_REFRESH_TOKEN_KEY);
-        await SecureStore.deleteItemAsync(SECURE_SESSION_STARTED_KEY);
-    } catch (error) {
-        if (__DEV__) console.warn('[SecureTokenStore] Failed to clear backup:', error);
-    }
+  try {
+    if (Platform.OS === 'web') return;
+    await SecureStore.deleteItemAsync(SECURE_REFRESH_TOKEN_KEY);
+    await SecureStore.deleteItemAsync(SECURE_SESSION_STARTED_KEY);
+  } catch (error) {
+    if (__DEV__) {}
+  }
 }
 
 /**
@@ -79,111 +79,108 @@ async function clearBackupRefreshToken(): Promise<void> {
  * Implements the required { getItem, setItem, removeItem } interface.
  */
 export const SecureTokenStore = {
-    /**
-     * Read session from AsyncStorage.
-     * If AsyncStorage returns null but we have a backup refresh token,
-     * return a minimal session JSON that Supabase can use to call refreshSession().
-     */
-    getItem: async (key: string): Promise<string | null> => {
+  /**
+   * Read session from AsyncStorage.
+   * If AsyncStorage returns null but we have a backup refresh token,
+   * return a minimal session JSON that Supabase can use to call refreshSession().
+   */
+  getItem: async (key: string): Promise<string | null> => {
+    try {
+      const value = await AsyncStorage.getItem(key);
+
+      if (value) {
+        // Diagnostic: check how old the last session write was
         try {
-            const value = await AsyncStorage.getItem(key);
+          const lastWrite = await AsyncStorage.getItem(SESSION_HEARTBEAT_KEY);
+          if (lastWrite) {
+            const ageMs = Date.now() - parseInt(lastWrite, 10);
+            const ageHours = Math.round(ageMs / 3600000);
+            if (ageHours > 24) {
 
-            if (value) {
-                // Diagnostic: check how old the last session write was
-                try {
-                    const lastWrite = await AsyncStorage.getItem(SESSION_HEARTBEAT_KEY);
-                    if (lastWrite) {
-                        const ageMs = Date.now() - parseInt(lastWrite, 10);
-                        const ageHours = Math.round(ageMs / 3600000);
-                        if (ageHours > 24) {
-                            console.log(`[SecureTokenStore] Session loaded from AsyncStorage (last written ${ageHours}h ago)`);
-                        }
-                    }
-                } catch { /* diagnostic only */ }
-                return value;
             }
+          }
+        } catch {/* diagnostic only */}
+        return value;
+      }
 
-            // AsyncStorage returned null — try SecureStore backup
-            console.warn('[SecureTokenStore] AsyncStorage returned null for session key. Attempting SecureStore recovery...');
-            const backupToken = await getBackupRefreshToken();
-            if (backupToken) {
-                console.log('[SecureTokenStore] ✅ Recovered refresh_token from SecureStore backup');
-                // Return a minimal session that Supabase will use to trigger a refresh
-                const recoverySession = JSON.stringify({
-                    access_token: '',
-                    refresh_token: backupToken,
-                    expires_at: 0, // Force Supabase to refresh immediately
-                    expires_in: 0,
-                    token_type: 'bearer',
-                });
-                return recoverySession;
-            }
+      // AsyncStorage returned null — try SecureStore backup
 
-            console.warn('[SecureTokenStore] ❌ No backup refresh_token found. Session is permanently lost.');
-            return null;
-        } catch (error) {
-            console.error('[SecureTokenStore] getItem failed:', error);
+      const backupToken = await getBackupRefreshToken();
+      if (backupToken) {
 
-            // Last resort: try SecureStore backup
-            const backupToken = await getBackupRefreshToken();
-            if (backupToken) {
-                console.log('[SecureTokenStore] ✅ AsyncStorage error, recovered from SecureStore backup');
-                return JSON.stringify({
-                    access_token: '',
-                    refresh_token: backupToken,
-                    expires_at: 0,
-                    expires_in: 0,
-                    token_type: 'bearer',
-                });
-            }
+        // Return a minimal session that Supabase will use to trigger a refresh
+        const recoverySession = JSON.stringify({
+          access_token: '',
+          refresh_token: backupToken,
+          expires_at: 0, // Force Supabase to refresh immediately
+          expires_in: 0,
+          token_type: 'bearer'
+        });
+        return recoverySession;
+      }
 
-            return null;
-        }
-    },
+      return null;
+    } catch (error) {
 
-    /**
-     * Write session to AsyncStorage + backup refresh token to SecureStore.
-     */
-    setItem: async (key: string, value: string): Promise<void> => {
-        try {
-            // 1. Primary: Store full session in AsyncStorage
-            await AsyncStorage.setItem(key, value);
+      // Last resort: try SecureStore backup
+      const backupToken = await getBackupRefreshToken();
+      if (backupToken) {
 
-            // 2. Write heartbeat timestamp for diagnostics
-            await AsyncStorage.setItem(SESSION_HEARTBEAT_KEY, Date.now().toString());
+        return JSON.stringify({
+          access_token: '',
+          refresh_token: backupToken,
+          expires_at: 0,
+          expires_in: 0,
+          token_type: 'bearer'
+        });
+      }
 
-            // 3. Backup: Extract and store refresh token in SecureStore
-            const refreshToken = extractRefreshToken(value);
-            if (refreshToken) {
-                await backupRefreshToken(refreshToken);
-            }
+      return null;
+    }
+  },
 
-            if (__DEV__) console.log('[SecureTokenStore] Session saved (AsyncStorage + SecureStore backup)');
-        } catch (error) {
-            console.error('[SecureTokenStore] setItem failed:', error);
+  /**
+   * Write session to AsyncStorage + backup refresh token to SecureStore.
+   */
+  setItem: async (key: string, value: string): Promise<void> => {
+    try {
+      // 1. Primary: Store full session in AsyncStorage
+      await AsyncStorage.setItem(key, value);
 
-            // Even if AsyncStorage fails, try to save the refresh token at minimum
-            const refreshToken = extractRefreshToken(value);
-            if (refreshToken) {
-                await backupRefreshToken(refreshToken);
-            }
-        }
-    },
+      // 2. Write heartbeat timestamp for diagnostics
+      await AsyncStorage.setItem(SESSION_HEARTBEAT_KEY, Date.now().toString());
 
-    /**
-     * Remove session from both AsyncStorage and SecureStore backup.
-     */
-    removeItem: async (key: string): Promise<void> => {
-        try {
-            await AsyncStorage.removeItem(key);
-            await clearBackupRefreshToken();
-            if (__DEV__) console.log('[SecureTokenStore] Session cleared (both stores)');
-        } catch (error) {
-            console.error('[SecureTokenStore] removeItem failed:', error);
-            // Best effort: try to clear SecureStore even if AsyncStorage fails
-            await clearBackupRefreshToken();
-        }
-    },
+      // 3. Backup: Extract and store refresh token in SecureStore
+      const refreshToken = extractRefreshToken(value);
+      if (refreshToken) {
+        await backupRefreshToken(refreshToken);
+      }
+
+      if (__DEV__) {}
+    } catch (error) {
+
+      // Even if AsyncStorage fails, try to save the refresh token at minimum
+      const refreshToken = extractRefreshToken(value);
+      if (refreshToken) {
+        await backupRefreshToken(refreshToken);
+      }
+    }
+  },
+
+  /**
+   * Remove session from both AsyncStorage and SecureStore backup.
+   */
+  removeItem: async (key: string): Promise<void> => {
+    try {
+      await AsyncStorage.removeItem(key);
+      await clearBackupRefreshToken();
+      if (__DEV__) {}
+    } catch (error) {
+
+      // Best effort: try to clear SecureStore even if AsyncStorage fails
+      await clearBackupRefreshToken();
+    }
+  }
 };
 
 // ----- Utility exports for other services -----
@@ -192,32 +189,32 @@ export const SecureTokenStore = {
  * Store the session start timestamp (for role-based TTL checks).
  */
 export async function setSessionStartTimestamp(): Promise<void> {
-    try {
-        if (Platform.OS === 'web') {
-            await AsyncStorage.setItem(SECURE_SESSION_STARTED_KEY, Date.now().toString());
-            return;
-        }
-        await SecureStore.setItemAsync(SECURE_SESSION_STARTED_KEY, Date.now().toString());
-    } catch (error) {
-        if (__DEV__) console.warn('[SecureTokenStore] Failed to set session timestamp:', error);
+  try {
+    if (Platform.OS === 'web') {
+      await AsyncStorage.setItem(SECURE_SESSION_STARTED_KEY, Date.now().toString());
+      return;
     }
+    await SecureStore.setItemAsync(SECURE_SESSION_STARTED_KEY, Date.now().toString());
+  } catch (error) {
+    if (__DEV__) {}
+  }
 }
 
 /**
  * Get the session start timestamp.
  */
 export async function getSessionStartTimestamp(): Promise<number | null> {
-    try {
-        let value: string | null;
-        if (Platform.OS === 'web') {
-            value = await AsyncStorage.getItem(SECURE_SESSION_STARTED_KEY);
-        } else {
-            value = await SecureStore.getItemAsync(SECURE_SESSION_STARTED_KEY);
-        }
-        return value ? parseInt(value, 10) : null;
-    } catch {
-        return null;
+  try {
+    let value: string | null;
+    if (Platform.OS === 'web') {
+      value = await AsyncStorage.getItem(SECURE_SESSION_STARTED_KEY);
+    } else {
+      value = await SecureStore.getItemAsync(SECURE_SESSION_STARTED_KEY);
     }
+    return value ? parseInt(value, 10) : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

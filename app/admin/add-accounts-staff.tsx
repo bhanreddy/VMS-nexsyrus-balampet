@@ -1,16 +1,15 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, StatusBar, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, StatusBar, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AdminHeader from '../../src/components/AdminHeader';
 import { ADMIN_THEME } from '../../src/constants/adminTheme';
-import { api } from '../../src/services/apiClient';
 import { StaffService } from '../../src/services/staffService';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
-type IconName = React.ComponentProps<typeof Ionicons>['name'];
+import LogoLoader from '../../src/components/LogoLoader';
 interface FormData {
   first_name: string;
   middle_name: string;
@@ -25,7 +24,7 @@ export default function AddAccountsStaff() {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -43,7 +42,7 @@ export default function AddAccountsStaff() {
     staff_code: ''
   });
   const updateField = (field: keyof typeof formData, value: any) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       [field]: value
     }));
@@ -100,7 +99,7 @@ export default function AddAccountsStaff() {
         onPress: () => router.back()
       }]);
     } catch (error: any) {
-      console.error('Error creating accountant:', error);
+
       Alert.alert('Error', error.message || 'Failed to create accounts staff user');
     } finally {
       setLoading(false);
@@ -115,7 +114,6 @@ export default function AddAccountsStaff() {
   return <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor={ADMIN_THEME.colors.primary} />
             <AdminHeader title="Add Accounts Staff" showBackButton />
-
             <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                 {/* Header Card */}
                 <LinearGradient colors={['#FBBF24', '#F59E0B']} start={{
@@ -131,50 +129,44 @@ export default function AddAccountsStaff() {
                         Add accounts department staff who can manage fees and financial operations
                     </Text>
                 </LinearGradient>
-
                 {/* Form */}
                 <View style={styles.form}>
                     {/* Personal Information */}
                     <Text style={styles.sectionTitle}>Personal Information</Text>
-
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>
                             First Name <Text style={styles.required}>*</Text>
                         </Text>
                         <View style={styles.inputWrapper}>
                             <Ionicons name="person-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
-                            <TextInput style={styles.input} placeholder="Enter first name" value={formData.first_name} onChangeText={text => updateField('first_name', text)} autoCapitalize="words" />
+                            <TextInput style={styles.input} placeholder="Enter first name" value={formData.first_name} onChangeText={(text) => updateField('first_name', text)} autoCapitalize="words" />
                         </View>
                     </View>
-
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Middle Name</Text>
                         <View style={styles.inputWrapper}>
                             <Ionicons name="person-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
-                            <TextInput style={styles.input} placeholder="Enter middle name (optional)" value={formData.middle_name} onChangeText={text => updateField('middle_name', text)} autoCapitalize="words" />
+                            <TextInput style={styles.input} placeholder="Enter middle name (optional)" value={formData.middle_name} onChangeText={(text) => updateField('middle_name', text)} autoCapitalize="words" />
                         </View>
                     </View>
-
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>
                             Last Name <Text style={styles.required}>*</Text>
                         </Text>
                         <View style={styles.inputWrapper}>
                             <Ionicons name="person-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
-                            <TextInput style={styles.input} placeholder="Enter last name" value={formData.last_name} onChangeText={text => updateField('last_name', text)} autoCapitalize="words" />
+                            <TextInput style={styles.input} placeholder="Enter last name" value={formData.last_name} onChangeText={(text) => updateField('last_name', text)} autoCapitalize="words" />
                         </View>
                     </View>
-
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>
                             Staff Code <Text style={styles.required}>*</Text>
                         </Text>
                         <View style={styles.inputWrapper}>
                             <Ionicons name="card-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
-                            <TextInput style={styles.input} placeholder="e.g. ACC001" value={formData.staff_code} onChangeText={text => updateField('staff_code', text)} autoCapitalize="characters" />
+                            <TextInput style={styles.input} placeholder="e.g. ACC001" value={formData.staff_code} onChangeText={(text) => updateField('staff_code', text)} autoCapitalize="characters" />
                         </View>
                     </View>
-
                     {/* Date of Birth */}
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Date of Birth</Text>
@@ -187,9 +179,7 @@ export default function AddAccountsStaff() {
                             </Text>
                         </TouchableOpacity>
                     </View>
-
                     {showDatePicker && <DateTimePicker value={formData.dob || new Date()} mode="date" display="default" onChange={onDateChange} maximumDate={new Date()} />}
-
                     {/* Gender */}
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>
@@ -202,14 +192,12 @@ export default function AddAccountsStaff() {
                                     Male
                                 </Text>
                             </TouchableOpacity>
-
                             <TouchableOpacity style={[styles.genderButton, formData.gender_id === 2 && styles.genderButtonActive]} onPress={() => updateField('gender_id', 2)}>
                                 <Ionicons name="female" size={20} color={formData.gender_id === 2 ? '#fff' : '#6B7280'} />
                                 <Text style={[styles.genderText, formData.gender_id === 2 && styles.genderTextActive]}>
                                     Female
                                 </Text>
                             </TouchableOpacity>
-
                             <TouchableOpacity style={[styles.genderButton, formData.gender_id === 3 && styles.genderButtonActive]} onPress={() => updateField('gender_id', 3)}>
                                 <Ionicons name="transgender" size={20} color={formData.gender_id === 3 ? '#fff' : '#6B7280'} />
                                 <Text style={[styles.genderText, formData.gender_id === 3 && styles.genderTextActive]}>
@@ -218,33 +206,29 @@ export default function AddAccountsStaff() {
                             </TouchableOpacity>
                         </View>
                     </View>
-
                     {/* Login Credentials */}
                     <Text style={[styles.sectionTitle, {
           marginTop: 24
         }]}>Login Credentials</Text>
-
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>
                             Email <Text style={styles.required}>*</Text>
                         </Text>
                         <View style={styles.inputWrapper}>
                             <Ionicons name="mail-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
-                            <TextInput style={styles.input} placeholder="accountant@school.com" value={formData.email} onChangeText={text => updateField('email', text)} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
+                            <TextInput style={styles.input} placeholder="accountant@school.com" value={formData.email} onChangeText={(text) => updateField('email', text)} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
                         </View>
                     </View>
-
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>
                             Password <Text style={styles.required}>*</Text>
                         </Text>
                         <View style={styles.inputWrapper}>
                             <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
-                            <TextInput style={styles.input} placeholder="Minimum 6 characters" value={formData.password} onChangeText={text => updateField('password', text)} secureTextEntry autoCapitalize="none" />
+                            <TextInput style={styles.input} placeholder="Minimum 6 characters" value={formData.password} onChangeText={(text) => updateField('password', text)} secureTextEntry autoCapitalize="none" />
                         </View>
                         <Text style={styles.hint}>Password must be at least 6 characters long</Text>
                     </View>
-
                     {/* Permissions Info */}
                     <View style={styles.infoCard}>
                         <Ionicons name="information-circle" size={24} color="#3B82F6" />
@@ -258,7 +242,6 @@ export default function AddAccountsStaff() {
                             </Text>
                         </View>
                     </View>
-
                     {/* Submit Button */}
                     <TouchableOpacity style={[styles.submitButton, loading && styles.submitButtonDisabled]} onPress={handleSubmit} disabled={loading}>
                         <LinearGradient colors={loading ? ['#9CA3AF', '#6B7280'] : ['#FBBF24', '#F59E0B']} start={{
@@ -268,7 +251,7 @@ export default function AddAccountsStaff() {
             x: 1,
             y: 0
           }} style={styles.submitGradient}>
-                            {loading ? <ActivityIndicator color="#fff" /> : <>
+                            {loading ? <LogoLoader color="#fff" /> : <>
                                     <Ionicons name="checkmark-circle" size={24} color="#fff" />
                                     <Text style={styles.submitText}>Create Accounts Staff</Text>
                                 </>}
@@ -278,7 +261,7 @@ export default function AddAccountsStaff() {
             </ScrollView>
         </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card

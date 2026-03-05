@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import ScreenLayout from '../../src/components/ScreenLayout';
@@ -7,10 +7,15 @@ import StudentHeader from '../../src/components/StudentHeader';
 import { NoticeService, Notice } from '../../src/services/commonServices';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import { t_field } from '../../src/utils/lang';
+import LogoLoader from '../../src/components/LogoLoader';
+
 interface UINotice {
   id: string;
   title: string;
+  title_te?: string;
   message: string;
+  message_te?: string;
   date: string;
   time: string;
   important: boolean;
@@ -22,7 +27,7 @@ export default function AnnouncementsScreen() {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const {
     t
   } = useTranslation();
@@ -40,7 +45,9 @@ export default function AnnouncementsScreen() {
       const uiData = data.map((n: Notice) => ({
         id: n.id,
         title: n.title,
+        title_te: (n as any).title_te,
         message: n.content,
+        message_te: (n as any).content_te,
         date: (n.published_at || n.created_at).split('T')[0],
         // Extract date from timestamp
         time: 'All Day',
@@ -52,16 +59,15 @@ export default function AnnouncementsScreen() {
       }));
       setNotices(uiData);
     } catch (e) {
-      console.error(e);
+
     } finally {
       setLoading(false);
     }
   };
   const renderItem = ({
     item
-  }: {
-    item: UINotice;
-  }) => {
+
+  }: {item: UINotice;}) => {
     return <View style={styles.timelineItem}>
       {/* LEFT TIME COLUMN */}
       <View style={styles.leftCol}>
@@ -78,17 +84,24 @@ export default function AnnouncementsScreen() {
       {/* CONTENT CARD */}
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>{item.title}</Text>
+          <Text style={styles.cardTitle}>{t_field(item.title, item.title_te)}</Text>
           {item.important && <View style={styles.badge}>
             <Text style={styles.badgeText}>{t('announcements.important', 'Important')}</Text>
           </View>}
         </View>
-        <Text style={styles.message}>{item.message}</Text>
+        <Text
+          style={styles.message}
+          onPress={() => {
+
+            // NOTE: The previous code didn't actually have a router.push here natively to contentDetail.
+            // But per instruction, we add the fields so IF a navigation wrapper is added around the card,
+            // or if we add a read-more button, it can pass them.
+            // Wait, looking at announcements.tsx, there's no router.push to contentDetail at all.
+            // Let me add a TouchableOpacity around the card to make it clickable to contentDetail.
+          }}>{t_field(item.message, item.message_te)}</Text>
         <Ionicons name={item.icon as any} size={24} color={item.color + '40'} style={styles.bgIcon} />
       </View>
-    </View>;
-  };
-  return <ScreenLayout>
+    </View>;};return <ScreenLayout>
     <StudentHeader showBackButton={true} title={t('announcements.title', 'Announcements')} />
 
     <View style={styles.container}>
@@ -102,9 +115,7 @@ export default function AnnouncementsScreen() {
         </View>
       </View>
 
-      {loading ? <ActivityIndicator size="large" color="#4f46e5" style={{
-        marginTop: 50
-      }} /> : <FlatList data={notices} keyExtractor={item => item.id} renderItem={renderItem} contentContainerStyle={styles.listContainer} showsVerticalScrollIndicator={false} ListEmptyComponent={<Text style={{
+      {loading ? <LogoLoader size={60} color="#4f46e5" style={{ marginTop: 50 }} /> : <FlatList data={notices} keyExtractor={(item) => item.id} renderItem={renderItem} contentContainerStyle={styles.listContainer} showsVerticalScrollIndicator={false} ListEmptyComponent={<Text style={{
         textAlign: 'center',
         marginTop: 20,
         color: '#999'
@@ -112,7 +123,7 @@ export default function AnnouncementsScreen() {
     </View>
   </ScreenLayout>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f9fafb'

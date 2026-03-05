@@ -21,7 +21,7 @@ export default function PaySlip() {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const [payslips, setPayslips] = useState<Payslip[]>([]);
   const {
     user
@@ -30,12 +30,12 @@ export default function PaySlip() {
     if (user) {
       // Priority: Use staff_id if available, fallback to user.id (though backend expects staff_id)
       const targetId = user.staff_id || user.id;
-      console.log('Fetching payslips for target ID:', targetId);
-      StaffService.getPayslips(targetId).then(data => {
-        console.log('Payslips fetched:', data.length);
+
+      StaffService.getPayslips(targetId).then((data) => {
+
         setPayslips(data);
-      }).catch(err => {
-        console.error('Error fetching payslips:', err);
+      }).catch(() => {
+
         Alert.alert('Error', 'Failed to load payslips');
       });
     }
@@ -51,85 +51,77 @@ export default function PaySlip() {
     }, 0);
     return `₹${total.toLocaleString('en-IN')}`;
   }, [payslips]);
-  const handleDownload = (id: string) => {
+  const handleDownload = () => {
     // TODO: Implement actual PDF download
     // For now, we'll just show an alert or log it
-    console.log(`Downloading payslip ${id}...`);
+
     alert('Download feature coming soon!');
   };
   return <View style={styles.container}>
-            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-            <StaffHeader title="My Pay Slips" showBackButton={true} />
-
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-
-                {/* Summary Card */}
-                <Animated.View entering={FadeInDown.delay(100).duration(600)} style={styles.summaryCard}>
-                    <LinearGradient colors={['#EC4899', '#BE185D']} style={styles.gradient} start={{
+    <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    <StaffHeader title="My Pay Slips" showBackButton={true} />
+    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      {/* Summary Card */}
+      <Animated.View entering={FadeInDown.delay(100).duration(600)} style={styles.summaryCard}>
+        <LinearGradient colors={['#EC4899', '#BE185D']} style={styles.gradient} start={{
           x: 0,
           y: 0
         }} end={{
           x: 1,
           y: 1
         }}>
-                        <View>
-                            <Text style={styles.summaryLabel}>Total Earnings (YTD)</Text>
-                            <Text style={styles.summaryValue}>{totalEarnings}</Text>
-                        </View>
-                        <View style={styles.iconContainer}>
-                            <FontAwesome5 name="coins" size={24} color="#fff" />
-                        </View>
-                    </LinearGradient>
-                </Animated.View>
-
-                {/* Payslip List */}
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Recent Payslips</Text>
-                </View>
-
-                {payslips.length === 0 ? <View style={styles.emptyContainer}>
-                        <Text style={styles.emptyText}>No payslips found</Text>
-                    </View> : <View style={styles.listContainer}>
-                        {payslips.map((item, index) => {
-return <Animated.View key={item.id} entering={FadeInDown.delay(300 + index * 100).duration(600)} style={styles.payslipCard}>
-                                <View style={styles.cardHeader}>
-                                    <Text style={styles.monthText}>{item.month}</Text>
-                                    <View style={styles.statusBadge}>
-                                        <Text style={styles.statusText}>{item.status}</Text>
-                                    </View>
-                                </View>
-
-                                <View style={styles.divider} />
-
-                                <View style={styles.detailsRow}>
-                                    <View style={styles.detailItem}>
-                                        <Text style={styles.detailLabel}>Earnings</Text>
-                                        <Text style={styles.earningsValue}>{item.earnings}</Text>
-                                    </View>
-                                    <View style={styles.detailItem}>
-                                        <Text style={styles.detailLabel}>Deductions</Text>
-                                        <Text style={styles.deductionsValue}>{item.deductions}</Text>
-                                    </View>
-                                    <View style={[styles.detailItem, {
+          <View>
+            <Text style={styles.summaryLabel}>Total Earnings (YTD)</Text>
+            <Text style={styles.summaryValue}>{totalEarnings}</Text>
+          </View>
+          <View style={styles.iconContainer}>
+            <FontAwesome5 name="coins" size={24} color="#fff" />
+          </View>
+        </LinearGradient>
+      </Animated.View>
+      {/* Payslip List */}
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Recent Payslips</Text>
+      </View>
+      {payslips.length === 0 ? <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>No payslips found</Text>
+      </View> : <View style={styles.listContainer}>
+        {payslips.map((item, index) => {
+          return <Animated.View key={item.id} entering={FadeInDown.delay(300 + index * 100).duration(600)} style={styles.payslipCard}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.monthText}>{item.month}</Text>
+              <View style={styles.statusBadge}>
+                <Text style={styles.statusText}>{item.status}</Text>
+              </View>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.detailsRow}>
+              <View style={styles.detailItem}>
+                <Text style={styles.detailLabel}>Earnings</Text>
+                <Text style={styles.earningsValue}>{item.earnings}</Text>
+              </View>
+              <View style={styles.detailItem}>
+                <Text style={styles.detailLabel}>Deductions</Text>
+                <Text style={styles.deductionsValue}>{item.deductions}</Text>
+              </View>
+              <View style={[styles.detailItem, {
                 alignItems: 'flex-end'
               }]}>
-                                        <Text style={styles.detailLabel}>Net Pay</Text>
-                                        <Text style={styles.netValue}>{item.net}</Text>
-                                    </View>
-                                </View>
-
-                                <TouchableOpacity style={styles.downloadButton} onPress={() => handleDownload(item.id)}>
-                                    <Text style={styles.downloadText}>Download PDF</Text>
-                                    <Ionicons name="download-outline" size={18} color="#EC4899" />
-                                </TouchableOpacity>
-                            </Animated.View>;
+                <Text style={styles.detailLabel}>Net Pay</Text>
+                <Text style={styles.netValue}>{item.net}</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.downloadButton} onPress={() => handleDownload()}>
+              <Text style={styles.downloadText}>Download PDF</Text>
+              <Ionicons name="download-outline" size={18} color="#EC4899" />
+            </TouchableOpacity>
+          </Animated.View>;
         })}
-                    </View>}
-
-            </ScrollView>
-        </View>;
+      </View>}
+    </ScrollView>
+  </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card

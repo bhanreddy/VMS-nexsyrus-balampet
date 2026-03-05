@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +12,7 @@ import { StudentService } from '../../src/services/studentService';
 import { AttendanceRecord, AttendanceSummary } from '../../src/types/models';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 const getStatusColor = (status: string) => {
   switch (status.toLowerCase()) {
     case 'present':
@@ -51,7 +52,7 @@ export default function AttendanceScreen() {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const {
     t
   } = useTranslation();
@@ -77,7 +78,7 @@ export default function AttendanceScreen() {
       setRecords(data.records);
       setStats(data.summary);
     } catch (error) {
-      console.error("Failed to load attendance", error);
+
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -91,11 +92,9 @@ export default function AttendanceScreen() {
   const renderItem = React.useCallback(({
     item,
     index
-  }: {
-    item: AttendanceRecord;
-    index: number;
-  }) => {
-const color = getStatusColor(item.status);
+
+  }: {item: AttendanceRecord;index: number;}) => {
+    const color = getStatusColor(item.status);
     const dateObj = new Date(item.attendance_date);
     const day = dateObj.toLocaleDateString('en-US', {
       weekday: 'short'
@@ -114,7 +113,6 @@ const color = getStatusColor(item.status);
           color: color
         }]}>{dayNum}</Text>
                 </View>
-
                 {/* Status Content - Right */}
                 <View style={styles.cardContent}>
                     <View>
@@ -132,7 +130,6 @@ const color = getStatusColor(item.status);
   const percentage = stats.total > 0 ? Math.round(stats.present / stats.total * 100) : 0;
   return <ScreenLayout>
             <StudentHeader showBackButton={true} title={t('attendance_screen.title', 'Attendance')} />
-
             <View style={styles.container}>
                 {/* HEADER STATS */}
                 <View style={styles.summaryContainer}>
@@ -154,7 +151,6 @@ const color = getStatusColor(item.status);
                                 <Text style={styles.percentText}>{percentage}%</Text>
                             </View>
                         </View>
-
                         <View style={styles.statRow}>
                             <View style={styles.statItem}>
                                 <Text style={styles.statVal}>{stats.present}</Text>
@@ -173,11 +169,10 @@ const color = getStatusColor(item.status);
                         </View>
                     </LinearGradient>
                 </View>
-
                 {/* LIST */}
-                {loading ? <ActivityIndicator size="large" color="#10B981" style={{
+                {loading ? <LogoLoader size={60} color="#10B981" style={{
         marginTop: 40
-      }} /> : <FlatList data={records} keyExtractor={item => item.attendance_date} renderItem={renderItem} contentContainerStyle={styles.list} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#10B981" />} ListEmptyComponent={<Text style={{
+      }} /> : <FlatList data={records} keyExtractor={(item) => item.attendance_date} renderItem={renderItem} contentContainerStyle={styles.list} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#10B981" />} ListEmptyComponent={<Text style={{
         textAlign: 'center',
         marginTop: 20,
         color: '#999'
@@ -185,7 +180,7 @@ const color = getStatusColor(item.status);
             </View>
         </ScreenLayout>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f9fafb'

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import ScreenLayout from '../../src/components/ScreenLayout';
@@ -7,13 +7,13 @@ import StudentHeader from '../../src/components/StudentHeader';
 import { MoneyScienceService } from '../../src/services/moneyScienceService';
 import { MoneyScienceModule } from '../../src/types/models';
 import { useTheme } from '../../src/hooks/useTheme';
-import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 const MoneyScienceScreen = () => {
   const {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(), []);
   const router = useRouter();
   const [modules, setModules] = useState<MoneyScienceModule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,7 +25,7 @@ const MoneyScienceScreen = () => {
       const data = await MoneyScienceService.getAllModules();
       setModules(data);
     } catch (err) {
-      console.error(err);
+
     } finally {
       setLoading(false);
     }
@@ -43,7 +43,6 @@ const MoneyScienceScreen = () => {
   };
   return <ScreenLayout>
             <StudentHeader showBackButton={true} title="Money Science" />
-
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.container}>
                 <View style={styles.titleContainer}>
                     <Text style={styles.pageTitle}>Money Science</Text>
@@ -51,12 +50,10 @@ const MoneyScienceScreen = () => {
                         Financial literacy for a brighter future.
                     </Text>
                 </View>
-
                 {/* ===== TOPIC LIST ===== */}
                 <Text style={styles.sectionTitle}>Learning Modules</Text>
-
-                {loading ? <ActivityIndicator size="large" color="#e65100" /> : modules.map((topic, index) => {
-return <TouchableOpacity key={topic.id} activeOpacity={0.9} onPress={() => handlePress(topic)}>
+                {loading ? <LogoLoader size={60} color="#e65100" /> : modules.map((topic) => {
+        return <TouchableOpacity key={topic.id} activeOpacity={0.9} onPress={() => handlePress(topic)}>
                             <LinearGradient colors={['#fff3e0', '#ffe0b2']} start={{
             x: 0,
             y: 0
@@ -75,16 +72,13 @@ return <TouchableOpacity key={topic.id} activeOpacity={0.9} onPress={() => handl
                                         {topic.age_group && <Text style={styles.ageText}>Age: {topic.age_group}</Text>}
                                     </View>
                                 </View>
-
                                 <View style={styles.arrowContainer}>
                                     <Text style={styles.arrow}>›</Text>
                                 </View>
                             </LinearGradient>
                         </TouchableOpacity>;
       })}
-
                 {!loading && modules.length === 0 && <Text style={styles.empty}>No modules available yet.</Text>}
-
                 {/* ===== GOAL CARD ===== */}
                 <LinearGradient colors={['#e3f2fd', '#bbdefb']} style={styles.goalCard}>
                     <View>
@@ -93,12 +87,11 @@ return <TouchableOpacity key={topic.id} activeOpacity={0.9} onPress={() => handl
                     </View>
                     <Text style={styles.goalIcon}>🐷</Text>
                 </LinearGradient>
-
             </ScrollView>
         </ScreenLayout>;
 };
 export default MoneyScienceScreen;
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = () => StyleSheet.create({
   container: {
     padding: 16,
     paddingBottom: 30

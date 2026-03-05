@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, StatusBar, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, Alert } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AdminHeader from '../../src/components/AdminHeader';
 import { useInvoices } from '../../src/hooks/useInvoices';
@@ -7,12 +7,13 @@ import { generateInvoicePDF } from '../../src/utils/pdfGenerator';
 import { Invoice } from '../../src/types/invoices';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 export default function AccountsInvoices() {
   const {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const {
     invoices,
     loading,
@@ -60,7 +61,7 @@ export default function AccountsInvoices() {
   };
   const renderFooter = () => {
     if (!loading) return null;
-    return <ActivityIndicator style={{
+    return <LogoLoader style={{
       margin: 20
     }} color="#4F46E5" />;
   };
@@ -77,7 +78,7 @@ export default function AccountsInvoices() {
                         </View> : null} refreshing={loading && invoices.length === 0} onRefresh={refresh} />
         </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card

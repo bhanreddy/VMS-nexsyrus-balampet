@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-    View, Text, StyleSheet, ScrollView, Image, TouchableOpacity,
-    StatusBar, Linking, Alert, ActivityIndicator
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Linking, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
@@ -12,31 +9,30 @@ import StudentHeader from '../../src/components/StudentHeader';
 import { useAuth } from '../../src/hooks/useAuth';
 import AuthService from '../../src/services/authService';
 import { StaffService } from '../../src/services/staffService';
+import LogoLoader from '../../src/components/LogoLoader';
 
 const DRIVER_PINK = '#EC4899';
 const DRIVER_GRADIENT: [string, string] = ['#EC4899', '#BE185D'];
 
 interface Payslip {
-    id: string;
-    month: string;
-    status: string;
-    earnings: string;
-    deductions: string;
-    net: string;
+  id: string;
+  month: string;
+  status: string;
+  earnings: string;
+  deductions: string;
+  net: string;
 }
 
 /* ─── Reusable Info Row ─── */
-const InfoRow = ({ icon, label, value, iconBg, iconColor, isLink, onPress }: {
-    icon: any; label: string; value: string;
-    iconBg?: string; iconColor?: string;
-    isLink?: boolean; onPress?: () => void;
-}) => (
-    <TouchableOpacity
-        style={styles.infoRow}
-        activeOpacity={isLink ? 0.7 : 1}
-        onPress={isLink ? onPress : undefined}
-        disabled={!isLink}
-    >
+const InfoRow = ({ icon, label, value, iconBg, iconColor, isLink, onPress
+
+}: {icon: any;label: string;value: string;iconBg?: string;iconColor?: string;isLink?: boolean;onPress?: () => void;}) =>
+<TouchableOpacity
+  style={styles.infoRow}
+  activeOpacity={isLink ? 0.7 : 1}
+  onPress={isLink ? onPress : undefined}
+  disabled={!isLink}>
+
         <View style={[styles.iconBox, iconBg ? { backgroundColor: iconBg } : {}]}>
             <Ionicons name={icon} size={18} color={iconColor || DRIVER_PINK} />
         </View>
@@ -45,12 +41,11 @@ const InfoRow = ({ icon, label, value, iconBg, iconColor, isLink, onPress }: {
             <Text style={[styles.infoValue, isLink && styles.linkText]}>{value}</Text>
         </View>
         {isLink && <MaterialIcons name="chevron-right" size={20} color="#9CA3AF" />}
-    </TouchableOpacity>
-);
+    </TouchableOpacity>;
 
 /* ─── Payslip Card ─── */
-const PayslipCard = ({ item, index, onDownload }: { item: Payslip; index: number; onDownload: (id: string) => void }) => (
-    <Animated.View entering={FadeInDown.delay(500 + index * 80).duration(500)} style={styles.payslipCard}>
+const PayslipCard = ({ item, index, onDownload }: {item: Payslip;index: number;onDownload: (id: string) => void;}) =>
+<Animated.View entering={FadeInDown.delay(500 + index * 80).duration(500)} style={styles.payslipCard}>
         <View style={styles.payslipHeader}>
             <View style={styles.payslipMonthRow}>
                 <View style={styles.payslipIcon}>
@@ -59,16 +54,14 @@ const PayslipCard = ({ item, index, onDownload }: { item: Payslip; index: number
                 <Text style={styles.payslipMonth}>{item.month}</Text>
             </View>
             <View style={[styles.payslipBadge,
-            item.status === 'Paid' ? styles.paidBadge : styles.pendingBadge
-            ]}>
+    item.status === 'Paid' ? styles.paidBadge : styles.pendingBadge]
+    }>
                 <Text style={[styles.payslipBadgeText,
-                item.status === 'Paid' ? styles.paidText : styles.pendingText
-                ]}>{item.status}</Text>
+      item.status === 'Paid' ? styles.paidText : styles.pendingText]
+      }>{item.status}</Text>
             </View>
         </View>
-
         <View style={styles.payslipDivider} />
-
         <View style={styles.payslipGrid}>
             <View style={styles.payslipStat}>
                 <Text style={styles.payslipStatLabel}>Earnings</Text>
@@ -83,79 +76,73 @@ const PayslipCard = ({ item, index, onDownload }: { item: Payslip; index: number
                 <Text style={[styles.payslipStatValue, { color: '#0F172A', fontWeight: '800' }]}>{item.net}</Text>
             </View>
         </View>
-
         <TouchableOpacity style={styles.downloadBtn} onPress={() => onDownload(item.id)} activeOpacity={0.7}>
             <Ionicons name="download-outline" size={16} color={DRIVER_PINK} />
             <Text style={styles.downloadBtnText}>Download PDF</Text>
         </TouchableOpacity>
-    </Animated.View>
-);
+    </Animated.View>;
 
 /* ════════════════════════════════════════════════════════════
    ████  DRIVER PROFILE SCREEN  ████
    ════════════════════════════════════════════════════════════ */
 export default function DriverProfile() {
-    const router = useRouter();
-    const { user } = useAuth();
-    const [payslips, setPayslips] = useState<Payslip[]>([]);
-    const [loadingPayslips, setLoadingPayslips] = useState(true);
+  const router = useRouter();
+  const { user } = useAuth();
+  const [payslips, setPayslips] = useState<Payslip[]>([]);
+  const [loadingPayslips, setLoadingPayslips] = useState(true);
 
-    const displayName = user?.display_name || user?.first_name || 'Driver';
-    const initials = displayName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
-    const email = user?.email || 'N/A';
+  const displayName = user?.display_name || user?.first_name || 'Driver';
+  const initials = displayName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
+  const email = user?.email || 'N/A';
 
-    useEffect(() => {
-        if (user) {
-            const targetId = user.staff_id || user.id;
-            StaffService.getPayslips(targetId)
-                .then(data => setPayslips(data))
-                .catch(err => {
-                    console.error('Error fetching payslips:', err);
-                })
-                .finally(() => setLoadingPayslips(false));
-        }
-    }, [user]);
+  useEffect(() => {
+    if (user) {
+      const targetId = user.staff_id || user.id;
+      StaffService.getPayslips(targetId).
+      then((data) => setPayslips(data)).
+      catch(() => {
 
-    const totalEarnings = React.useMemo(() => {
-        if (!payslips.length) return '₹0';
-        const total = payslips.reduce((sum, item) => {
-            const amount = parseFloat(item.earnings.replace(/[₹,]/g, '')) || 0;
-            return sum + amount;
-        }, 0);
-        return `₹${total.toLocaleString('en-IN')}`;
-    }, [payslips]);
+      }).
+      finally(() => setLoadingPayslips(false));
+    }
+  }, [user]);
 
-    const handleCall = (number: string) => { Haptics.selectionAsync(); Linking.openURL(`tel:${number}`); };
-    const handleEmail = (addr: string) => { Haptics.selectionAsync(); Linking.openURL(`mailto:${addr}`); };
-    const handleDownload = (id: string) => { Alert.alert('Coming Soon', 'PDF download will be available soon.'); };
-    const handleLogout = async () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        await AuthService.logout();
-        router.replace('/driver-login' as any);
-    };
+  const totalEarnings = React.useMemo(() => {
+    if (!payslips.length) return '₹0';
+    const total = payslips.reduce((sum, item) => {
+      const amount = parseFloat(item.earnings.replace(/[₹,]/g, '')) || 0;
+      return sum + amount;
+    }, 0);
+    return `₹${total.toLocaleString('en-IN')}`;
+  }, [payslips]);
 
-    return (
-        <View style={styles.screen}>
+  const handleEmail = (addr: string) => {Haptics.selectionAsync();Linking.openURL(`mailto:${addr}`);};
+  const handleDownload = () => {Alert.alert('Coming Soon', 'PDF download will be available soon.');};
+  const handleLogout = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    await AuthService.logout();
+    router.replace('/driver-login' as any);
+  };
+
+  return (
+    <View style={styles.screen}>
             <StatusBar barStyle="light-content" backgroundColor="#0F0F1A" />
             <StudentHeader title="My Profile" menuUserType="driver" />
-
             <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
-            >
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}>
+
                 {/* ═══════ Profile Hero Card ═══════ */}
                 <Animated.View entering={FadeInDown.delay(100).duration(600)} style={styles.heroCard}>
                     <LinearGradient
-                        colors={DRIVER_GRADIENT}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.heroBg}
-                    />
+            colors={DRIVER_GRADIENT}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroBg} />
 
                     {/* Decorative circles */}
                     <View style={[styles.decorCircle, { top: -20, right: -20, width: 100, height: 100 }]} />
                     <View style={[styles.decorCircle, { bottom: -15, left: -15, width: 60, height: 60 }]} />
-
                     <View style={styles.heroContent}>
                         <View style={styles.avatarWrapper}>
                             <View style={styles.avatarRing}>
@@ -168,14 +155,12 @@ export default function DriverProfile() {
                                 <Text style={styles.onlineText}>Active</Text>
                             </View>
                         </View>
-
                         <Text style={styles.heroName}>{displayName}</Text>
                         <View style={styles.rolePill}>
                             <Ionicons name="bus" size={12} color="#FFF" />
                             <Text style={styles.rolePillText}>Driver</Text>
                         </View>
                         <Text style={styles.heroId}>ID: {user?.staff_id || user?.id?.slice(0, 8) || 'N/A'}</Text>
-
                         {/* Quick Stats */}
                         <View style={styles.quickStats}>
                             <View style={styles.qStat}>
@@ -195,7 +180,6 @@ export default function DriverProfile() {
                         </View>
                     </View>
                 </Animated.View>
-
                 {/* ═══════ Personal Information ═══════ */}
                 <Animated.View entering={FadeInUp.delay(200).duration(600)} style={styles.section}>
                     <View style={styles.sectionHeader}>
@@ -206,22 +190,21 @@ export default function DriverProfile() {
                     </View>
                     <View style={styles.card}>
                         <InfoRow icon="mail-outline" label="Email Address" value={email}
-                            iconBg="#FDF2F8" isLink onPress={() => handleEmail(email)} />
+            iconBg="#FDF2F8" isLink onPress={() => handleEmail(email)} />
                         <View style={styles.rowDivider} />
                         <InfoRow icon="call-outline" label="Phone Number" value="N/A"
-                            iconBg="#ECFDF5" iconColor="#10B981" />
+            iconBg="#ECFDF5" iconColor="#10B981" />
                         <View style={styles.rowDivider} />
                         <InfoRow icon="calendar-outline" label="Date of Birth" value="—"
-                            iconBg="#EEF2FF" iconColor="#6366F1" />
+            iconBg="#EEF2FF" iconColor="#6366F1" />
                         <View style={styles.rowDivider} />
                         <InfoRow icon="water-outline" label="Blood Group" value="—"
-                            iconBg="#FEF3C7" iconColor="#F59E0B" />
+            iconBg="#FEF3C7" iconColor="#F59E0B" />
                         <View style={styles.rowDivider} />
                         <InfoRow icon="location-outline" label="Address" value="—"
-                            iconBg="#F0FDF4" iconColor="#22C55E" />
+            iconBg="#F0FDF4" iconColor="#22C55E" />
                     </View>
                 </Animated.View>
-
                 {/* ═══════ Vehicle & Route ═══════ */}
                 <Animated.View entering={FadeInUp.delay(300).duration(600)} style={styles.section}>
                     <View style={styles.sectionHeader}>
@@ -232,19 +215,18 @@ export default function DriverProfile() {
                     </View>
                     <View style={styles.card}>
                         <InfoRow icon="car-outline" label="Assigned Bus" value="—"
-                            iconBg="#EEF2FF" iconColor="#6366F1" />
+            iconBg="#EEF2FF" iconColor="#6366F1" />
                         <View style={styles.rowDivider} />
                         <InfoRow icon="navigate-outline" label="Route Name" value="—"
-                            iconBg="#FDF2F8" iconColor={DRIVER_PINK} />
+            iconBg="#FDF2F8" iconColor={DRIVER_PINK} />
                         <View style={styles.rowDivider} />
                         <InfoRow icon="card-outline" label="License Number" value="—"
-                            iconBg="#FEF3C7" iconColor="#F59E0B" />
+            iconBg="#FEF3C7" iconColor="#F59E0B" />
                         <View style={styles.rowDivider} />
                         <InfoRow icon="shield-checkmark-outline" label="License Expiry" value="—"
-                            iconBg="#ECFDF5" iconColor="#10B981" />
+            iconBg="#ECFDF5" iconColor="#10B981" />
                     </View>
                 </Animated.View>
-
                 {/* ═══════ Payslips Section ═══════ */}
                 <Animated.View entering={FadeInUp.delay(400).duration(600)} style={styles.section}>
                     <View style={styles.sectionHeader}>
@@ -253,15 +235,14 @@ export default function DriverProfile() {
                         </View>
                         <Text style={styles.sectionTitle}>My Payslips</Text>
                     </View>
-
                     {/* Earnings Summary */}
                     <Animated.View entering={FadeInDown.delay(450).duration(500)} style={styles.earningsCard}>
                         <LinearGradient
-                            colors={DRIVER_GRADIENT}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={styles.earningsGradient}
-                        >
+              colors={DRIVER_GRADIENT}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.earningsGradient}>
+
                             <View>
                                 <Text style={styles.earningsLabel}>Total Earnings (YTD)</Text>
                                 <Text style={styles.earningsValue}>{totalEarnings}</Text>
@@ -271,30 +252,28 @@ export default function DriverProfile() {
                             </View>
                         </LinearGradient>
                     </Animated.View>
-
                     {/* Payslip Cards */}
-                    {loadingPayslips ? (
-                        <View style={styles.loadingBox}>
-                            <ActivityIndicator size="small" color={DRIVER_PINK} />
+                    {loadingPayslips ?
+          <View style={styles.loadingBox}>
+                            <LogoLoader size={30} color={DRIVER_PINK} />
                             <Text style={styles.loadingText}>Loading payslips…</Text>
-                        </View>
-                    ) : payslips.length === 0 ? (
-                        <View style={styles.emptyBox}>
+                        </View> :
+          payslips.length === 0 ?
+          <View style={styles.emptyBox}>
                             <View style={styles.emptyIcon}>
                                 <Ionicons name="receipt-outline" size={32} color="#CBD5E1" />
                             </View>
                             <Text style={styles.emptyTitle}>No Payslips Yet</Text>
                             <Text style={styles.emptySubtitle}>Your payslips will appear here once processed.</Text>
-                        </View>
-                    ) : (
-                        <View style={styles.payslipList}>
-                            {payslips.map((item, index) => (
-                                <PayslipCard key={item.id} item={item} index={index} onDownload={handleDownload} />
-                            ))}
-                        </View>
-                    )}
-                </Animated.View>
+                        </View> :
 
+          <View style={styles.payslipList}>
+                            {payslips.map((item, index) =>
+            <PayslipCard key={item.id} item={item} index={index} onDownload={handleDownload} />
+            )}
+                        </View>
+          }
+                </Animated.View>
                 {/* ═══════ Logout Button ═══════ */}
                 <Animated.View entering={FadeInUp.delay(500).duration(600)} style={styles.section}>
                     <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.7}>
@@ -305,179 +284,178 @@ export default function DriverProfile() {
                         <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
                     </TouchableOpacity>
                 </Animated.View>
-
                 <View style={{ height: 40 }} />
             </ScrollView>
-        </View>
-    );
+        </View>);
+
 }
 
 /* ════════════════════════════ STYLES ════════════════════════════ */
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: '#F8FAFC' },
-    scrollContent: { padding: 20 },
+  screen: { flex: 1, backgroundColor: '#F8FAFC' },
+  scrollContent: { padding: 20 },
 
-    /* ── Hero Card ── */
-    heroCard: {
-        borderRadius: 24, overflow: 'hidden', marginBottom: 24,
-        shadowColor: DRIVER_PINK, shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.25, shadowRadius: 20, elevation: 10,
-        backgroundColor: '#FFF',
-    },
-    heroBg: { position: 'absolute', top: 0, left: 0, right: 0, height: 130 },
-    decorCircle: {
-        position: 'absolute', borderRadius: 999,
-        backgroundColor: 'rgba(255,255,255,0.08)',
-    },
-    heroContent: { alignItems: 'center', paddingTop: 65, paddingBottom: 24, paddingHorizontal: 20 },
-    avatarWrapper: { position: 'relative', marginBottom: 14 },
-    avatarRing: {
-        width: 100, height: 100, borderRadius: 50,
-        backgroundColor: '#FFF', padding: 3,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1, shadowRadius: 10, elevation: 5,
-    },
-    avatarInner: {
-        flex: 1, borderRadius: 50,
-        backgroundColor: '#FDF2F8',
-        justifyContent: 'center', alignItems: 'center',
-    },
-    avatarText: { fontSize: 32, fontWeight: '800', color: DRIVER_PINK, letterSpacing: 1 },
-    onlineBadge: {
-        position: 'absolute', bottom: 2, right: -4,
-        flexDirection: 'row', alignItems: 'center',
-        backgroundColor: '#ECFDF5', paddingHorizontal: 8, paddingVertical: 3,
-        borderRadius: 12, borderWidth: 2, borderColor: '#FFF',
-    },
-    onlineDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981', marginRight: 4 },
-    onlineText: { fontSize: 9, fontWeight: '800', color: '#059669', letterSpacing: 0.3 },
-    heroName: { fontSize: 24, fontWeight: '800', color: '#0F172A', marginBottom: 6, letterSpacing: 0.2 },
-    rolePill: {
-        flexDirection: 'row', alignItems: 'center', gap: 5,
-        backgroundColor: DRIVER_PINK, paddingHorizontal: 12, paddingVertical: 4,
-        borderRadius: 20, marginBottom: 6,
-    },
-    rolePillText: { fontSize: 11, fontWeight: '700', color: '#FFF', letterSpacing: 0.5, textTransform: 'uppercase' },
-    heroId: {
-        fontSize: 11, color: '#94A3B8', fontWeight: '600',
-        backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 3,
-        borderRadius: 8, overflow: 'hidden', marginBottom: 18, letterSpacing: 0.5,
-    },
-    quickStats: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-        width: '100%', paddingTop: 18, borderTopWidth: 1, borderTopColor: '#F1F5F9',
-    },
-    qStat: { alignItems: 'center', flex: 1 },
-    qStatValue: { fontSize: 15, fontWeight: '800', color: '#1F2937', marginBottom: 2 },
-    qStatLabel: { fontSize: 10, color: '#94A3B8', fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase' },
-    qStatDivider: { width: 1, height: 28, backgroundColor: '#F1F5F9' },
+  /* ── Hero Card ── */
+  heroCard: {
+    borderRadius: 24, overflow: 'hidden', marginBottom: 24,
+    shadowColor: DRIVER_PINK, shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25, shadowRadius: 20, elevation: 10,
+    backgroundColor: '#FFF'
+  },
+  heroBg: { position: 'absolute', top: 0, left: 0, right: 0, height: 130 },
+  decorCircle: {
+    position: 'absolute', borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.08)'
+  },
+  heroContent: { alignItems: 'center', paddingTop: 65, paddingBottom: 24, paddingHorizontal: 20 },
+  avatarWrapper: { position: 'relative', marginBottom: 14 },
+  avatarRing: {
+    width: 100, height: 100, borderRadius: 50,
+    backgroundColor: '#FFF', padding: 3,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1, shadowRadius: 10, elevation: 5
+  },
+  avatarInner: {
+    flex: 1, borderRadius: 50,
+    backgroundColor: '#FDF2F8',
+    justifyContent: 'center', alignItems: 'center'
+  },
+  avatarText: { fontSize: 32, fontWeight: '800', color: DRIVER_PINK, letterSpacing: 1 },
+  onlineBadge: {
+    position: 'absolute', bottom: 2, right: -4,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#ECFDF5', paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 12, borderWidth: 2, borderColor: '#FFF'
+  },
+  onlineDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981', marginRight: 4 },
+  onlineText: { fontSize: 9, fontWeight: '800', color: '#059669', letterSpacing: 0.3 },
+  heroName: { fontSize: 24, fontWeight: '800', color: '#0F172A', marginBottom: 6, letterSpacing: 0.2 },
+  rolePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: DRIVER_PINK, paddingHorizontal: 12, paddingVertical: 4,
+    borderRadius: 20, marginBottom: 6
+  },
+  rolePillText: { fontSize: 11, fontWeight: '700', color: '#FFF', letterSpacing: 0.5, textTransform: 'uppercase' },
+  heroId: {
+    fontSize: 11, color: '#94A3B8', fontWeight: '600',
+    backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 3,
+    borderRadius: 8, overflow: 'hidden', marginBottom: 18, letterSpacing: 0.5
+  },
+  quickStats: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    width: '100%', paddingTop: 18, borderTopWidth: 1, borderTopColor: '#F1F5F9'
+  },
+  qStat: { alignItems: 'center', flex: 1 },
+  qStatValue: { fontSize: 15, fontWeight: '800', color: '#1F2937', marginBottom: 2 },
+  qStatLabel: { fontSize: 10, color: '#94A3B8', fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase' },
+  qStatDivider: { width: 1, height: 28, backgroundColor: '#F1F5F9' },
 
-    /* ── Sections ── */
-    section: { marginBottom: 20 },
-    sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 },
-    sectionIconBox: {
-        width: 28, height: 28, borderRadius: 8,
-        backgroundColor: '#FDF2F8',
-        justifyContent: 'center', alignItems: 'center',
-    },
-    sectionTitle: { fontSize: 16, fontWeight: '700', color: '#374151', letterSpacing: 0.2 },
+  /* ── Sections ── */
+  section: { marginBottom: 20 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 },
+  sectionIconBox: {
+    width: 28, height: 28, borderRadius: 8,
+    backgroundColor: '#FDF2F8',
+    justifyContent: 'center', alignItems: 'center'
+  },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#374151', letterSpacing: 0.2 },
 
-    /* ── Card ── */
-    card: {
-        backgroundColor: '#FFF', borderRadius: 16, padding: 6,
-        shadowColor: '#64748B', shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
-    },
-    infoRow: { flexDirection: 'row', alignItems: 'center', padding: 12 },
-    iconBox: {
-        width: 36, height: 36, borderRadius: 10,
-        backgroundColor: '#FDF2F8',
-        justifyContent: 'center', alignItems: 'center', marginRight: 12,
-    },
-    infoContent: { flex: 1 },
-    infoLabel: { fontSize: 11, color: '#94A3B8', marginBottom: 2, fontWeight: '500' },
-    infoValue: { fontSize: 14, fontWeight: '600', color: '#1F2937' },
-    linkText: { color: DRIVER_PINK },
-    rowDivider: { height: 1, backgroundColor: '#F8FAFC', marginLeft: 60 },
+  /* ── Card ── */
+  card: {
+    backgroundColor: '#FFF', borderRadius: 16, padding: 6,
+    shadowColor: '#64748B', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05, shadowRadius: 8, elevation: 2
+  },
+  infoRow: { flexDirection: 'row', alignItems: 'center', padding: 12 },
+  iconBox: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: '#FDF2F8',
+    justifyContent: 'center', alignItems: 'center', marginRight: 12
+  },
+  infoContent: { flex: 1 },
+  infoLabel: { fontSize: 11, color: '#94A3B8', marginBottom: 2, fontWeight: '500' },
+  infoValue: { fontSize: 14, fontWeight: '600', color: '#1F2937' },
+  linkText: { color: DRIVER_PINK },
+  rowDivider: { height: 1, backgroundColor: '#F8FAFC', marginLeft: 60 },
 
-    /* ── Earnings Summary ── */
-    earningsCard: {
-        borderRadius: 18, overflow: 'hidden', marginBottom: 16,
-        shadowColor: DRIVER_PINK, shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.25, shadowRadius: 12, elevation: 5,
-    },
-    earningsGradient: {
-        padding: 22, flexDirection: 'row',
-        justifyContent: 'space-between', alignItems: 'center',
-    },
-    earningsLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 13, marginBottom: 6, fontWeight: '500' },
-    earningsValue: { color: '#FFF', fontSize: 30, fontWeight: '800', letterSpacing: 0.5 },
-    earningsIconBox: {
-        width: 48, height: 48, borderRadius: 24,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        justifyContent: 'center', alignItems: 'center',
-    },
+  /* ── Earnings Summary ── */
+  earningsCard: {
+    borderRadius: 18, overflow: 'hidden', marginBottom: 16,
+    shadowColor: DRIVER_PINK, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25, shadowRadius: 12, elevation: 5
+  },
+  earningsGradient: {
+    padding: 22, flexDirection: 'row',
+    justifyContent: 'space-between', alignItems: 'center'
+  },
+  earningsLabel: { color: 'rgba(255,255,255,0.8)', fontSize: 13, marginBottom: 6, fontWeight: '500' },
+  earningsValue: { color: '#FFF', fontSize: 30, fontWeight: '800', letterSpacing: 0.5 },
+  earningsIconBox: {
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center', alignItems: 'center'
+  },
 
-    /* ── Payslip Cards ── */
-    payslipList: { gap: 14 },
-    payslipCard: {
-        backgroundColor: '#FFF', borderRadius: 16, padding: 18,
-        shadowColor: '#64748B', shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
-    },
-    payslipHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-    payslipMonthRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    payslipIcon: {
-        width: 30, height: 30, borderRadius: 8,
-        backgroundColor: '#FDF2F8',
-        justifyContent: 'center', alignItems: 'center',
-    },
-    payslipMonth: { fontSize: 16, fontWeight: '700', color: '#1F2937' },
-    payslipBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-    paidBadge: { backgroundColor: '#DCFCE7' },
-    pendingBadge: { backgroundColor: '#FEF3C7' },
-    payslipBadgeText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
-    paidText: { color: '#10B981' },
-    pendingText: { color: '#F59E0B' },
-    payslipDivider: { height: 1, backgroundColor: '#F1F5F9', marginBottom: 14 },
-    payslipGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
-    payslipStat: { flex: 1 },
-    payslipStatLabel: { fontSize: 11, color: '#94A3B8', marginBottom: 3, fontWeight: '500' },
-    payslipStatValue: { fontSize: 14, fontWeight: '600' },
-    downloadBtn: {
-        flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
-        paddingVertical: 10, backgroundColor: '#FDF2F8',
-        borderRadius: 10, gap: 6,
-    },
-    downloadBtnText: { color: DRIVER_PINK, fontWeight: '600', fontSize: 13 },
+  /* ── Payslip Cards ── */
+  payslipList: { gap: 14 },
+  payslipCard: {
+    backgroundColor: '#FFF', borderRadius: 16, padding: 18,
+    shadowColor: '#64748B', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06, shadowRadius: 8, elevation: 2
+  },
+  payslipHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  payslipMonthRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  payslipIcon: {
+    width: 30, height: 30, borderRadius: 8,
+    backgroundColor: '#FDF2F8',
+    justifyContent: 'center', alignItems: 'center'
+  },
+  payslipMonth: { fontSize: 16, fontWeight: '700', color: '#1F2937' },
+  payslipBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  paidBadge: { backgroundColor: '#DCFCE7' },
+  pendingBadge: { backgroundColor: '#FEF3C7' },
+  payslipBadgeText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
+  paidText: { color: '#10B981' },
+  pendingText: { color: '#F59E0B' },
+  payslipDivider: { height: 1, backgroundColor: '#F1F5F9', marginBottom: 14 },
+  payslipGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
+  payslipStat: { flex: 1 },
+  payslipStatLabel: { fontSize: 11, color: '#94A3B8', marginBottom: 3, fontWeight: '500' },
+  payslipStatValue: { fontSize: 14, fontWeight: '600' },
+  downloadBtn: {
+    flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
+    paddingVertical: 10, backgroundColor: '#FDF2F8',
+    borderRadius: 10, gap: 6
+  },
+  downloadBtnText: { color: DRIVER_PINK, fontWeight: '600', fontSize: 13 },
 
-    /* ── Empty / Loading ── */
-    loadingBox: { alignItems: 'center', paddingVertical: 30, gap: 8 },
-    loadingText: { color: '#94A3B8', fontSize: 13 },
-    emptyBox: {
-        alignItems: 'center', paddingVertical: 36,
-        backgroundColor: '#FFF', borderRadius: 16, padding: 24,
-        shadowColor: '#64748B', shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.04, shadowRadius: 6, elevation: 1,
-    },
-    emptyIcon: {
-        width: 64, height: 64, borderRadius: 32,
-        backgroundColor: '#F8FAFC',
-        justifyContent: 'center', alignItems: 'center', marginBottom: 12,
-    },
-    emptyTitle: { fontSize: 16, fontWeight: '700', color: '#64748B', marginBottom: 4 },
-    emptySubtitle: { fontSize: 13, color: '#94A3B8', textAlign: 'center' },
+  /* ── Empty / Loading ── */
+  loadingBox: { alignItems: 'center', paddingVertical: 30, gap: 8 },
+  loadingText: { color: '#94A3B8', fontSize: 13 },
+  emptyBox: {
+    alignItems: 'center', paddingVertical: 36,
+    backgroundColor: '#FFF', borderRadius: 16, padding: 24,
+    shadowColor: '#64748B', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04, shadowRadius: 6, elevation: 1
+  },
+  emptyIcon: {
+    width: 64, height: 64, borderRadius: 32,
+    backgroundColor: '#F8FAFC',
+    justifyContent: 'center', alignItems: 'center', marginBottom: 12
+  },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#64748B', marginBottom: 4 },
+  emptySubtitle: { fontSize: 13, color: '#94A3B8', textAlign: 'center' },
 
-    /* ── Logout ── */
-    logoutButton: {
-        flexDirection: 'row', alignItems: 'center',
-        backgroundColor: '#FEF2F2', borderRadius: 16, padding: 14, gap: 12,
-        borderWidth: 1, borderColor: '#FECACA',
-    },
-    logoutIconBox: {
-        width: 36, height: 36, borderRadius: 12,
-        backgroundColor: '#FEE2E2',
-        justifyContent: 'center', alignItems: 'center',
-    },
-    logoutText: { flex: 1, fontSize: 15, fontWeight: '600', color: '#DC2626', letterSpacing: 0.1 },
+  /* ── Logout ── */
+  logoutButton: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#FEF2F2', borderRadius: 16, padding: 14, gap: 12,
+    borderWidth: 1, borderColor: '#FECACA'
+  },
+  logoutIconBox: {
+    width: 36, height: 36, borderRadius: 12,
+    backgroundColor: '#FEE2E2',
+    justifyContent: 'center', alignItems: 'center'
+  },
+  logoutText: { flex: 1, fontSize: 15, fontWeight: '600', color: '#DC2626', letterSpacing: 0.1 }
 });

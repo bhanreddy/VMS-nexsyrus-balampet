@@ -1,8 +1,23 @@
 import { createClient } from '@supabase/supabase-js';
 import { SecureTokenStore } from './secureTokenStore';
 
-const supabaseUrl = (process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://dqsogllxctoccohmwhww.supabase.co').trim();
-const supabaseAnonKey = (process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxc29nbGx4Y3RvY2NvaG13aHd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc3Nzg5MjUsImV4cCI6MjA4MzM1NDkyNX0.pTfn7zlFm8swf8Ru0KheXsQaxlI55-KRBofzr_UnehA').trim();
+const supabaseUrl = (process.env.EXPO_PUBLIC_SUPABASE_URL || '').trim();
+const supabaseAnonKey = (process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '').trim();
+
+if (!supabaseUrl) {
+    throw new Error(
+        '[FATAL] Missing required environment variable: EXPO_PUBLIC_SUPABASE_URL\n' +
+        'Set this to your Supabase project URL (e.g. https://your-project-ref.supabase.co).\n' +
+        'Found in: Supabase Dashboard > Settings > API > Project URL'
+    );
+}
+if (!supabaseAnonKey) {
+    throw new Error(
+        '[FATAL] Missing required environment variable: EXPO_PUBLIC_SUPABASE_ANON_KEY\n' +
+        'Set this to your Supabase anon/public key.\n' +
+        'Found in: Supabase Dashboard > Settings > API > Project API keys > anon public'
+    );
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {

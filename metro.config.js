@@ -3,6 +3,17 @@ const path = require('path');
 
 const config = getDefaultConfig(__dirname);
 
+// Enable inline requires for smaller and faster JS bundle
+config.transformer = {
+    ...config.transformer,
+    getTransformOptions: async () => ({
+        transform: {
+            experimentalImportSupport: false,
+            inlineRequires: true,
+        },
+    }),
+};
+
 // Ensure 'react-native' field is prioritized over 'browser'
 config.resolver.resolverMainFields = ['react-native', 'browser', 'main'];
 

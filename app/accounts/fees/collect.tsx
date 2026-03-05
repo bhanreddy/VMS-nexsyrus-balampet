@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AdminHeader from '../../../src/components/AdminHeader';
 import { useAuth } from '../../../src/hooks/useAuth';
 import { FeeService as FeesService } from '../../../src/services/feeService';
 import { useTheme } from '../../../src/hooks/useTheme';
 import { generateReceiptPDF } from '../../../src/utils/pdfGenerator';
+import LogoLoader from '../../../src/components/LogoLoader';
 export const generateUUID = () => {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
         const r = (Math.random() * 16) | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
@@ -164,7 +165,7 @@ export default function CollectFeesScreen() {
                         onPress={handleCollect}
                         disabled={loading}
                     >
-                        {loading ? <ActivityIndicator color="#fff" /> : (
+                        {loading ? <LogoLoader color="#fff" /> : (
                             <Text style={styles.payBtnText}>Collect Payment</Text>
                         )}
                     </TouchableOpacity>

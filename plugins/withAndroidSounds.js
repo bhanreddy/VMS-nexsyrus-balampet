@@ -7,13 +7,13 @@ const path = require('path');
  * into the Android native /res/raw directory during prebuild.
  * Android 9+ Notification Channels REQUIRE custom sounds to be accessible natively.
  */
-module.exports = exports.default = function withAndroidSounds(config) {
+module.exports = function withAndroidSounds(config) {
     return withDangerousMod(config, [
         'android',
         async (config) => {
             const projectRoot = config.modRequest.projectRoot;
             const resPath = path.join(projectRoot, 'android', 'app', 'src', 'main', 'res', 'raw');
-            const soundsPath = path.join(projectRoot, 'assets', 'Sounds');
+            const soundsPath = path.join(projectRoot, 'assets', 'sounds');
 
             // Ensure the raw directory exists
             if (!fs.existsSync(resPath)) {

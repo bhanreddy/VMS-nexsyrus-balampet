@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, SafeAreaView, Platform, StatusBar, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, Platform, StatusBar, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
@@ -10,12 +10,14 @@ import { FeeResponse, StudentFee } from '../../src/types/models';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
+
 const FeesScreen = () => {
   const {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const {
     t
   } = useTranslation();
@@ -26,6 +28,7 @@ const FeesScreen = () => {
   const [feeData, setFeeData] = useState<FeeResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
   useEffect(() => {
     loadFees();
   }, [user]);
@@ -35,7 +38,7 @@ const FeesScreen = () => {
       const data = await StudentService.getFees(user.id);
       setFeeData(data);
     } catch (error) {
-      console.error("Failed to load fees", error);
+
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -63,103 +66,101 @@ const FeesScreen = () => {
   const renderFeeItem = ({
     item,
     index
-  }: {
-    item: StudentFee;
-    index: number;
-  }) => {
-const color = getStatusColor(item.status);
+
+  }: {item: StudentFee;index: number;}) => {
+    const color = getStatusColor(item.status);
     return <Animated.View entering={FadeInUp.delay(index * 100).duration(500)} style={styles.card}>
-                <View style={styles.cardHeader}>
-                    <View>
-                        <Text style={styles.feeType}>{item.fee_type}</Text>
-                        <Text style={styles.date}>Due: {new Date(item.due_date).toLocaleDateString()}</Text>
-                    </View>
-                    <View style={[styles.statusBadge, {
+      <View style={styles.cardHeader}>
+        <View>
+          <Text style={styles.feeType}>{item.fee_type}</Text>
+          <Text style={styles.date}>Due: {new Date(item.due_date).toLocaleDateString()}</Text>
+        </View>
+        <View style={[styles.statusBadge, {
           backgroundColor: color + '20'
         }]}>
-                        <Text style={[styles.statusText, {
+          <Text style={[styles.statusText, {
             color: color
           }]}>{item.status.toUpperCase()}</Text>
-                    </View>
-                </View>
+        </View>
+      </View>
 
-                <View style={styles.divider} />
+      <View style={styles.divider} />
 
-                <View style={styles.amountRow}>
-                    <View>
-                        <Text style={styles.amountLabel}>Total Due</Text>
-                        <Text style={styles.amountValue}>₹{item.amount_due.toLocaleString()}</Text>
-                    </View>
-                    <View style={{
+      <View style={styles.amountRow}>
+        <View>
+          <Text style={styles.amountLabel}>Total Due</Text>
+          <Text style={styles.amountValue}>₹{item.amount_due.toLocaleString()}</Text>
+        </View>
+        <View style={{
           alignItems: 'flex-end'
         }}>
-                        <Text style={styles.amountLabel}>Paid</Text>
-                        <Text style={[styles.amountValue, {
+          <Text style={styles.amountLabel}>Paid</Text>
+          <Text style={[styles.amountValue, {
             color: '#10b981'
           }]}>₹{item.amount_paid.toLocaleString()}</Text>
-                    </View>
-                </View>
+        </View>
+      </View>
 
-                {(item.status === 'pending' || item.status === 'overdue' || item.status === 'partial') && <TouchableOpacity style={styles.payButton} onPress={() => {
+      {(item.status === 'pending' || item.status === 'overdue' || item.status === 'partial') && <TouchableOpacity style={styles.payButton} onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         // Future: Integrate Payment Gateway
         alert("Payment gateway integration pending.");
       }}>
-                        <Text style={styles.payButtonText}>Pay Now</Text>
-                        <Ionicons name="arrow-forward" size={16} color="#fff" />
-                    </TouchableOpacity>}
-            </Animated.View>;
+        <Text style={styles.payButtonText}>Pay Now</Text>
+        <Ionicons name="arrow-forward" size={16} color="#fff" />
+      </TouchableOpacity>}
+    </Animated.View>;
   };
   if (loading) {
     return <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#4F46E5" />
-            </View>;
+      <LogoLoader size={60} color="#4F46E5" />
+    </View>;
   }
   return <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#4F46E5" />
+    <StatusBar barStyle="light-content" backgroundColor="#4F46E5" />
 
-            {/* Header */}
-            <View style={styles.header}>
-                <View style={styles.headerTop}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                        <Ionicons name="arrow-back" size={24} color="#fff" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>My Fees</Text>
-                    <View style={{
+    {/* Header */}
+    <View style={styles.header}>
+      <View style={styles.headerTop}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#fff" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>My Fees</Text>
+        <View style={{
           width: 40
         }} />
-                </View>
+      </View>
 
-                {/* Summary Card */}
-                {feeData && <Animated.View entering={FadeInDown.duration(600)} style={styles.summaryCard}>
-                        <View style={styles.summaryRow}>
-                            <View>
-                                <Text style={styles.summaryLabel}>Total Due</Text>
-                                <Text style={styles.summaryValue}>₹{feeData.summary.total_due.toLocaleString()}</Text>
-                            </View>
-                            <View style={{
+      {/* Summary Card */}
+      {feeData && <Animated.View entering={FadeInDown.duration(600)} style={styles.summaryCard}>
+        <View style={styles.summaryRow}>
+          <View>
+            <Text style={styles.summaryLabel}>Total Due</Text>
+            <Text style={styles.summaryValue}>₹{feeData.summary.total_due.toLocaleString()}</Text>
+          </View>
+          <View style={{
             height: 40,
             width: 1,
             backgroundColor: 'rgba(255,255,255,0.2)'
           }} />
-                            <View>
-                                <Text style={styles.summaryLabel}>Outstanding</Text>
-                                <Text style={[styles.summaryValue, {
+          <View>
+            <Text style={styles.summaryLabel}>Outstanding</Text>
+            <Text style={[styles.summaryValue, {
               color: '#fca5a5'
             }]}>₹{feeData.summary.balance.toLocaleString()}</Text>
-                            </View>
-                        </View>
-                    </Animated.View>}
-            </View>
+          </View>
+        </View>
+      </Animated.View>}
+    </View>
 
-            <FlatList contentContainerStyle={styles.list} data={feeData?.fees || []} renderItem={renderFeeItem} keyExtractor={item => item.id} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4F46E5" />} ListEmptyComponent={<View style={styles.emptyContainer}>
-                        <Ionicons name="wallet-outline" size={64} color="#ccc" />
-                        <Text style={styles.emptyText}>No fee records found.</Text>
-                    </View>} />
-        </SafeAreaView>;
+    <FlatList contentContainerStyle={styles.list} data={feeData?.fees || []} renderItem={renderFeeItem} keyExtractor={(item) => item.id} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4F46E5" />} ListEmptyComponent={<View style={styles.emptyContainer}>
+      <Ionicons name="wallet-outline" size={64} color="#ccc" />
+      <Text style={styles.emptyText}>No fee records found.</Text>
+    </View>} />
+  </SafeAreaView>;
 };
 export default FeesScreen;
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card

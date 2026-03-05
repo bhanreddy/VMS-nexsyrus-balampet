@@ -1,12 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, ActivityIndicator } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, {  } from 'react';
+import { View, Text, StyleSheet, ScrollView, Image } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import ScreenLayout from '../../src/components/ScreenLayout';
 import StudentHeader from '../../src/components/StudentHeader';
-import { Ionicons } from '@expo/vector-icons';
-import Markdown from 'react-native-markdown-display';
+import { useTranslation } from 'react-i18next';
+import { t_field } from '../../src/utils/lang';
 import { useTheme } from '../../src/hooks/useTheme';
-import { Theme } from '../../src/theme/themes';
 
 // Fallback if markdown package not present, but using it as per standard modern stack
 // If not installed, I will change to simple Text in next step or user can install.
@@ -18,43 +17,46 @@ export default function ContentDetailScreen() {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(), []);
   const params = useLocalSearchParams();
-  const router = useRouter();
+
+  const { i18n } = useTranslation();
 
   // We expect params: { title, content, image } or fetch by ID if needed.
   // For now, let's assume we pass the data or fetch it.
   // Simpler for this iteration: Pass data via params/navigation state or fetch by ID.
   // Fetching by ID is safer for large content.
-
   const {
     title,
+    title_te,
     content_body,
+    content_te,
     image_url,
     headerColor
   } = params as any;
-  return <ScreenLayout>
-            <StudentHeader showBackButton={true} title={title || 'Module'} />
-            <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
 
-                {!!image_url && <Image source={{
+  return <ScreenLayout>
+    <StudentHeader showBackButton={true} title={t_field(title as string, title_te as string) || 'Module'} />
+    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+
+      {!!image_url && <Image source={{
         uri: image_url
       }} style={styles.bannerImage} resizeMode="cover" />}
 
-                <View style={styles.contentContainer}>
-                    <Text style={[styles.title, {
+      <View style={styles.contentContainer}>
+        <Text style={[styles.title, {
           color: headerColor || '#333'
-        }]}>{title}</Text>
+        }]}>{t_field(title as string, title_te as string)}</Text>
 
-                    {content_body ? <View style={styles.body}>
-                            {/* Simple text rendering if markdown not available, or use Markdown component if confirmed */}
-                            <Text style={styles.text}>{content_body}</Text>
-                        </View> : <Text style={styles.emptyText}>No content available.</Text>}
-                </View>
-            </ScrollView>
-        </ScreenLayout>;
+        {content_body ? <View style={styles.body}>
+          {/* Simple text rendering if markdown not available, or use Markdown component if confirmed */}
+          <Text style={styles.text}>{t_field(content_body as string, content_te as string)}</Text>
+        </View> : <Text style={styles.emptyText}>No content available.</Text>}
+      </View>
+    </ScrollView>
+  </ScreenLayout>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = () => StyleSheet.create({
   container: {
     paddingBottom: 40
   },

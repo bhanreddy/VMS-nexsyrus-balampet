@@ -1,8 +1,9 @@
 import React, { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useAuth } from '../../src/hooks/useAuth';
-import { View, ActivityIndicator, Alert } from 'react-native';
+import { View, Alert } from 'react-native';
 import { ErrorBoundary } from '../../src/components/ErrorBoundary';
+import LogoLoader from '../../src/components/LogoLoader';
 
 export default function AccountsLayout() {
     const { user, loading, logout } = useAuth();
@@ -32,7 +33,7 @@ export default function AccountsLayout() {
     if (loading) {
         return (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
-                <ActivityIndicator size="large" color="#11998e" />
+                <LogoLoader size={60} color="#11998e" />
             </View>
         );
     }

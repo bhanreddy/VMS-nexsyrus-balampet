@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ActivityIndicator, Alert, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Alert, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AdminHeader from '../../src/components/AdminHeader';
@@ -7,15 +7,15 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../src/hooks/useAuth';
 import { StudentService } from '../../src/services/studentService';
 import { StaffService } from '../../src/services/staffService';
-import { Functions } from '../../src/services/functions';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 export default function ManageUsersScreen() {
   const {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const router = useRouter();
   const {
     t
@@ -34,7 +34,7 @@ export default function ManageUsersScreen() {
   useEffect(() => {
     if (searchQuery) {
       const lowerInfo = searchQuery.toLowerCase();
-      const filtered = users.filter(u => (u.firstName + ' ' + u.lastName).toLowerCase().includes(lowerInfo) || u.name && u.name.toLowerCase().includes(lowerInfo) || u.email?.toLowerCase().includes(lowerInfo) || u.admissionNo && u.admissionNo.toLowerCase().includes(lowerInfo));
+      const filtered = users.filter((u) => (u.firstName + ' ' + u.lastName).toLowerCase().includes(lowerInfo) || u.name && u.name.toLowerCase().includes(lowerInfo) || u.email?.toLowerCase().includes(lowerInfo) || u.admissionNo && u.admissionNo.toLowerCase().includes(lowerInfo));
       setFilteredUsers(filtered);
     } else {
       setFilteredUsers(users);
@@ -55,7 +55,7 @@ export default function ManageUsersScreen() {
         setFilteredUsers(data || []);
       }
     } catch (e) {
-      console.error(e);
+
       Alert.alert("Error", "Failed to load users");
     } finally {
       setLoading(false);
@@ -104,10 +104,9 @@ export default function ManageUsersScreen() {
   };
   const renderItem = ({
     item
-  }: {
-    item: any;
-  }) => {
-return <View style={styles.userCard}>
+
+  }: {item: any;}) => {
+    return <View style={styles.userCard}>
             <View style={styles.avatar}>
                 <Text style={styles.avatarText}>{(item.firstName || item.name || 'U')[0]}</Text>
             </View>
@@ -130,7 +129,6 @@ return <View style={styles.userCard}>
   return <View style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
             <AdminHeader title="Manage Users" />
-
             {/* TABS */}
             <View style={styles.tabs}>
                 <TouchableOpacity style={[styles.tab, activeTab === 'student' && styles.activeTab]} onPress={() => setActiveTab('student')}>
@@ -140,28 +138,24 @@ return <View style={styles.userCard}>
                     <Text style={[styles.tabText, activeTab === 'staff' && styles.activeTabText]}>Staff</Text>
                 </TouchableOpacity>
             </View>
-
             {/* SEARCH */}
             <View style={styles.searchContainer}>
                 <Ionicons name="search" size={20} color="#9CA3AF" />
                 <TextInput style={styles.searchInput} placeholder={`Search ${activeTab === 'student' ? 'Students' : 'Staff'}...`} value={searchQuery} onChangeText={setSearchQuery} />
             </View>
-
             {/* LIST */}
-            {loading ? <ActivityIndicator size="large" color="#3B82F6" style={{
+            {loading ? <LogoLoader size={60} color="#3B82F6" style={{
       marginTop: 40
-    }} /> : <FlatList data={filteredUsers} renderItem={renderItem} keyExtractor={item => item.id} contentContainerStyle={styles.list} ListEmptyComponent={<Text style={styles.emptyText}>No users found.</Text>} />}
-
+    }} /> : <FlatList data={filteredUsers} renderItem={renderItem} keyExtractor={(item) => item.id} contentContainerStyle={styles.list} ListEmptyComponent={<Text style={styles.emptyText}>No users found.</Text>} />}
             {/* FAB to Add New */}
             <TouchableOpacity style={styles.fab} onPress={() => {
       if (activeTab === 'student') router.push('/accounts/addStudent');else router.push('/accounts/addStaff');
     }}>
                 <Ionicons name="add" size={28} color="#fff" />
             </TouchableOpacity>
-
         </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card

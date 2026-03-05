@@ -1,13 +1,11 @@
 import React, { useEffect } from 'react';
 import { View, TouchableOpacity, StyleSheet, Dimensions, Text, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, usePathname } from 'expo-router';
 import Animated, {
     useAnimatedStyle,
     useSharedValue,
     withSpring,
     withTiming,
-    FadeIn,
 } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -92,7 +90,7 @@ export default function StaffFooter({ state, descriptors, navigation }: any) {
                         />
                     </Animated.View>
 
-                    {visibleRoutes.map((route: any, index: number) => {
+                    {visibleRoutes.map((route: any) => {
                         const { options } = descriptors[route.key];
                         // If the route is in TAB_CONFIG, use it, otherwise fallback (though we filtered so should be fine)
                         const config = TAB_CONFIG[route.name] || { icon: 'ellipse', label: 'Tab' };

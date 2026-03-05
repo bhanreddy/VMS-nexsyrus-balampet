@@ -1,5 +1,5 @@
 import { supabase } from './supabaseConfig';
-import { DisciplineRecord, Student } from '../types/models';
+import { DisciplineRecord } from '../types/models';
 
 export const DCGDService = {
     /**

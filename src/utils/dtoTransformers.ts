@@ -1,13 +1,9 @@
 import type {
-    Person,
-    Student,
-    StudentWithPerson,
     StudentWithDetails,
     UserWithPerson,
     LegacyStudent,
     BaseUser,
     Staff,
-    DailyAttendance,
     AttendanceWithStudent,
 } from '../types/schema';
 

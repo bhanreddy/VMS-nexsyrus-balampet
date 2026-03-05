@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { PayrollService } from '../services/payrollService';
 import { PayrollEntry } from '../types/payroll';
 

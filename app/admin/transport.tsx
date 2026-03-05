@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, Alert } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import AdminHeader from '../../src/components/AdminHeader';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { TransportService, BusItem } from '../../src/services/commonServices';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 export default function AdminTransport() {
   const {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const [transportData, setTransportData] = useState<BusItem[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -23,7 +24,7 @@ export default function AdminTransport() {
       const data = await TransportService.getAllBuses();
       setTransportData(data);
     } catch (error) {
-      console.error('Failed to fetch transport data:', error);
+
       Alert.alert('Error', 'Failed to load transport data');
     } finally {
       setLoading(false);
@@ -32,11 +33,9 @@ export default function AdminTransport() {
   const renderItem = ({
     item,
     index
-  }: {
-    item: BusItem;
-    index: number;
-  }) => {
-return <Animated.View entering={FadeInDown.delay(index * 100).duration(500)}>
+
+  }: {item: BusItem;index: number;}) => {
+    return <Animated.View entering={FadeInDown.delay(index * 100).duration(500)}>
             <TouchableOpacity style={styles.card}>
                 <View style={styles.cardHeader}>
                     <View style={styles.routeContainer}>
@@ -56,9 +55,7 @@ return <Animated.View entering={FadeInDown.delay(index * 100).duration(500)}>
             }]}>{item.is_active ? 'Active' : 'Inactive'}</Text>
                     </View>
                 </View>
-
                 <View style={styles.divider} />
-
                 <View style={styles.detailsContainer}>
                     <View style={styles.detailRow}>
                         <Ionicons name="person" size={16} color="#6B7280" style={styles.detailIcon} />
@@ -69,7 +66,6 @@ return <Animated.View entering={FadeInDown.delay(index * 100).duration(500)}>
                         <Text style={styles.detailText}>Capacity: {item.capacity}</Text>
                     </View>
                 </View>
-
                 <TouchableOpacity style={styles.trackButton} onPress={() => Alert.alert('Live Track', `Tracking ${item.bus_no}...`)}>
                     <Text style={styles.trackButtonText}>Live Track</Text>
                     <MaterialIcons name="gps-fixed" size={16} color="#6366F1" />
@@ -80,13 +76,12 @@ return <Animated.View entering={FadeInDown.delay(index * 100).duration(500)}>
   return <View style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#fff" />
             <AdminHeader title="Transport" showBackButton={true} />
-
             {loading ? <View style={styles.centerContainer}>
-                    <ActivityIndicator size="large" color="#6366F1" />
-                </View> : <FlatList data={transportData} keyExtractor={item => item.id.toString()} renderItem={renderItem} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false} refreshing={loading} onRefresh={fetchTransportData} ListEmptyComponent={<Text style={styles.emptyText}>No buses found</Text>} />}
+                    <LogoLoader size={60} color="#6366F1" />
+                </View> : <FlatList data={transportData} keyExtractor={(item) => item.id.toString()} renderItem={renderItem} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false} refreshing={loading} onRefresh={fetchTransportData} ListEmptyComponent={<Text style={styles.emptyText}>No buses found</Text>} />}
         </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card

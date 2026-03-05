@@ -25,6 +25,7 @@ export interface User {
     readonly staff_id?: string;
     readonly staff_code?: string;
     readonly notification_sound?: 'custom' | 'default';
+    readonly gender?: string;
 }
 
 export interface AccountsUser extends User {

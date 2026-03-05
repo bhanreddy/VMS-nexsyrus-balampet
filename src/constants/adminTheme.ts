@@ -1,4 +1,4 @@
-import { ViewStyle, TextStyle, ImageStyle } from "react-native";
+import { ViewStyle } from "react-native";
 
 export const ADMIN_THEME = {
     colors: {

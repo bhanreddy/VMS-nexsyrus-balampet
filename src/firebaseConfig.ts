@@ -6,14 +6,6 @@
 
 // Replace with your actual project config if you have one.
 // For Emulators, these values don't need to be real.
-const firebaseConfig = {
-    apiKey: "demo-api-key",
-    authDomain: "demo-project.firebaseapp.com",
-    projectId: "testapp-backend-security", // Matches our test environment
-    storageBucket: "demo-project.appspot.com",
-    messagingSenderId: "123456789",
-    appId: "1:123456789:web:abcdef"
-};
 
 // const app = initializeApp(firebaseConfig);
 
@@ -24,7 +16,6 @@ const firebaseConfig = {
 // Emulator Connection Logic
 // Automatically configured for physical device access
 // 10.0.2.2 is usually for Android Emulator on same machine, but physical device needs LAN IP.
-const EMULATOR_HOST = '10.133.228.48';
 
 
 

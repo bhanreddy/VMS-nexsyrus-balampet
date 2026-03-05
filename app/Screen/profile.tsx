@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions, SafeAreaView, Platform, StatusBar, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, Dimensions, SafeAreaView, Platform, StatusBar, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
@@ -10,6 +10,7 @@ import { Student } from '../../src/types/models';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 const {
   width
 } = Dimensions.get('window');
@@ -18,7 +19,7 @@ const ProfileScreen = () => {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const {
     t
   } = useTranslation();
@@ -36,7 +37,7 @@ const ProfileScreen = () => {
       const data = await StudentService.getProfile();
       setStudent(data);
     } catch (error) {
-      console.error("Failed to fetch profile", error);
+
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -52,7 +53,7 @@ const ProfileScreen = () => {
   };
   if (loading) {
     return <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#4F46E5" />
+                <LogoLoader size={60} color="#4F46E5" />
             </View>;
   }
   if (!student) {
@@ -73,10 +74,9 @@ const ProfileScreen = () => {
   };
 
   // Extract primary parent/guardian safely
-  const primaryParent = student.parents?.find(p => p.is_primary) || student.parents?.[0];
+  const primaryParent = student.parents?.find((p) => p.is_primary) || student.parents?.[0];
   return <SafeAreaView style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor="#4F46E5" />
-
             {/* Header / Banner */}
             <Animated.View entering={FadeInDown.duration(600)} style={styles.header}>
                 <View style={styles.headerTop}>
@@ -93,7 +93,6 @@ const ProfileScreen = () => {
           width: 24
         }} />
                 </View>
-
                 <View style={styles.profileSummary}>
                     <View style={styles.avatarContainer}>
                         <Image source={{
@@ -105,7 +104,6 @@ const ProfileScreen = () => {
             }]} />
                         </View>
                     </View>
-
                     <Text style={styles.name}>{student.display_name}</Text>
                     <Text style={styles.rollNo}>
                         {enrollment.class_code} - {enrollment.section_name} | Roll: {enrollment.roll_number}
@@ -115,15 +113,18 @@ const ProfileScreen = () => {
                     </View>
                 </View>
             </Animated.View>
-
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4F46E5" />}>
+            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="transparent" colors={['transparent']} progressBackgroundColor="transparent" />}>
+                {refreshing &&
+      <View style={{ width: '100%', alignItems: 'center', paddingVertical: 20 }}>
+                        <LogoLoader size={30} />
+                    </View>
+      }
                 {/* Personal Info Card */}
                 <Animated.View entering={FadeInUp.delay(200).duration(500)} style={styles.card}>
                     <View style={styles.cardHeader}>
                         <Ionicons name="person" size={20} color="#4F46E5" />
                         <Text style={styles.cardTitle}>{t('profile.personal_info', 'Personal Information')}</Text>
                     </View>
-
                     <View style={styles.infoRow}>
                         <InfoItem label={t('profile.dob', 'Date of Birth')} value={new Date(student.dob).toLocaleDateString()} icon="calendar-outline" />
                         <InfoItem label={t('profile.gender', 'Gender')} value={student.gender_id === 1 ? 'Male' : 'Female'} icon="male-female-outline" />
@@ -134,14 +135,12 @@ const ProfileScreen = () => {
                         <InfoItem label={t('profile.phone', 'Phone')} value={student.phone || 'N/A'} icon="call-outline" />
                     </View>
                 </Animated.View>
-
                 {/* Parent Info Card */}
                 {primaryParent && <Animated.View entering={FadeInUp.delay(300).duration(500)} style={styles.card}>
                         <View style={styles.cardHeader}>
                             <Ionicons name="people" size={20} color="#F59E0B" />
                             <Text style={styles.cardTitle}>{t('profile.guardian_info', 'Guardian Details')}</Text>
                         </View>
-
                         <View style={styles.infoRow}>
                             <InfoItem label={t('profile.guardian_name', 'Name')} value={`${primaryParent.first_name} ${primaryParent.last_name} (${primaryParent.relation})`} icon="person-outline" />
                         </View>
@@ -151,20 +150,17 @@ const ProfileScreen = () => {
                             <InfoItem label={t('profile.occupation', 'Occupation')} value={primaryParent.occupation || 'N/A'} icon="briefcase-outline" />
                         </View>
                     </Animated.View>}
-
                 {/* Other Details - Skeleton for future expansion */}
                 <Animated.View entering={FadeInUp.delay(400).duration(500)} style={styles.card}>
                     <View style={styles.cardHeader}>
                         <Ionicons name="school" size={20} color="#10B981" />
                         <Text style={styles.cardTitle}>{t('profile.academic_info', 'Academic Details')}</Text>
                     </View>
-
                     <View style={styles.infoRow}>
                         <InfoItem label={t('profile.admission_date', 'Admission Date')} value={new Date(student.admission_date).toLocaleDateString()} icon="calendar-number-outline" />
                         <InfoItem label={t('profile.academic_year', 'Academic Year')} value={enrollment.academic_year || 'Current'} icon="time-outline" />
                     </View>
                 </Animated.View>
-
                 <View style={{
         height: 40
       }} />
@@ -175,16 +171,13 @@ const InfoItem = ({
   label,
   value,
   icon
-}: {
-  label: string;
-  value: string;
-  icon: any;
-}) => {
+
+}: {label: string;value: string;icon: any;}) => {
   const {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   return <View style={styles.infoItem}>
         <View style={styles.labelRow}>
             <Ionicons name={icon} size={14} color="#6B7280" />
@@ -194,7 +187,7 @@ const InfoItem = ({
     </View>;
 };
 export default ProfileScreen;
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card

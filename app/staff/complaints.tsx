@@ -1,42 +1,488 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Platform, Dimensions } from 'react-native';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-
-// Components
+import { BlurView } from 'expo-blur';
+import Animated, {
+  FadeInDown, FadeIn, useSharedValue, useAnimatedStyle,
+  withSpring, 
+  Easing,
+} from 'react-native-reanimated';
 import StaffHeader from '../../src/components/StaffHeader';
-
-// Services
 import { ComplaintService, Complaint } from '../../src/services/commonServices';
 import { StudentService } from '../../src/services/studentService';
 import { StudentWithDetails } from '../../src/types/schema';
 import { useTheme } from '../../src/hooks/useTheme';
-import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 
-// Extended interface for UI
+const { width } = Dimensions.get('window');
+const FONT = Platform.OS === 'ios' ? 'SF Pro Display' : 'sans-serif';
+const AnimatedTouch = Animated.createAnimatedComponent(TouchableOpacity);
+
+// ─── Types ─────────────────────────────────────────────────────────
 interface UIComplaint extends Complaint {
-  color?: string;
-  target?: string;
-  date?: string;
+  color?: string; target?: string; date?: string;
 }
 interface Student {
-  id: string;
-  display_name: string; // From Person
-  admission_no: string;
+  id: string; display_name: string; admission_no: string;
 }
+
+// ─── Config ────────────────────────────────────────────────────────
+const CATEGORY_CFG: Record<string, { color: string; bg: string; icon: string; label: string }> = {
+  disciplinary: { color: '#EF4444', bg: 'rgba(239,68,68,0.10)', icon: 'warning', label: 'Disciplinary' },
+  academic: { color: '#3B82F6', bg: 'rgba(59,130,246,0.10)', icon: 'school', label: 'Academic' },
+  facility: { color: '#F59E0B', bg: 'rgba(245,158,11,0.10)', icon: 'apartment', label: 'Facility' },
+  default: { color: '#6B7280', bg: 'rgba(107,114,128,0.10)', icon: 'report', label: 'Other' },
+};
+
+const PRIORITY_CFG: Record<string, { color: string; bg: string }> = {
+  high: { color: '#EF4444', bg: 'rgba(239,68,68,0.12)' },
+  medium: { color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
+  low: { color: '#3B82F6', bg: 'rgba(59,130,246,0.12)' },
+};
+
+const STATUS_CFG: Record<string, { color: string; bg: string; icon: string }> = {
+  resolved: { color: '#10B981', bg: 'rgba(16,185,129,0.12)', icon: 'check-circle' },
+  escalated: { color: '#EF4444', bg: 'rgba(239,68,68,0.12)', icon: 'arrow-upward' },
+  pending: { color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', icon: 'hourglass-empty' },
+};
+
+const SEVERITY_CFG = [
+  { key: 'Low', color: '#3B82F6', bg: 'rgba(59,130,246,0.10)', activeBg: 'rgba(59,130,246,0.15)' },
+  { key: 'Medium', color: '#F59E0B', bg: 'rgba(245,158,11,0.10)', activeBg: 'rgba(245,158,11,0.15)' },
+  { key: 'High', color: '#EF4444', bg: 'rgba(239,68,68,0.10)', activeBg: 'rgba(239,68,68,0.15)' },
+] as const;
+
+const FILTER_TABS = [
+  { key: 'ALL', label: 'All', icon: 'list' },
+  { key: 'DISCIPLINARY', label: 'Disciplinary', icon: 'warning' },
+  { key: 'FACILITY', label: 'Facility', icon: 'apartment' },
+] as const;
+
+// ─── Pressable Chip ────────────────────────────────────────────────
+const PressChip = ({ onPress, children, style }: any) => {
+  const s = useSharedValue(1);
+  return (
+    <AnimatedTouch
+      activeOpacity={1}
+      onPressIn={() => { s.value = withSpring(0.94, { damping: 15, stiffness: 260 }); }}
+      onPressOut={() => { s.value = withSpring(1, { damping: 15, stiffness: 260 }); }}
+      onPress={onPress}
+      style={[useAnimatedStyle(() => ({ transform: [{ scale: s.value }] })), style]}
+    >
+      {children}
+    </AnimatedTouch>
+  );
+};
+
+// ─── Styled Input ──────────────────────────────────────────────────
+const GlassInput = ({
+  label, value, onChange, placeholder, isDark,
+  multiline, icon, suffix,
+}: {
+  label: string; value: string; onChange: (v: string) => void;
+  placeholder: string; isDark: boolean;
+  multiline?: boolean; icon?: string; suffix?: React.ReactNode;
+}) => {
+  const [focused, setFocused] = useState(false);
+  return (
+    <View style={{ marginBottom: 18 }}>
+      <Text style={[gi.label, { color: isDark ? '#64748B' : '#94A3B8', fontFamily: FONT }]}>{label}</Text>
+      <View style={[
+        gi.wrap,
+        multiline && gi.multiWrap,
+        {
+          backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+          borderColor: focused
+            ? (isDark ? 'rgba(16,185,129,0.55)' : 'rgba(5,150,105,0.45)')
+            : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.09)'),
+        }
+      ]}>
+        {icon && (
+          <MaterialIcons name={icon as any} size={15}
+            color={focused ? (isDark ? '#34D399' : '#059669') : (isDark ? '#334155' : '#CBD5E1')}
+            style={{ marginTop: multiline ? 2 : 0 }}
+          />
+        )}
+        <TextInput
+          style={[gi.input, multiline && gi.multiInput, { color: isDark ? '#EEF2FF' : '#0F172A', fontFamily: FONT }]}
+          placeholder={placeholder}
+          placeholderTextColor={isDark ? '#2A3444' : '#C4CDD9'}
+          value={value}
+          onChangeText={onChange}
+          multiline={multiline}
+          textAlignVertical={multiline ? 'top' : 'center'}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          numberOfLines={multiline ? 4 : 1}
+        />
+        {suffix}
+      </View>
+    </View>
+  );
+};
+const gi = StyleSheet.create({
+  label: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 },
+  wrap: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 13, paddingVertical: 13, borderRadius: 14, borderWidth: 1 },
+  multiWrap: { alignItems: 'flex-start', paddingVertical: 12 },
+  input: { flex: 1, fontSize: 13, fontWeight: '600', letterSpacing: -0.2 },
+  multiInput: { minHeight: 90, lineHeight: 20 },
+});
+
+// ─── Complaint Card ────────────────────────────────────────────────
+const ComplaintCard = ({ item, index, isDark }: { item: UIComplaint; index: number; isDark: boolean }) => {
+  const catKey = item.category?.toLowerCase() || 'default';
+  const cat = CATEGORY_CFG[catKey] || CATEGORY_CFG.default;
+  const pri = PRIORITY_CFG[(item.priority || 'low').toLowerCase()] || PRIORITY_CFG.low;
+  const stat = STATUS_CFG[(item.status || 'pending').toLowerCase()] || STATUS_CFG.pending;
+  const s = useSharedValue(1);
+
+  return (
+    <Animated.View entering={FadeInDown.delay(index * 75).duration(300).easing(Easing.out(Easing.cubic))}>
+      <AnimatedTouch
+        activeOpacity={1}
+        onPressIn={() => { s.value = withSpring(0.975, { damping: 18, stiffness: 220 }); }}
+        onPressOut={() => { s.value = withSpring(1, { damping: 18, stiffness: 220 }); }}
+        style={[useAnimatedStyle(() => ({ transform: [{ scale: s.value }] })), { marginBottom: 10 }]}
+      >
+        <BlurView
+          intensity={isDark ? 28 : 35} tint={isDark ? 'dark' : 'light'}
+          style={[cc.blur, { borderColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.72)' }]}
+        >
+          <View style={[cc.inner, { backgroundColor: isDark ? 'rgba(8,12,26,0.55)' : 'rgba(255,255,255,0.62)' }]}>
+
+            {/* Accent bar */}
+            <View style={[cc.accentBar, { backgroundColor: cat.color }]} />
+
+            {/* Header */}
+            <View style={cc.header}>
+              <View style={[cc.iconWrap, { backgroundColor: cat.bg }]}>
+                <MaterialIcons name={cat.icon as any} size={18} color={cat.color} />
+              </View>
+
+              <View style={cc.headerText}>
+                <Text style={[cc.ticketNo, { color: isDark ? '#64748B' : '#94A3B8', fontFamily: FONT }]}>
+                  #{item.ticket_no}
+                </Text>
+                <Text style={[cc.title, { color: isDark ? '#EEF2FF' : '#0F172A', fontFamily: FONT }]}>
+                  {item.title}
+                </Text>
+              </View>
+
+              {/* Priority badge */}
+              <View style={[cc.priorityBadge, { backgroundColor: pri.bg, borderColor: pri.color + '30' }]}>
+                <Text style={[cc.priorityText, { color: pri.color, fontFamily: FONT }]}>
+                  {(item.priority || 'Low').toUpperCase()}
+                </Text>
+              </View>
+            </View>
+
+            {/* Description */}
+            {item.description ? (
+              <Text style={[cc.desc, { color: isDark ? '#475569' : '#64748B', fontFamily: FONT }]} numberOfLines={2}>
+                {item.description}
+              </Text>
+            ) : null}
+
+            {/* Footer */}
+            <View style={[cc.footer, { borderTopColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
+              <View style={cc.footerLeft}>
+                <View style={[cc.catPill, { backgroundColor: cat.bg }]}>
+                  <Text style={[cc.catText, { color: cat.color, fontFamily: FONT }]}>{cat.label}</Text>
+                </View>
+                <View style={cc.dateMeta}>
+                  <Ionicons name="time-outline" size={11} color={isDark ? '#334155' : '#CBD5E1'} />
+                  <Text style={[cc.dateText, { color: isDark ? '#334155' : '#94A3B8', fontFamily: FONT }]}>
+                    {item.created_at ? new Date(item.created_at).toLocaleDateString() : '—'}
+                  </Text>
+                </View>
+              </View>
+              <View style={[cc.statusBadge, { backgroundColor: stat.bg, borderColor: stat.color + '30' }]}>
+                <MaterialIcons name={stat.icon as any} size={10} color={stat.color} />
+                <Text style={[cc.statusText, { color: stat.color, fontFamily: FONT }]}>
+                  {(item.status || 'pending').toUpperCase()}
+                </Text>
+              </View>
+            </View>
+
+          </View>
+        </BlurView>
+      </AnimatedTouch>
+    </Animated.View>
+  );
+};
+
+const cc = StyleSheet.create({
+  blur: { borderRadius: 20, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
+  inner: { borderRadius: 20, overflow: 'hidden' },
+  accentBar: { position: 'absolute', left: 0, top: 12, bottom: 12, width: 3.5, borderRadius: 3 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 11, padding: 14, paddingLeft: 18, paddingBottom: 8 },
+  iconWrap: { width: 38, height: 38, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  headerText: { flex: 1 },
+  ticketNo: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 2 },
+  title: { fontSize: 14, fontWeight: '700', letterSpacing: -0.2 },
+  priorityBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 9, borderWidth: 1 },
+  priorityText: { fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
+  desc: { fontSize: 12, lineHeight: 18, paddingHorizontal: 18, paddingBottom: 10, letterSpacing: -0.1 },
+  footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 18, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth },
+  footerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  catPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 7 },
+  catText: { fontSize: 9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  dateMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  dateText: { fontSize: 11, fontWeight: '500' },
+  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 9, borderWidth: 1 },
+  statusText: { fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
+});
+
+// ─── Animated Tab Switcher ─────────────────────────────────────────
+const TAB_DEFS = [
+  { key: 'MY_REPORTS' as const, label: 'History', icon: 'history' },
+  { key: 'FILE_NEW' as const, label: 'File New Report', icon: 'edit' },
+];
+
+const TabSwitcher = ({
+  activeTab, onSwitch, isDark,
+}: { activeTab: 'MY_REPORTS' | 'FILE_NEW'; onSwitch: (k: 'MY_REPORTS' | 'FILE_NEW') => void; isDark: boolean }) => {
+  // Sliding pill translateX
+  const slideX = useSharedValue(0);
+  const pillWidth = useSharedValue(0);
+
+  // Track each tab's measured x + width
+  const tabLayouts = React.useRef<{ x: number; width: number }[]>([]);
+
+  const slideToTab = (index: number) => {
+    const layout = tabLayouts.current[index];
+    if (layout) {
+      slideX.value = withSpring(layout.x, { damping: 20, stiffness: 260 });
+      pillWidth.value = withSpring(layout.width, { damping: 20, stiffness: 260 });
+    }
+  };
+
+  // Slide on mount + tab change
+  useEffect(() => {
+    const idx = TAB_DEFS.findIndex(t => t.key === activeTab);
+    // Slight delay to let layout settle on first render
+    const t = setTimeout(() => slideToTab(idx), 50);
+    return () => clearTimeout(t);
+  }, [activeTab]);
+
+  const pillStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: slideX.value }],
+    width: pillWidth.value,
+  }));
+
+  // Scale for individual tab presses
+  const scales = TAB_DEFS.map(() => useSharedValue(1));
+
+  return (
+    <Animated.View
+      entering={FadeInDown.delay(80).duration(340).easing(Easing.out(Easing.cubic))}
+      style={[ts.outerWrap, {
+        shadowColor: isDark ? '#10B981' : '#059669',
+      }]}
+    >
+      {/* Ambient glow */}
+      <View style={[ts.glow, {
+        backgroundColor: isDark ? 'rgba(16,185,129,0.06)' : 'rgba(16,185,129,0.05)',
+      }]} />
+
+      <BlurView
+        intensity={isDark ? 45 : 85}
+        tint={isDark ? 'dark' : 'light'}
+        style={[ts.blurWrap, {
+          backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(16,185,129,0.06)',
+          borderColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.8)',
+        }]}
+      >
+        {/* Inner shadow simulation for inset effect */}
+        <View style={[StyleSheet.absoluteFill, {
+          borderRadius: 22,
+          borderWidth: 1.5,
+          borderColor: isDark ? 'rgba(0,0,0,0.4)' : 'rgba(16,185,129,0.03)'
+        }]} />
+
+        <View style={[ts.track, {
+          backgroundColor: 'transparent',
+        }]}>
+
+          {/* Sliding pill */}
+          <Animated.View style={[ts.slidePill, pillStyle, {
+            shadowColor: isDark ? '#000000' : '#475569',
+            backgroundColor: isDark ? 'rgba(22,32,26,0.95)' : 'rgba(255,255,255,1)',
+          }]}>
+            {/* Solid Pill border */}
+            <View style={[ts.pillBorder, {
+              borderColor: isDark ? 'rgba(52,211,153,0.35)' : 'rgba(16,185,129,0.12)',
+              borderWidth: isDark ? 1 : 1,
+            }]} />
+          </Animated.View>
+
+          {/* Tab buttons */}
+          {TAB_DEFS.map((tab, idx) => {
+            const isActive = activeTab === tab.key;
+            const s = scales[idx];
+            const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
+
+            return (
+              <AnimatedTouch
+                key={tab.key}
+                activeOpacity={1}
+                onPressIn={() => { s.value = withSpring(0.93, { damping: 16, stiffness: 260 }); }}
+                onPressOut={() => { s.value = withSpring(1, { damping: 16, stiffness: 260 }); }}
+                onPress={() => onSwitch(tab.key)}
+                style={[ts.tabBtn, animStyle]}
+                onLayout={e => {
+                  tabLayouts.current[idx] = {
+                    x: e.nativeEvent.layout.x,
+                    width: e.nativeEvent.layout.width,
+                  };
+                  // Update slide position on initial layout
+                  if (tab.key === activeTab) {
+                    slideX.value = e.nativeEvent.layout.x;
+                    pillWidth.value = e.nativeEvent.layout.width;
+                  }
+                }}
+              >
+                {/* Icon container */}
+                <View style={[ts.iconWrap, isActive && {
+                  backgroundColor: isDark ? 'rgba(52,211,153,0.18)' : 'rgba(16,185,129,0.12)'
+                }]}>
+                  <MaterialIcons
+                    name={tab.icon as any}
+                    size={16}
+                    color={isActive
+                      ? (isDark ? '#34D399' : '#059669')
+                      : (isDark ? '#64748B' : '#94A3B8')}
+                  />
+                </View>
+
+                <Text style={[ts.tabLabel, {
+                  color: isActive
+                    ? (isDark ? '#34D399' : '#059669')
+                    : (isDark ? '#64748B' : '#94A3B8'),
+                  fontFamily: FONT,
+                  fontWeight: isActive ? '700' : '600',
+                }]}>
+                  {tab.label}
+                </Text>
+
+                {/* Active dot */}
+                {isActive && (
+                  <Animated.View
+                    entering={FadeIn.duration(200)}
+                    style={[ts.activeDot, { backgroundColor: isDark ? '#34D399' : '#059669' }]}
+                  />
+                )}
+              </AnimatedTouch>
+            );
+          })}
+
+        </View>
+      </BlurView>
+    </Animated.View>
+  );
+};
+
+const ts = StyleSheet.create({
+  outerWrap: {
+    marginBottom: 20,
+    borderRadius: 22,
+    shadowOpacity: 0.12,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 7 },
+    elevation: 6,
+  },
+  glow: {
+    position: 'absolute',
+    top: 4, left: 6, right: 6, bottom: -6,
+    borderRadius: 22,
+  },
+  blurWrap: {
+    borderRadius: 22,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  shimmer: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
+    height: 1,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+  },
+  track: {
+    flexDirection: 'row',
+    padding: 4,
+    borderRadius: 22,
+    position: 'relative',
+    gap: 0,
+  },
+  // Sliding pill
+  slidePill: {
+    position: 'absolute',
+    top: 4,
+    bottom: 4,
+    left: 0,
+    borderRadius: 18,
+    overflow: 'hidden',
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+    zIndex: 0,
+  },
+  pillShimmer: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
+    height: 1,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  pillBorder: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  // Tab buttons
+  tabBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingVertical: 13,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    zIndex: 1,
+  },
+  iconWrap: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tabLabel: {
+    fontSize: 13,
+    letterSpacing: -0.2,
+  },
+  activeDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    marginLeft: 1,
+  },
+});
+
+// ─── Main Screen ───────────────────────────────────────────────────
 export default function StaffComplaints() {
-  const {
-    theme,
-    isDark
-  } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const { isDark } = useTheme();
+
   const [activeTab, setActiveTab] = useState<'MY_REPORTS' | 'FILE_NEW'>('MY_REPORTS');
   const [loading, setLoading] = useState(false);
   const [complaints, setComplaints] = useState<UIComplaint[]>([]);
   const [filterType, setFilterType] = useState<'ALL' | 'DISCIPLINARY' | 'FACILITY'>('ALL');
 
-  // Form State
+  // Form
   const [studentSearch, setStudentSearch] = useState('');
   const [studentsList, setStudentsList] = useState<Student[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -44,598 +490,374 @@ export default function StaffComplaints() {
   const [desc, setDesc] = useState('');
   const [severity, setSeverity] = useState<'Low' | 'Medium' | 'High'>('Low');
   const [isSearching, setIsSearching] = useState(false);
+
   useEffect(() => {
-    if (activeTab === 'MY_REPORTS') {
-      fetchComplaints();
-    }
+    if (activeTab === 'MY_REPORTS') fetchComplaints();
   }, [activeTab]);
+
   useEffect(() => {
     if (activeTab === 'FILE_NEW' && studentSearch.length > 2) {
-      const delayDebounceFn = setTimeout(() => {
-        searchStudents();
-      }, 500);
-      return () => clearTimeout(delayDebounceFn);
-    } else {
-      setStudentsList([]);
-    }
+      const t = setTimeout(searchStudents, 500);
+      return () => clearTimeout(t);
+    } else setStudentsList([]);
   }, [studentSearch, activeTab]);
+
   const fetchComplaints = async () => {
     try {
       setLoading(true);
       const data = await ComplaintService.getAll();
-      // Transform data if needed or Map colors
-      const mappedData: UIComplaint[] = data.map(item => ({
+      setComplaints(data.map(item => ({
         ...item,
-        color: getCategoryColor(item.category || ''),
-        target: item.raised_for_student_id || 'N/A',
-        // TODO: Fetch student name
-        date: new Date(item.created_at).toLocaleDateString()
-      }));
-      setComplaints(mappedData);
-    } catch (error) {
-      console.error('Error fetching complaints:', error);
-      Alert.alert('Error', 'Failed to load complaints');
-    } finally {
-      setLoading(false);
-    }
+        color: CATEGORY_CFG[item.category?.toLowerCase() || 'default']?.color || '#6B7280',
+        date: new Date(item.created_at).toLocaleDateString(),
+      })));
+    } catch { Alert.alert('Error', 'Failed to load reports'); }
+    finally { setLoading(false); }
   };
+
   const searchStudents = async () => {
     try {
       setIsSearching(true);
-      const response = await StudentService.getAll<StudentWithDetails>({
-        search: studentSearch,
-        limit: 5
-      });
-      const mappedStudents = response.data.map((s: StudentWithDetails) => ({
+      const res = await StudentService.getAll<StudentWithDetails>({ search: studentSearch, limit: 5 });
+      setStudentsList(res.data.map((s: StudentWithDetails) => ({
         id: s.id,
         display_name: s.person.display_name || `${s.person.first_name} ${s.person.last_name}`,
-        admission_no: s.admission_no
-      }));
-      setStudentsList(mappedStudents);
-    } catch (error) {
-      console.error('Error searching students:', error);
-    } finally {
-      setIsSearching(false);
-    }
+        admission_no: s.admission_no,
+      })));
+    } catch { } finally { setIsSearching(false); }
   };
+
   const handleSubmit = async () => {
     if (!title || !desc || !selectedStudent) {
-      Alert.alert('Error', 'Please fill all fields and select a student');
+      Alert.alert('Missing Fields', 'Please fill all fields and select a student.');
       return;
     }
     try {
       setLoading(true);
       await ComplaintService.create({
-        title,
-        description: desc,
-        category: 'disciplinary',
-        // Defaulting for 'Sudent Disciplinary' page context
+        title, description: desc, category: 'disciplinary',
         priority: severity.toLowerCase(),
-        raised_for_student_id: selectedStudent.id
+        raised_for_student_id: selectedStudent.id,
       });
-      Alert.alert('Success', 'Complaint submitted successfully');
-      // Reset form
-      setTitle('');
-      setDesc('');
-      setStudentSearch('');
-      setSelectedStudent(null);
-      setSeverity('Low');
+      Alert.alert('Submitted', 'Report submitted successfully.');
+      setTitle(''); setDesc(''); setStudentSearch('');
+      setSelectedStudent(null); setSeverity('Low');
       setActiveTab('MY_REPORTS');
-    } catch (error) {
-      console.error('Submit error:', error);
-      Alert.alert('Error', 'Failed to submit complaint');
-    } finally {
-      setLoading(false);
-    }
+    } catch { Alert.alert('Error', 'Failed to submit report.'); }
+    finally { setLoading(false); }
   };
-  const getCategoryColor = (category: string) => {
-    switch (category?.toLowerCase()) {
-      case 'disciplinary':
-        return '#EF4444';
-      case 'academic':
-        return '#3B82F6';
-      case 'facility':
-        return '#F59E0B';
-      default:
-        return '#6B7280';
-    }
-  };
-  const filteredComplaints = complaints.filter(c => {
+
+  const filtered = complaints.filter(c => {
     if (filterType === 'ALL') return true;
     return c.category?.toUpperCase() === filterType;
   });
-  const renderHeader = () => {
-return <View style={styles.headerSection}>
-            <Text style={styles.pageTitle}>Student Disciplinary</Text>
-            <Text style={styles.pageSub}>Track and manage student behavior records</Text>
 
-            <View style={styles.tabContainer}>
-                <TouchableOpacity style={[styles.tab, activeTab === 'MY_REPORTS' && styles.activeTab]} onPress={() => setActiveTab('MY_REPORTS')}>
-                    <Text style={[styles.tabText, activeTab === 'MY_REPORTS' && styles.activeTabText]}>
-                        History
-                    </Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.tab, activeTab === 'FILE_NEW' && styles.activeTab]} onPress={() => setActiveTab('FILE_NEW')}>
-                    <Text style={[styles.tabText, activeTab === 'FILE_NEW' && styles.activeTabText]}>
-                        File New Report
-                    </Text>
-                </TouchableOpacity>
-            </View>
-        </View>;
-  };
-  const renderComplaintItem = ({
-    item,
-    index
-  }: {
-    item: UIComplaint;
-    index: number;
-  }) => {
-return <Animated.View key={item.id} entering={FadeInDown.delay(index * 100).springify()} style={styles.cardWrapper}>
-            <View style={styles.card}>
-                <View style={[styles.urgencyLine, {
-          backgroundColor: item.color || '#ccc'
-        }]} />
 
-                <View style={styles.cardHeader}>
-                    <View style={styles.studentInfo}>
-                        <View style={[styles.avatarStats, {
-              backgroundColor: `${item.color || '#ccc'}15`
-            }]}>
-                            <Text style={[styles.avatarText, {
-                color: item.color || '#666'
-              }]}>
-                                #
-                            </Text>
-                        </View>
-                        <View>
-                            <Text style={styles.studentName}>{item.ticket_no}</Text>
-                            {/* Backend might not return student name directly in list unless joined, checking implementation */}
-                            <Text style={styles.rollNo}>{item.category}</Text>
-                        </View>
+  return (
+    <View style={{ flex: 1 }}>
+      {/* Background */}
+      <LinearGradient
+        colors={isDark ? ['#06040F', '#0C0820', '#080614'] : ['#F0F4FF', '#EAF0FF', '#F6F2FF']}
+        style={StyleSheet.absoluteFillObject}
+        start={{ x: 0, y: 0 }} end={{ x: 0.5, y: 1 }}
+      />
+
+      <StaffHeader title="Complaints & Remarks" showBackButton />
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={ms.scroll}
+        keyboardShouldPersistTaps="handled"
+      >
+
+        {/* ── Page Header ── */}
+        <Animated.View entering={FadeInDown.delay(40).duration(300)} style={ms.pageHeader}>
+          <View>
+            <Text style={[ms.pageTitle, { color: isDark ? '#EEF2FF' : '#06101E', fontFamily: FONT }]}>
+              Student Disciplinary
+            </Text>
+            <Text style={[ms.pageSub, { color: isDark ? '#475569' : '#94A3B8', fontFamily: FONT }]}>
+              Track and manage student behaviour records
+            </Text>
+          </View>
+
+          {/* Report count pill */}
+          <View style={[ms.countPill, { backgroundColor: isDark ? 'rgba(239,68,68,0.14)' : 'rgba(239,68,68,0.08)', borderColor: isDark ? 'rgba(239,68,68,0.22)' : 'rgba(239,68,68,0.15)' }]}>
+            <MaterialIcons name="warning" size={12} color="#EF4444" />
+            <Text style={[ms.countText, { color: '#EF4444', fontFamily: FONT }]}>{complaints.length}</Text>
+          </View>
+        </Animated.View>
+
+        {/* ── Tab Switcher ── */}
+        <TabSwitcher activeTab={activeTab} onSwitch={setActiveTab} isDark={isDark} />
+
+        {/* ── History Tab ── */}
+        {activeTab === 'MY_REPORTS' && (
+          <Animated.View entering={FadeIn.duration(280)}>
+
+            {/* Filter row */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 2 }}>
+              {FILTER_TABS.map(f => {
+                const isActive = filterType === f.key;
+                return (
+                  <PressChip key={f.key} onPress={() => setFilterType(f.key)}>
+                    <View style={[
+                      ms.filterChip,
+                      {
+                        backgroundColor: isActive
+                          ? (isDark ? 'rgba(16,185,129,0.18)' : 'rgba(5,150,105,0.10)')
+                          : (isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)'),
+                        borderColor: isActive
+                          ? (isDark ? 'rgba(16,185,129,0.40)' : 'rgba(5,150,105,0.30)')
+                          : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'),
+                      }
+                    ]}>
+                      <MaterialIcons
+                        name={f.icon as any} size={12}
+                        color={isActive ? (isDark ? '#34D399' : '#059669') : (isDark ? '#475569' : '#94A3B8')}
+                      />
+                      <Text style={[
+                        ms.filterText,
+                        { color: isActive ? (isDark ? '#34D399' : '#059669') : (isDark ? '#475569' : '#94A3B8'), fontFamily: FONT },
+                        isActive && { fontWeight: '700' },
+                      ]}>
+                        {f.label}
+                      </Text>
                     </View>
-                    <View style={[styles.badge, {
-            backgroundColor: `${item.color || '#ccc'}15`,
-            borderColor: `${item.color || '#ccc'}30`
-          }]}>
-                        <Text style={[styles.badgeText, {
-              color: item.color || '#666'
-            }]}>{item.priority}</Text>
-                    </View>
-                </View>
-
-                <View style={styles.contentBody}>
-                    <Text style={styles.reportTitle}>{item.title}</Text>
-                    {/* Description might be long, optionally truncate */}
-                    <Text style={styles.reportDesc} numberOfLines={2}>{item.description || 'No description'}</Text>
-                </View>
-
-                <View style={styles.footer}>
-                    <Text style={styles.date}>{item.created_at ? new Date(item.created_at).toLocaleDateString() : ''}</Text>
-                    <View style={[styles.statusDot, item.status === 'resolved' ? {
-            backgroundColor: '#10B981'
-          } : item.status as string === 'escalated' ? {
-            backgroundColor: '#EF4444'
-          } : {
-            backgroundColor: '#F59E0B'
-          }]}>
-                        <Text style={styles.statusText}>{item.status}</Text>
-                    </View>
-                </View>
-            </View>
-        </Animated.View>;
-  };
-  const renderForm = () => {
-return <Animated.View entering={FadeInDown.duration(500)} style={styles.formContainer}>
-            <View style={styles.inputGroup}>
-                <Text style={styles.label}>Student Name / Roll No</Text>
-                {selectedStudent ? <View style={styles.selectedStudentChip}>
-                        <Text style={styles.selectedStudentText}>{selectedStudent.display_name} ({selectedStudent.admission_no})</Text>
-                        <TouchableOpacity onPress={() => {
-            setSelectedStudent(null);
-            setStudentSearch('');
-          }} style={{
-            marginLeft: 8
-          }}>
-                            <Ionicons name="close-circle" size={20} color="#EF4444" />
-                        </TouchableOpacity>
-                    </View> : <>
-                        <TextInput style={styles.input} placeholder="Search student..." placeholderTextColor="#9CA3AF" value={studentSearch} onChangeText={setStudentSearch} />
-                        {isSearching && <ActivityIndicator style={{
-            position: 'absolute',
-            right: 10,
-            top: 40
-          }} />}
-                        {studentSearch.length > 2 && studentsList.length > 0 && <View style={styles.suggestionsContainer}>
-                                {studentsList.map(s => {
-return <TouchableOpacity key={s.id} style={styles.suggestionItem} onPress={() => {
-                setSelectedStudent(s);
-                setStudentsList([]);
-                setStudentSearch('');
-              }}>
-                                        <Text style={styles.suggestionText}>{s.display_name} ({s.admission_no})</Text>
-                                    </TouchableOpacity>;
-            })}
-                            </View>}
-                    </>}
-            </View>
-
-            <View style={styles.inputGroup}>
-                <Text style={styles.label}>Incident Title</Text>
-                <TextInput style={styles.input} placeholder="e.g. Late Arrival, Uniform Violation" placeholderTextColor="#9CA3AF" value={title} onChangeText={setTitle} />
-            </View>
-
-            <View style={styles.inputGroup}>
-                <Text style={styles.label}>Description</Text>
-                <TextInput style={[styles.input, styles.textArea]} placeholder="Detailed description of the incident..." placeholderTextColor="#9CA3AF" multiline textAlignVertical="top" value={desc} onChangeText={setDesc} />
-            </View>
-
-            <View style={styles.inputGroup}>
-                <Text style={styles.label}>Severity Level</Text>
-                <View style={styles.severityRow}>
-                    {(['Low', 'Medium', 'High'] as const).map(lvl => {
-return <TouchableOpacity key={lvl} style={[styles.severityChip, severity === lvl && styles.severityActive, severity === lvl && (lvl === 'High' ? {
-              backgroundColor: '#FEE2E2',
-              borderColor: '#EF4444'
-            } : lvl === 'Medium' ? {
-              backgroundColor: '#FEF3C7',
-              borderColor: '#F59E0B'
-            } : {
-              backgroundColor: '#DBEAFE',
-              borderColor: '#3B82F6'
-            })]} onPress={() => setSeverity(lvl)}>
-                            <Text style={[styles.severityText, severity === lvl && (lvl === 'High' ? {
-                color: '#B91C1C'
-              } : lvl === 'Medium' ? {
-                color: '#B45309'
-              } : {
-                color: '#1D4ED8'
-              })]}>{lvl}</Text>
-                        </TouchableOpacity>;
-          })}
-                </View>
-            </View>
-
-            <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={loading}>
-                <LinearGradient colors={['#10B981', '#059669']} style={styles.submitGradient}>
-                    {loading ? <ActivityIndicator color="#fff" /> : <>
-                            <Text style={styles.submitText}>Submit Report</Text>
-                            <Ionicons name="send" size={18} color="#fff" />
-                        </>}
-                </LinearGradient>
-            </TouchableOpacity>
-        </Animated.View>;
-  };
-  return <View style={styles.container}>
-            <StaffHeader title="Complaints & Remarks" showBackButton />
-
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-                {renderHeader()}
-
-                {activeTab === 'MY_REPORTS' ? <View style={styles.listContainer}>
-                        <View style={styles.filterTabs}>
-                            {(['ALL', 'DISCIPLINARY', 'FACILITY'] as const).map(type => {
-return <TouchableOpacity key={type} style={[styles.filterChip, filterType === type && styles.activeFilterChip]} onPress={() => setFilterType(type)}>
-                                    <Text style={[styles.filterText, filterType === type && styles.activeFilterText]}>
-                                        {type}
-                                    </Text>
-                                </TouchableOpacity>;
-          })}
-                        </View>
-                        {loading ? <ActivityIndicator size="large" color="#10B981" /> : filteredComplaints.length === 0 ? <Text style={{
-          textAlign: 'center',
-          marginTop: 20,
-          color: '#999'
-        }}>No complaints found.</Text> : filteredComplaints.map((item, index) => renderComplaintItem({
-          item,
-          index
-        }))}
-                    </View> : renderForm()}
-
-                <View style={{
-        height: 40
-      }} />
+                  </PressChip>
+                );
+              })}
             </ScrollView>
-        </View>;
+
+            {loading ? (
+              <View style={ms.centered}>
+                <LogoLoader size={60} color={isDark ? '#34D399' : '#059669'} />
+              </View>
+            ) : filtered.length === 0 ? (
+              <Animated.View entering={FadeIn.duration(280)} style={ms.emptyState}>
+                <View style={[ms.emptyIcon, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }]}>
+                  <Ionicons name="document-text-outline" size={36} color={isDark ? '#2C3A50' : '#CDD7E6'} />
+                </View>
+                <Text style={[ms.emptyText, { color: isDark ? '#475569' : '#94A3B8', fontFamily: FONT }]}>No reports found</Text>
+              </Animated.View>
+            ) : (
+              filtered.map((item, i) => <ComplaintCard key={item.id} item={item} index={i} isDark={isDark} />)
+            )}
+          </Animated.View>
+        )}
+
+        {/* ── File New Tab ── */}
+        {activeTab === 'FILE_NEW' && (
+          <Animated.View entering={FadeInDown.delay(60).duration(300).easing(Easing.out(Easing.cubic))}>
+            <BlurView
+              intensity={isDark ? 40 : 60} tint={isDark ? 'dark' : 'light'}
+              style={[ms.formBlur, { borderColor: isDark ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.75)' }]}
+            >
+              <View style={[ms.formInner, { backgroundColor: isDark ? 'rgba(8,6,20,0.58)' : 'rgba(255,255,255,0.68)' }]}>
+
+                {/* Shimmer */}
+                <View style={[ms.formShimmer, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.90)' }]} />
+
+                {/* Form title */}
+                <View style={ms.formTitleRow}>
+                  <View style={[ms.formTitleIcon, { backgroundColor: 'rgba(239,68,68,0.12)' }]}>
+                    <MaterialIcons name="report" size={16} color="#EF4444" />
+                  </View>
+                  <View>
+                    <Text style={[ms.formTitle, { color: isDark ? '#EEF2FF' : '#0F172A', fontFamily: FONT }]}>New Report</Text>
+                    <Text style={[ms.formSub, { color: isDark ? '#475569' : '#94A3B8', fontFamily: FONT }]}>Fill in the incident details</Text>
+                  </View>
+                </View>
+
+                {/* Student picker */}
+                <View style={{ marginBottom: 18 }}>
+                  <Text style={[gi.label, { color: isDark ? '#64748B' : '#94A3B8', fontFamily: FONT }]}>Student</Text>
+                  {selectedStudent ? (
+                    <View style={[ms.selectedChip, {
+                      backgroundColor: 'rgba(16,185,129,0.12)',
+                      borderColor: 'rgba(16,185,129,0.30)',
+                    }]}>
+                      <View style={[ms.selectedAvatar, { backgroundColor: 'rgba(16,185,129,0.20)' }]}>
+                        <Ionicons name="person" size={14} color="#10B981" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[ms.selectedName, { color: isDark ? '#EEF2FF' : '#0F172A', fontFamily: FONT }]}>
+                          {selectedStudent.display_name}
+                        </Text>
+                        <Text style={[ms.selectedAdm, { color: isDark ? '#475569' : '#94A3B8', fontFamily: FONT }]}>
+                          #{selectedStudent.admission_no}
+                        </Text>
+                      </View>
+                      <TouchableOpacity onPress={() => { setSelectedStudent(null); setStudentSearch(''); }}
+                        style={[ms.clearBtn, { backgroundColor: 'rgba(239,68,68,0.12)' }]}>
+                        <Ionicons name="close" size={14} color="#EF4444" />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View>
+                      <View style={[gi.wrap, {
+                        backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                        borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.09)',
+                      }]}>
+                        <Ionicons name="search-outline" size={15} color={isDark ? '#334155' : '#CBD5E1'} />
+                        <TextInput
+                          style={[gi.input, { color: isDark ? '#EEF2FF' : '#0F172A', fontFamily: FONT }]}
+                          placeholder="Search student name or roll…"
+                          placeholderTextColor={isDark ? '#2A3444' : '#C4CDD9'}
+                          value={studentSearch}
+                          onChangeText={setStudentSearch}
+                        />
+                        {isSearching && <LogoLoader size={30} color={isDark ? '#34D399' : '#059669'} />}
+                      </View>
+
+                      {studentSearch.length > 2 && studentsList.length > 0 && (
+                        <BlurView
+                          intensity={isDark ? 40 : 55} tint={isDark ? 'dark' : 'light'}
+                          style={[ms.suggestBlur, { borderColor: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.80)' }]}
+                        >
+                          {studentsList.map((s, i) => (
+                            <TouchableOpacity
+                              key={s.id}
+                              style={[ms.suggestItem, i < studentsList.length - 1 && {
+                                borderBottomWidth: StyleSheet.hairlineWidth,
+                                borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+                              }]}
+                              onPress={() => { setSelectedStudent(s); setStudentsList([]); setStudentSearch(''); }}
+                            >
+                              <View style={[ms.suggestAvatar, { backgroundColor: isDark ? 'rgba(16,185,129,0.12)' : 'rgba(5,150,105,0.08)' }]}>
+                                <Ionicons name="person-outline" size={13} color={isDark ? '#34D399' : '#059669'} />
+                              </View>
+                              <View>
+                                <Text style={[ms.suggestName, { color: isDark ? '#EEF2FF' : '#0F172A', fontFamily: FONT }]}>{s.display_name}</Text>
+                                <Text style={[ms.suggestAdm, { color: isDark ? '#475569' : '#94A3B8', fontFamily: FONT }]}>#{s.admission_no}</Text>
+                              </View>
+                            </TouchableOpacity>
+                          ))}
+                        </BlurView>
+                      )}
+                    </View>
+                  )}
+                </View>
+
+                {/* Incident Title */}
+                <GlassInput label="Incident Title" value={title} onChange={setTitle} isDark={isDark}
+                  placeholder="e.g. Late Arrival, Uniform Violation" icon="title" />
+
+                {/* Description */}
+                <GlassInput label="Description" value={desc} onChange={setDesc} isDark={isDark}
+                  placeholder="Detailed description of the incident…" icon="notes" multiline />
+
+                {/* Severity */}
+                <View style={{ marginBottom: 20 }}>
+                  <Text style={[gi.label, { color: isDark ? '#64748B' : '#94A3B8', fontFamily: FONT }]}>Severity Level</Text>
+                  <View style={ms.severityRow}>
+                    {SEVERITY_CFG.map(lvl => {
+                      const isActive = severity === lvl.key;
+                      return (
+                        <PressChip key={lvl.key} onPress={() => setSeverity(lvl.key)} style={{ flex: 1 }}>
+                          <View style={[ms.severityChip, {
+                            backgroundColor: isActive ? lvl.activeBg : (isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)'),
+                            borderColor: isActive ? lvl.color + '50' : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'),
+                          }]}>
+                            <View style={[ms.sevDot, { backgroundColor: lvl.color, opacity: isActive ? 1 : 0.35 }]} />
+                            <Text style={[ms.sevText, {
+                              color: isActive ? lvl.color : (isDark ? '#475569' : '#94A3B8'),
+                              fontFamily: FONT, fontWeight: isActive ? '700' : '500',
+                            }]}>{lvl.key}</Text>
+                          </View>
+                        </PressChip>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                {/* Submit */}
+                <AnimatedTouch
+                  activeOpacity={1}
+                  disabled={loading}
+                  onPressIn={() => { }}
+                  onPressOut={() => { }}
+                  onPress={handleSubmit}
+                  style={{ opacity: loading ? 0.7 : 1 }}
+                >
+                  <LinearGradient
+                    colors={['#059669', '#10B981']}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                    style={ms.submitGrad}
+                  >
+                    <View style={ms.submitShine} />
+                    {loading
+                      ? <LogoLoader color="#fff" />
+                      : <>
+                        <Ionicons name="send" size={15} color="#fff" />
+                        <Text style={[ms.submitText, { fontFamily: FONT }]}>Submit Report</Text>
+                      </>
+                    }
+                  </LinearGradient>
+                </AnimatedTouch>
+
+              </View>
+            </BlurView>
+          </Animated.View>
+        )}
+
+        <View style={{ height: 80 }} />
+      </ScrollView>
+    </View>
+  );
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.card
-  },
-  scrollContent: {
-    padding: 20
-  },
-  headerSection: {
-    marginBottom: 24
-  },
-  pageTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#111827',
-    marginBottom: 4
-  },
-  pageSub: {
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-    marginBottom: 20
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: theme.colors.background,
-    borderRadius: 16,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: theme.colors.border
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: 12
-  },
-  activeTab: {
-    backgroundColor: '#ECFDF5'
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: theme.colors.textSecondary
-  },
-  activeTabText: {
-    color: '#059669',
-    fontWeight: '700'
-  },
-  // CARDS
-  cardWrapper: {
-    marginBottom: 16
-  },
-  card: {
-    backgroundColor: theme.colors.background,
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    overflow: 'hidden',
-    shadowColor: theme.colors.text,
-    shadowOffset: {
-      width: 0,
-      height: 2
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2
-  },
-  urgencyLine: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 4
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12
-  },
-  studentInfo: {
-    flexDirection: 'row',
-    gap: 12,
-    alignItems: 'center'
-  },
-  avatarStats: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  avatarText: {
-    fontWeight: '800',
-    fontSize: 14
-  },
-  studentName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1F2937'
-  },
-  rollNo: {
-    fontSize: 12,
-    color: theme.colors.textTertiary
-  },
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '700'
-  },
-  contentBody: {
-    marginBottom: 12,
-    paddingLeft: 4 + 12 // urgency line + gap
-  },
-  reportTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#374151',
-    marginBottom: 4
-  },
-  reportDesc: {
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-    lineHeight: 20
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.card,
-    paddingLeft: 16
-  },
-  date: {
-    fontSize: 12,
-    color: theme.colors.textTertiary,
-    fontWeight: '500'
-  },
-  statusDot: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10
-  },
-  statusText: {
-    color: theme.colors.background,
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase'
-  },
-  // FORM
-  formContainer: {
-    backgroundColor: theme.colors.background,
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: theme.colors.border
-  },
-  inputGroup: {
-    marginBottom: 20,
-    position: 'relative'
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8
-  },
-  input: {
-    backgroundColor: theme.colors.card,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: '#1F2937'
-  },
-  textArea: {
-    height: 100
-  },
-  severityRow: {
-    flexDirection: 'row',
-    gap: 12
-  },
-  severityChip: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: theme.colors.card,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    alignItems: 'center'
-  },
-  severityActive: {
-    // dynamic styles handled inline
-  },
-  severityText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: theme.colors.textSecondary
-  },
-  submitBtn: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginTop: 10,
-    shadowColor: '#10B981',
-    shadowOffset: {
-      width: 0,
-      height: 4
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 4
-  },
-  submitGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 16
-  },
-  submitText: {
-    color: theme.colors.background,
-    fontSize: 16,
-    fontWeight: '700'
-  },
-  listContainer: {},
-  filterTabs: {
-    flexDirection: 'row',
-    marginBottom: 16,
-    gap: 8
-  },
-  filterChip: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: theme.colors.background,
-    borderWidth: 1,
-    borderColor: theme.colors.border
-  },
-  activeFilterChip: {
-    backgroundColor: '#059669',
-    borderColor: '#059669'
-  },
-  filterText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: theme.colors.textSecondary
-  },
-  activeFilterText: {
-    color: theme.colors.background
-  },
-  suggestionsContainer: {
-    marginTop: 4,
-    backgroundColor: theme.colors.background,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    maxHeight: 150,
-    zIndex: 10,
-    elevation: 5,
-    shadowColor: theme.colors.text,
-    shadowOffset: {
-      width: 0,
-      height: 2
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4
-  },
-  suggestionItem: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.card
-  },
-  suggestionText: {
-    fontSize: 14,
-    color: '#374151'
-  },
-  selectedStudentChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ECFDF5',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#10B981',
-    alignSelf: 'flex-start'
-  },
-  selectedStudentText: {
-    color: '#047857',
-    fontWeight: '600'
-  }
+
+// ─── Styles ────────────────────────────────────────────────────────
+const ms = StyleSheet.create({
+  scroll: { paddingHorizontal: 18, paddingTop: 14, paddingBottom: 30 },
+
+  // Page header
+  pageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
+  pageTitle: { fontSize: 24, fontWeight: '800', letterSpacing: -0.7 },
+  pageSub: { fontSize: 13, fontWeight: '500', marginTop: 3 },
+  countPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, borderWidth: 1 },
+  countText: { fontSize: 13, fontWeight: '800', letterSpacing: -0.3 },
+
+  // Filter chips
+  filterChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
+  filterText: { fontSize: 12, fontWeight: '600', letterSpacing: -0.1 },
+
+  centered: { marginTop: 60, alignItems: 'center' },
+  emptyState: { alignItems: 'center', paddingVertical: 52, gap: 12 },
+  emptyIcon: { width: 72, height: 72, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+  emptyText: { fontSize: 14, fontWeight: '600' },
+
+  // Form card
+  formBlur: { borderRadius: 24, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth, shadowColor: '#059669', shadowOpacity: 0.10, shadowRadius: 20, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
+  formInner: { padding: 20, borderRadius: 24 },
+  formShimmer: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+  formTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 22 },
+  formTitleIcon: { width: 38, height: 38, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  formTitle: { fontSize: 17, fontWeight: '800', letterSpacing: -0.4 },
+  formSub: { fontSize: 12, fontWeight: '500', marginTop: 1 },
+
+  // Student chip
+  selectedChip: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 14, borderWidth: 1 },
+  selectedAvatar: { width: 34, height: 34, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  selectedName: { fontSize: 13, fontWeight: '700', letterSpacing: -0.2 },
+  selectedAdm: { fontSize: 11, fontWeight: '500', marginTop: 1 },
+  clearBtn: { width: 28, height: 28, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
+
+  // Suggestions dropdown
+  suggestBlur: { marginTop: 6, borderRadius: 14, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
+  suggestItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 11 },
+  suggestAvatar: { width: 28, height: 28, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  suggestName: { fontSize: 13, fontWeight: '600', letterSpacing: -0.2 },
+  suggestAdm: { fontSize: 11, fontWeight: '500', marginTop: 1 },
+
+  // Severity
+  severityRow: { flexDirection: 'row', gap: 10 },
+  severityChip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 13, borderWidth: 1 },
+  sevDot: { width: 6, height: 6, borderRadius: 3 },
+  sevText: { fontSize: 13, letterSpacing: -0.1 },
+
+  // Submit
+  submitGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: 16, overflow: 'hidden', position: 'relative' },
+  submitShine: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, backgroundColor: 'rgba(255,255,255,0.25)' },
+  submitText: { color: '#fff', fontSize: 15, fontWeight: '700', letterSpacing: -0.2 },
 });

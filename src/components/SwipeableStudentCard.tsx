@@ -13,8 +13,6 @@ import Animated, {
     withSpring,
     runOnJS,
     interpolateColor,
-    interpolate,
-    withTiming,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { HapticFeedback } from '../utils/animations';
@@ -36,7 +34,6 @@ interface Props {
 
 const SwipeableStudentCard: React.FC<Props> = ({ student, onStatusChange }) => {
     const translateX = useSharedValue(0);
-    const itemHeight = useSharedValue(70); // Initial estimation
     const status = student.status;
 
     // Reset position when status changes externally (e.g. checkbox)
@@ -105,14 +102,6 @@ const SwipeableStudentCard: React.FC<Props> = ({ student, onStatusChange }) => {
         };
     });
 
-    const iconStyle = useAnimatedStyle(() => {
-        const opacity = interpolate(
-            Math.abs(translateX.value),
-            [0, SWIPE_THRESHOLD / 2],
-            [0, 1]
-        );
-        return { opacity };
-    });
 
     // Left Icon (Absent - appears when swiping right? No, swiping RIGHT means presenting, so we show PRESENT icon on LEFT side of card? 
     // Usually: Swipe Right (move card right) reveals something on left.

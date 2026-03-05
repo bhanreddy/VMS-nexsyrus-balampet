@@ -5,7 +5,6 @@ import {
     TextInput,
     TouchableOpacity,
     StyleSheet,
-    Image,
     StatusBar,
     Dimensions,
     KeyboardAvoidingView,
@@ -16,7 +15,7 @@ import {
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons, FontAwesome5, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useTheme } from '../src/hooks/useTheme';
 import { Theme } from '../src/theme/themes';
@@ -26,7 +25,7 @@ const { width } = Dimensions.get('window');
 
 const ForgotPasswordScreen: React.FC = () => {
     const { theme, isDark } = useTheme();
-    const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+    const styles = React.useMemo(() => getStyles(theme), [theme]);
     const router = useRouter();
     const [email, setEmail] = useState<string>('');
 
@@ -133,7 +132,7 @@ export default ForgotPasswordScreen;
 
 
 
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: theme.colors.background,

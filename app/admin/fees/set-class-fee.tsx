@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import AdminHeader from '../../../src/components/AdminHeader';
 import { ADMIN_THEME } from '../../../src/constants/adminTheme';
@@ -10,12 +10,13 @@ import { api } from '../../../src/services/apiClient';
 import { Class } from '../../../src/types/schema';
 import { useTheme } from '../../../src/hooks/useTheme';
 import { Theme } from '../../../src/theme/themes';
+import LogoLoader from '../../../src/components/LogoLoader';
 export default function SetClassFeeScreen() {
   const {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const router = useRouter();
   const {
     user
@@ -45,14 +46,14 @@ export default function SetClassFeeScreen() {
       setFeeTypes(typesData);
       setAcademicYears(yearsData);
       if (yearsData.length > 0) {
-        const current = yearsData.find(y => {
+        const current = yearsData.find((y) => {
           const now = new Date();
           return new Date(y.start_date) <= now && new Date(y.end_date) >= now;
         });
         setSelectedYearId(current?.id || yearsData[0].id);
       }
     } catch (error) {
-      console.error(error);
+
       Alert.alert('Error', 'Failed to load configuration data');
     } finally {
       setLoading(false);
@@ -84,64 +85,56 @@ export default function SetClassFeeScreen() {
   };
   return <View style={styles.container}>
             <AdminHeader title="Set Class Fee" showBackButton />
-
             <ScrollView contentContainerStyle={styles.content}>
                 <View style={styles.card}>
                     <Text style={styles.sectionTitle}>Fee Details</Text>
-
                     {/* Class Selector */}
                     <Text style={styles.label}>Select Class</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.classScroll}>
-                        {classes.map(cls => {
-return <TouchableOpacity key={cls.id} style={[styles.classChip, selectedClassId === cls.id && styles.classChipActive]} onPress={() => setSelectedClassId(cls.id)}>
+                        {classes.map((cls) => {
+            return <TouchableOpacity key={cls.id} style={[styles.classChip, selectedClassId === cls.id && styles.classChipActive]} onPress={() => setSelectedClassId(cls.id)}>
                                 <Text style={[styles.classChipText, selectedClassId === cls.id && styles.classChipTextActive]}>
                                     {cls.name}
                                 </Text>
                             </TouchableOpacity>;
           })}
                     </ScrollView>
-
                     {/* Fee Type Selector */}
                     <Text style={styles.label}>Fee Type</Text>
                     <View style={styles.typeGrid}>
-                        {feeTypes.map(type => {
-return <TouchableOpacity key={type.id} style={[styles.typeChip, feeTypeId === type.id && styles.typeChipActive]} onPress={() => setFeeTypeId(type.id)}>
+                        {feeTypes.map((type) => {
+            return <TouchableOpacity key={type.id} style={[styles.typeChip, feeTypeId === type.id && styles.typeChipActive]} onPress={() => setFeeTypeId(type.id)}>
                                 <Text style={[styles.typeChipText, feeTypeId === type.id && styles.typeChipTextActive]}>
                                     {type.name}
                                 </Text>
                             </TouchableOpacity>;
           })}
                     </View>
-
                     {/* Amount Input */}
                     <Text style={styles.label}>Amount (₹)</Text>
                     <TextInput style={styles.input} value={amount} onChangeText={setAmount} placeholder="Enter amount" keyboardType="numeric" />
-
                     {/* Due Date Input */}
                     <Text style={styles.label}>Due Date (YYYY-MM-DD)</Text>
                     <TextInput style={styles.input} value={dueDate} onChangeText={setDueDate} placeholder="YYYY-MM-DD" />
-
                     {/* Academic Year Selector */}
                     <Text style={styles.label}>Academic Year</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.classScroll}>
-                        {academicYears.map(ay => {
-return <TouchableOpacity key={ay.id} style={[styles.classChip, selectedYearId === ay.id && styles.classChipActive]} onPress={() => setSelectedYearId(ay.id)}>
+                        {academicYears.map((ay) => {
+            return <TouchableOpacity key={ay.id} style={[styles.classChip, selectedYearId === ay.id && styles.classChipActive]} onPress={() => setSelectedYearId(ay.id)}>
                                 <Text style={[styles.classChipText, selectedYearId === ay.id && styles.classChipTextActive]}>
                                     {ay.code}
                                 </Text>
                             </TouchableOpacity>;
           })}
                     </ScrollView>
-
                     <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} disabled={submitting}>
-                        {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnText}>Save Fee Structure</Text>}
+                        {submitting ? <LogoLoader color="#fff" /> : <Text style={styles.submitBtnText}>Save Fee Structure</Text>}
                     </TouchableOpacity>
-
                 </View>
             </ScrollView>
         </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: ADMIN_THEME.colors.background.app

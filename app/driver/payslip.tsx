@@ -1,317 +1,304 @@
 import React, { useState, useEffect } from 'react';
-import {
-    View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    StatusBar, Alert, ActivityIndicator
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Alert } from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import StudentHeader from '../../src/components/StudentHeader';
 import { StaffService } from '../../src/services/staffService';
 import { useAuth } from '../../src/hooks/useAuth';
+import LogoLoader from '../../src/components/LogoLoader';
 
 const DRIVER_PINK = '#EC4899';
 const DRIVER_GRADIENT: [string, string] = ['#EC4899', '#BE185D'];
 
 interface Payslip {
-    id: string;
-    month: string;
-    status: string;
-    earnings: string;
-    deductions: string;
-    net: string;
+  id: string;
+  month: string;
+  status: string;
+  earnings: string;
+  deductions: string;
+  net: string;
 }
 
 export default function DriverPayslip() {
-    const { user } = useAuth();
-    const [payslips, setPayslips] = useState<Payslip[]>([]);
-    const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const [payslips, setPayslips] = useState<Payslip[]>([]);
+  const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        if (user) {
-            const targetId = user.staff_id || user.id;
-            StaffService.getPayslips(targetId)
-                .then(data => setPayslips(data))
-                .catch(err => {
-                    console.error('Error fetching payslips:', err);
-                })
-                .finally(() => setLoading(false));
-        }
-    }, [user]);
+  useEffect(() => {
+    if (user) {
+      const targetId = user.staff_id || user.id;
+      StaffService.getPayslips(targetId).
+        then((data) => setPayslips(data)).
+        catch(() => {
 
-    const totalEarnings = React.useMemo(() => {
-        if (!payslips.length) return '₹0';
-        const total = payslips.reduce((sum, item) => {
-            const amount = parseFloat(item.earnings.replace(/[₹,]/g, '')) || 0;
-            return sum + amount;
-        }, 0);
-        return `₹${total.toLocaleString('en-IN')}`;
-    }, [payslips]);
+        }).
+        finally(() => setLoading(false));
+    }
+  }, [user]);
 
-    const totalDeductions = React.useMemo(() => {
-        if (!payslips.length) return '₹0';
-        const total = payslips.reduce((sum, item) => {
-            const amount = parseFloat(item.deductions.replace(/[₹,]/g, '')) || 0;
-            return sum + amount;
-        }, 0);
-        return `₹${total.toLocaleString('en-IN')}`;
-    }, [payslips]);
+  const totalEarnings = React.useMemo(() => {
+    if (!payslips.length) return '₹0';
+    const total = payslips.reduce((sum, item) => {
+      const amount = parseFloat(item.earnings.replace(/[₹,]/g, '')) || 0;
+      return sum + amount;
+    }, 0);
+    return `₹${total.toLocaleString('en-IN')}`;
+  }, [payslips]);
 
-    const handleDownload = (id: string) => {
-        Alert.alert('Coming Soon', 'PDF download will be available soon.');
-    };
+  const totalDeductions = React.useMemo(() => {
+    if (!payslips.length) return '₹0';
+    const total = payslips.reduce((sum, item) => {
+      const amount = parseFloat(item.deductions.replace(/[₹,]/g, '')) || 0;
+      return sum + amount;
+    }, 0);
+    return `₹${total.toLocaleString('en-IN')}`;
+  }, [payslips]);
 
-    return (
-        <View style={styles.screen}>
-            <StatusBar barStyle="light-content" backgroundColor="#0F0F1A" />
-            <StudentHeader title="My Payslips" menuUserType="driver" />
+  const handleDownload = () => {
+    Alert.alert('Coming Soon', 'PDF download will be available soon.');
+  };
 
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+  return (
+    <View style={styles.screen}>
+      <StatusBar barStyle="light-content" backgroundColor="#0F0F1A" />
+      <StudentHeader title="My Payslips" menuUserType="driver" />
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* ═══════ YTD Earnings Card ═══════ */}
+        <Animated.View entering={FadeInDown.delay(100).duration(600)} style={styles.summaryCardWrap}>
+          <LinearGradient
+            colors={DRIVER_GRADIENT}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.summaryCard}>
 
-                {/* ═══════ YTD Earnings Card ═══════ */}
-                <Animated.View entering={FadeInDown.delay(100).duration(600)} style={styles.summaryCardWrap}>
-                    <LinearGradient
-                        colors={DRIVER_GRADIENT}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.summaryCard}
-                    >
-                        {/* Decorative circles */}
-                        <View style={[styles.decor, { top: -20, right: -20, width: 80, height: 80 }]} />
-                        <View style={[styles.decor, { bottom: -10, left: -10, width: 50, height: 50 }]} />
-
-                        <View style={styles.summaryTop}>
-                            <View>
-                                <Text style={styles.summaryLabel}>Total Earnings (YTD)</Text>
-                                <Text style={styles.summaryValue}>{totalEarnings}</Text>
-                            </View>
-                            <View style={styles.summaryIconBox}>
-                                <FontAwesome5 name="coins" size={24} color="#FFF" />
-                            </View>
-                        </View>
-
-                        <View style={styles.summaryDivider} />
-
-                        <View style={styles.summaryBottom}>
-                            <View style={styles.miniStat}>
-                                <Text style={styles.miniStatLabel}>Months</Text>
-                                <Text style={styles.miniStatValue}>{payslips.length}</Text>
-                            </View>
-                            <View style={styles.miniStat}>
-                                <Text style={styles.miniStatLabel}>Deductions</Text>
-                                <Text style={styles.miniStatValue}>{totalDeductions}</Text>
-                            </View>
-                        </View>
-                    </LinearGradient>
-                </Animated.View>
-
-                {/* ═══════ Payslip List ═══════ */}
-                <View style={styles.listHeader}>
-                    <View style={styles.listHeaderLeft}>
-                        <View style={styles.listIconBox}>
-                            <Ionicons name="receipt" size={14} color={DRIVER_PINK} />
-                        </View>
-                        <Text style={styles.listTitle}>Recent Payslips</Text>
-                    </View>
-                    <Text style={styles.listCount}>{payslips.length} total</Text>
-                </View>
-
-                {loading ? (
-                    <View style={styles.centerBox}>
-                        <ActivityIndicator size="small" color={DRIVER_PINK} />
-                        <Text style={styles.centerText}>Loading payslips…</Text>
-                    </View>
-                ) : payslips.length === 0 ? (
-                    <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.emptyCard}>
-                        <View style={styles.emptyIconCircle}>
-                            <Ionicons name="receipt-outline" size={36} color="#CBD5E1" />
-                        </View>
-                        <Text style={styles.emptyTitle}>No Payslips Yet</Text>
-                        <Text style={styles.emptySubtitle}>Your salary slips will appear here once processed by the accounts department.</Text>
-                    </Animated.View>
-                ) : (
-                    <View style={styles.listContainer}>
-                        {payslips.map((item, index) => (
-                            <Animated.View
-                                key={item.id}
-                                entering={FadeInDown.delay(250 + index * 80).duration(500)}
-                                style={styles.payslipCard}
-                            >
-                                {/* Header */}
-                                <View style={styles.cardHeader}>
-                                    <View style={styles.monthRow}>
-                                        <View style={styles.calIcon}>
-                                            <Ionicons name="calendar" size={16} color={DRIVER_PINK} />
-                                        </View>
-                                        <Text style={styles.monthText}>{item.month}</Text>
-                                    </View>
-                                    <View style={[
-                                        styles.statusBadge,
-                                        item.status === 'Paid' ? styles.paidBadge : styles.pendingBadge
-                                    ]}>
-                                        <View style={[
-                                            styles.statusDot,
-                                            { backgroundColor: item.status === 'Paid' ? '#10B981' : '#F59E0B' }
-                                        ]} />
-                                        <Text style={[
-                                            styles.statusText,
-                                            item.status === 'Paid' ? styles.paidText : styles.pendingText
-                                        ]}>{item.status}</Text>
-                                    </View>
-                                </View>
-
-                                <View style={styles.cardDivider} />
-
-                                {/* Breakdown */}
-                                <View style={styles.breakdownRow}>
-                                    <View style={styles.breakdownItem}>
-                                        <View style={[styles.breakdownDot, { backgroundColor: '#10B981' }]} />
-                                        <View>
-                                            <Text style={styles.breakdownLabel}>Earnings</Text>
-                                            <Text style={[styles.breakdownValue, { color: '#10B981' }]}>{item.earnings}</Text>
-                                        </View>
-                                    </View>
-                                    <View style={styles.breakdownItem}>
-                                        <View style={[styles.breakdownDot, { backgroundColor: '#EF4444' }]} />
-                                        <View>
-                                            <Text style={styles.breakdownLabel}>Deductions</Text>
-                                            <Text style={[styles.breakdownValue, { color: '#EF4444' }]}>{item.deductions}</Text>
-                                        </View>
-                                    </View>
-                                    <View style={[styles.breakdownItem, { alignItems: 'flex-end' }]}>
-                                        <View>
-                                            <Text style={[styles.breakdownLabel, { textAlign: 'right' }]}>Net Pay</Text>
-                                            <Text style={[styles.breakdownValue, { color: '#0F172A', fontWeight: '800', fontSize: 16 }]}>{item.net}</Text>
-                                        </View>
-                                    </View>
-                                </View>
-
-                                {/* Download */}
-                                <TouchableOpacity
-                                    style={styles.downloadBtn}
-                                    onPress={() => handleDownload(item.id)}
-                                    activeOpacity={0.7}
-                                >
-                                    <Ionicons name="download-outline" size={16} color={DRIVER_PINK} />
-                                    <Text style={styles.downloadText}>Download PDF</Text>
-                                </TouchableOpacity>
-                            </Animated.View>
-                        ))}
-                    </View>
-                )}
-
-                <View style={{ height: 100 }} />
-            </ScrollView>
+            {/* Decorative circles */}
+            <View style={[styles.decor, { top: -20, right: -20, width: 80, height: 80 }]} />
+            <View style={[styles.decor, { bottom: -10, left: -10, width: 50, height: 50 }]} />
+            <View style={styles.summaryTop}>
+              <View>
+                <Text style={styles.summaryLabel}>Total Earnings (YTD)</Text>
+                <Text style={styles.summaryValue}>{totalEarnings}</Text>
+              </View>
+              <View style={styles.summaryIconBox}>
+                <FontAwesome5 name="coins" size={24} color="#FFF" />
+              </View>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryBottom}>
+              <View style={styles.miniStat}>
+                <Text style={styles.miniStatLabel}>Months</Text>
+                <Text style={styles.miniStatValue}>{payslips.length}</Text>
+              </View>
+              <View style={styles.miniStat}>
+                <Text style={styles.miniStatLabel}>Deductions</Text>
+                <Text style={styles.miniStatValue}>{totalDeductions}</Text>
+              </View>
+            </View>
+          </LinearGradient>
+        </Animated.View>
+        {/* ═══════ Payslip List ═══════ */}
+        <View style={styles.listHeader}>
+          <View style={styles.listHeaderLeft}>
+            <View style={styles.listIconBox}>
+              <Ionicons name="receipt" size={14} color={DRIVER_PINK} />
+            </View>
+            <Text style={styles.listTitle}>Recent Payslips</Text>
+          </View>
+          <Text style={styles.listCount}>{payslips.length} total</Text>
         </View>
-    );
+        {loading ?
+          <View style={styles.centerBox}>
+            <LogoLoader size={30} color={DRIVER_PINK} />
+            <Text style={styles.centerText}>Loading payslips…</Text>
+          </View> :
+          payslips.length === 0 ?
+            <Animated.View entering={FadeInDown.delay(200).duration(500)} style={styles.emptyCard}>
+              <View style={styles.emptyIconCircle}>
+                <Ionicons name="receipt-outline" size={36} color="#CBD5E1" />
+              </View>
+              <Text style={styles.emptyTitle}>No Payslips Yet</Text>
+              <Text style={styles.emptySubtitle}>Your salary slips will appear here once processed by the accounts department.</Text>
+            </Animated.View> :
+
+            <View style={styles.listContainer}>
+              {payslips.map((item, index) =>
+                <Animated.View
+                  key={item.id}
+                  entering={FadeInDown.delay(250 + index * 80).duration(500)}
+                  style={styles.payslipCard}>
+
+                  {/* Header */}
+                  <View style={styles.cardHeader}>
+                    <View style={styles.monthRow}>
+                      <View style={styles.calIcon}>
+                        <Ionicons name="calendar" size={16} color={DRIVER_PINK} />
+                      </View>
+                      <Text style={styles.monthText}>{item.month}</Text>
+                    </View>
+                    <View style={[
+                      styles.statusBadge,
+                      item.status === 'Paid' ? styles.paidBadge : styles.pendingBadge]
+                    }>
+                      <View style={[
+                        styles.statusDot,
+                        { backgroundColor: item.status === 'Paid' ? '#10B981' : '#F59E0B' }]
+                      } />
+                      <Text style={[
+                        styles.statusText,
+                        item.status === 'Paid' ? styles.paidText : styles.pendingText]
+                      }>{item.status}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.cardDivider} />
+                  {/* Breakdown */}
+                  <View style={styles.breakdownRow}>
+                    <View style={styles.breakdownItem}>
+                      <View style={[styles.breakdownDot, { backgroundColor: '#10B981' }]} />
+                      <View>
+                        <Text style={styles.breakdownLabel}>Earnings</Text>
+                        <Text style={[styles.breakdownValue, { color: '#10B981' }]}>{item.earnings}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.breakdownItem}>
+                      <View style={[styles.breakdownDot, { backgroundColor: '#EF4444' }]} />
+                      <View>
+                        <Text style={styles.breakdownLabel}>Deductions</Text>
+                        <Text style={[styles.breakdownValue, { color: '#EF4444' }]}>{item.deductions}</Text>
+                      </View>
+                    </View>
+                    <View style={[styles.breakdownItem, { alignItems: 'flex-end' }]}>
+                      <View>
+                        <Text style={[styles.breakdownLabel, { textAlign: 'right' }]}>Net Pay</Text>
+                        <Text style={[styles.breakdownValue, { color: '#0F172A', fontWeight: '800', fontSize: 16 }]}>{item.net}</Text>
+                      </View>
+                    </View>
+                  </View>
+                  {/* Download */}
+                  <TouchableOpacity
+                    style={styles.downloadBtn}
+                    onPress={() => handleDownload()}
+                    activeOpacity={0.7}>
+
+                    <Ionicons name="download-outline" size={16} color={DRIVER_PINK} />
+                    <Text style={styles.downloadText}>Download PDF</Text>
+                  </TouchableOpacity>
+                </Animated.View>
+              )}
+            </View>
+        }
+        <View style={{ height: 100 }} />
+      </ScrollView>
+    </View>);
+
 }
 
 /* ════════════════════════════ STYLES ════════════════════════════ */
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: '#F8FAFC' },
-    scrollContent: { padding: 20 },
+  screen: { flex: 1, backgroundColor: '#F8FAFC' },
+  scrollContent: { padding: 20 },
 
-    /* ── Summary Card ── */
-    summaryCardWrap: {
-        borderRadius: 22, overflow: 'hidden', marginBottom: 28,
-        shadowColor: DRIVER_PINK, shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.3, shadowRadius: 16, elevation: 8,
-    },
-    summaryCard: { padding: 24, overflow: 'hidden' },
-    decor: {
-        position: 'absolute', borderRadius: 999,
-        backgroundColor: 'rgba(255,255,255,0.08)',
-    },
-    summaryTop: {
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    },
-    summaryLabel: { color: 'rgba(255,255,255,0.75)', fontSize: 13, fontWeight: '500', marginBottom: 6 },
-    summaryValue: { color: '#FFF', fontSize: 34, fontWeight: '800', letterSpacing: 0.5 },
-    summaryIconBox: {
-        width: 52, height: 52, borderRadius: 26,
-        backgroundColor: 'rgba(255,255,255,0.18)',
-        justifyContent: 'center', alignItems: 'center',
-    },
-    summaryDivider: {
-        height: 1, backgroundColor: 'rgba(255,255,255,0.15)',
-        marginVertical: 18,
-    },
-    summaryBottom: {
-        flexDirection: 'row', justifyContent: 'space-around',
-    },
-    miniStat: { alignItems: 'center' },
-    miniStatLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 4 },
-    miniStatValue: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+  /* ── Summary Card ── */
+  summaryCardWrap: {
+    borderRadius: 22, overflow: 'hidden', marginBottom: 28,
+    shadowColor: DRIVER_PINK, shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3, shadowRadius: 16, elevation: 8
+  },
+  summaryCard: { padding: 24, overflow: 'hidden' },
+  decor: {
+    position: 'absolute', borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.08)'
+  },
+  summaryTop: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'
+  },
+  summaryLabel: { color: 'rgba(255,255,255,0.75)', fontSize: 13, fontWeight: '500', marginBottom: 6 },
+  summaryValue: { color: '#FFF', fontSize: 34, fontWeight: '800', letterSpacing: 0.5 },
+  summaryIconBox: {
+    width: 52, height: 52, borderRadius: 26,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    justifyContent: 'center', alignItems: 'center'
+  },
+  summaryDivider: {
+    height: 1, backgroundColor: 'rgba(255,255,255,0.15)',
+    marginVertical: 18
+  },
+  summaryBottom: {
+    flexDirection: 'row', justifyContent: 'space-around'
+  },
+  miniStat: { alignItems: 'center' },
+  miniStatLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 4 },
+  miniStatValue: { color: '#FFF', fontSize: 16, fontWeight: '700' },
 
-    /* ── List Header ── */
-    listHeader: {
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-        marginBottom: 16,
-    },
-    listHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    listIconBox: {
-        width: 28, height: 28, borderRadius: 8,
-        backgroundColor: '#FDF2F8',
-        justifyContent: 'center', alignItems: 'center',
-    },
-    listTitle: { fontSize: 16, fontWeight: '700', color: '#374151' },
-    listCount: { fontSize: 12, color: '#94A3B8', fontWeight: '600' },
+  /* ── List Header ── */
+  listHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginBottom: 16
+  },
+  listHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  listIconBox: {
+    width: 28, height: 28, borderRadius: 8,
+    backgroundColor: '#FDF2F8',
+    justifyContent: 'center', alignItems: 'center'
+  },
+  listTitle: { fontSize: 16, fontWeight: '700', color: '#374151' },
+  listCount: { fontSize: 12, color: '#94A3B8', fontWeight: '600' },
 
-    /* ── Empty / Loading ── */
-    centerBox: { alignItems: 'center', paddingVertical: 40, gap: 10 },
-    centerText: { color: '#94A3B8', fontSize: 13 },
-    emptyCard: {
-        alignItems: 'center', paddingVertical: 40, paddingHorizontal: 24,
-        backgroundColor: '#FFF', borderRadius: 20,
-        shadowColor: '#64748B', shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05, shadowRadius: 8, elevation: 1,
-    },
-    emptyIconCircle: {
-        width: 72, height: 72, borderRadius: 36,
-        backgroundColor: '#F8FAFC',
-        justifyContent: 'center', alignItems: 'center', marginBottom: 16,
-    },
-    emptyTitle: { fontSize: 17, fontWeight: '700', color: '#64748B', marginBottom: 6 },
-    emptySubtitle: { fontSize: 13, color: '#94A3B8', textAlign: 'center', lineHeight: 20 },
+  /* ── Empty / Loading ── */
+  centerBox: { alignItems: 'center', paddingVertical: 40, gap: 10 },
+  centerText: { color: '#94A3B8', fontSize: 13 },
+  emptyCard: {
+    alignItems: 'center', paddingVertical: 40, paddingHorizontal: 24,
+    backgroundColor: '#FFF', borderRadius: 20,
+    shadowColor: '#64748B', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05, shadowRadius: 8, elevation: 1
+  },
+  emptyIconCircle: {
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: '#F8FAFC',
+    justifyContent: 'center', alignItems: 'center', marginBottom: 16
+  },
+  emptyTitle: { fontSize: 17, fontWeight: '700', color: '#64748B', marginBottom: 6 },
+  emptySubtitle: { fontSize: 13, color: '#94A3B8', textAlign: 'center', lineHeight: 20 },
 
-    /* ── Payslip Card ── */
-    listContainer: { gap: 14 },
-    payslipCard: {
-        backgroundColor: '#FFF', borderRadius: 18, padding: 20,
-        shadowColor: '#64748B', shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.07, shadowRadius: 10, elevation: 3,
-    },
-    cardHeader: {
-        flexDirection: 'row', justifyContent: 'space-between',
-        alignItems: 'center', marginBottom: 16,
-    },
-    monthRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    calIcon: {
-        width: 32, height: 32, borderRadius: 10,
-        backgroundColor: '#FDF2F8',
-        justifyContent: 'center', alignItems: 'center',
-    },
-    monthText: { fontSize: 17, fontWeight: '700', color: '#1F2937' },
-    statusBadge: {
-        flexDirection: 'row', alignItems: 'center',
-        paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, gap: 5,
-    },
-    paidBadge: { backgroundColor: '#DCFCE7' },
-    pendingBadge: { backgroundColor: '#FEF3C7' },
-    statusDot: { width: 6, height: 6, borderRadius: 3 },
-    statusText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
-    paidText: { color: '#059669' },
-    pendingText: { color: '#D97706' },
-    cardDivider: { height: 1, backgroundColor: '#F1F5F9', marginBottom: 16 },
-    breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 18 },
-    breakdownItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    breakdownDot: { width: 4, height: 20, borderRadius: 2 },
-    breakdownLabel: { fontSize: 11, color: '#94A3B8', fontWeight: '500', marginBottom: 2 },
-    breakdownValue: { fontSize: 14, fontWeight: '600' },
-    downloadBtn: {
-        flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
-        paddingVertical: 11, backgroundColor: '#FDF2F8',
-        borderRadius: 12, gap: 6,
-    },
-    downloadText: { color: DRIVER_PINK, fontWeight: '600', fontSize: 13 },
+  /* ── Payslip Card ── */
+  listContainer: { gap: 14 },
+  payslipCard: {
+    backgroundColor: '#FFF', borderRadius: 18, padding: 20,
+    shadowColor: '#64748B', shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.07, shadowRadius: 10, elevation: 3
+  },
+  cardHeader: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', marginBottom: 16
+  },
+  monthRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  calIcon: {
+    width: 32, height: 32, borderRadius: 10,
+    backgroundColor: '#FDF2F8',
+    justifyContent: 'center', alignItems: 'center'
+  },
+  monthText: { fontSize: 17, fontWeight: '700', color: '#1F2937' },
+  statusBadge: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, gap: 5
+  },
+  paidBadge: { backgroundColor: '#DCFCE7' },
+  pendingBadge: { backgroundColor: '#FEF3C7' },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.3 },
+  paidText: { color: '#059669' },
+  pendingText: { color: '#D97706' },
+  cardDivider: { height: 1, backgroundColor: '#F1F5F9', marginBottom: 16 },
+  breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 18 },
+  breakdownItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  breakdownDot: { width: 4, height: 20, borderRadius: 2 },
+  breakdownLabel: { fontSize: 11, color: '#94A3B8', fontWeight: '500', marginBottom: 2 },
+  breakdownValue: { fontSize: 14, fontWeight: '600' },
+  downloadBtn: {
+    flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
+    paddingVertical: 11, backgroundColor: '#FDF2F8',
+    borderRadius: 12, gap: 6
+  },
+  downloadText: { color: DRIVER_PINK, fontWeight: '600', fontSize: 13 }
 });

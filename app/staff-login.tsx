@@ -9,8 +9,9 @@ import { useAuth } from '@/src/hooks/useAuth';
 import AnimatedInput from '@/src/components/AnimatedInput';
 import PremiumButton from '@/src/components/PremiumButton';
 import AuthHeader from '@/src/components/AuthHeader';
-import { ActivityIndicator, Alert } from 'react-native';
+import { Alert } from 'react-native';
 import AuthService from '@/src/services/authService';
+import LogoLoader from '../src/components/LogoLoader';
 
 const { width } = Dimensions.get('window');
 
@@ -28,9 +29,9 @@ const StaffLoginScreen: React.FC = () => {
   if (authLoading || user) {
     return (
       <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#059669" />
-      </SafeAreaView>
-    );
+        <LogoLoader size={60} color="#059669" />
+      </SafeAreaView>);
+
   }
 
   const handleLogin = async () => {
@@ -44,13 +45,13 @@ const StaffLoginScreen: React.FC = () => {
       const response = await AuthService.login(email, password);
       const role = response.user.role;
       if (role === 'staff' || role === 'teacher') {
-        if (__DEV__) console.log("Login success, waiting for AuthGuard...");
+        if (__DEV__) {}
       } else {
         Alert.alert('Access Denied', 'You do not have staff or teacher privileges.');
         await AuthService.logout();
       }
     } catch (error: any) {
-      if (__DEV__) console.error("Login Error:", error);
+      if (__DEV__) {}
       Alert.alert('Login Failed', error.message || 'Invalid credentials');
     } finally {
       setLoading(false);
@@ -81,14 +82,14 @@ const StaffLoginScreen: React.FC = () => {
                 <View style={styles.inputWrapper}>
                   <AnimatedInput
                     icon={({ color }) => <FontAwesome5 name="id-card" size={18} color={color} style={styles.inputIcon} />}
-                    placeholder="Staff Email"
+                    placeholder={t('emailAddress') || "Staff Email"}
                     value={email}
-                    onChangeText={(text) => { setEmail(text); setError(false); }}
+                    onChangeText={(text) => {setEmail(text);setError(false);}}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     error={error && !email}
-                    accentColor="#059669"
-                  />
+                    accentColor="#059669" />
+
                 </View>
 
                 <View style={styles.inputWrapper}>
@@ -96,16 +97,16 @@ const StaffLoginScreen: React.FC = () => {
                     icon={({ color }) => <Ionicons name="lock-closed-outline" size={20} color={color} style={styles.inputIcon} />}
                     placeholder={t('login.enter_pass')}
                     value={password}
-                    onChangeText={(text) => { setPassword(text); setError(false); }}
+                    onChangeText={(text) => {setPassword(text);setError(false);}}
                     secureTextEntry={!showPassword}
                     error={error && !password}
                     accentColor="#059669"
                     rightAccessory={
-                      <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                    <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                         <Ionicons name={showPassword ? "eye-off" : "eye"} size={22} color="#94A3B8" />
                       </TouchableOpacity>
-                    }
-                  />
+                    } />
+
                 </View>
 
                 <Animated.View entering={FadeInDown.delay(300).duration(600)}>
@@ -120,8 +121,8 @@ const StaffLoginScreen: React.FC = () => {
                     onPress={handleLogin}
                     loading={loading}
                     colors={['#10B981', '#059669']} // Emerald green
-                    icon={<Ionicons name="arrow-forward" size={20} color="#fff" style={{ marginLeft: 8 }} />}
-                  />
+                    icon={<Ionicons name="arrow-forward" size={20} color="#fff" style={{ marginLeft: 8 }} />} />
+
                 </Animated.View>
 
               </Animated.View>
@@ -129,8 +130,8 @@ const StaffLoginScreen: React.FC = () => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
-  );
+    </View>);
+
 };
 
 export default StaffLoginScreen;
@@ -141,12 +142,12 @@ const styles = StyleSheet.create({
 
   bodyContainer: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 24
   },
   overlapSection: {
     marginTop: -60, // 100x SaaS Layout Technique
     zIndex: 20,
-    paddingBottom: 40,
+    paddingBottom: 40
   },
   formCard: {
     backgroundColor: '#FFFFFF',
@@ -155,10 +156,10 @@ const styles = StyleSheet.create({
     width: '100%',
     ...Platform.select({
       ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.05, shadowRadius: 24 },
-      android: { elevation: 4 },
+      android: { elevation: 4 }
     }),
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
+    borderColor: 'rgba(0,0,0,0.03)'
   },
 
   welcomeBackText: {
@@ -166,28 +167,28 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0F172A',
     marginBottom: 6,
-    letterSpacing: -0.5,
+    letterSpacing: -0.5
   },
   subtitleText: {
     fontSize: 14,
     color: '#64748B',
     marginBottom: 32,
-    fontWeight: '500',
+    fontWeight: '500'
   },
   inputWrapper: {
-    marginBottom: 16, // Strict 8pt spacing
+    marginBottom: 16 // Strict 8pt spacing
   },
   inputIcon: {
-    marginRight: 12,
+    marginRight: 12
   },
   forgotPasswordContainer: {
     alignSelf: 'flex-end',
     marginBottom: 32,
-    marginTop: 4, // Fine-tuned vertical rhythm
+    marginTop: 4 // Fine-tuned vertical rhythm
   },
   forgotPasswordText: {
     color: '#059669', // Emerald 600
     fontWeight: '600',
-    fontSize: 13,
-  },
+    fontSize: 13
+  }
 });

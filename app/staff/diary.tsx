@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, StatusBar, Alert, ActivityIndicator, Platform } from 'react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, StatusBar, Alert, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format, parseISO } from 'date-fns';
@@ -11,6 +11,7 @@ import { useAuth } from '../../src/hooks/useAuth';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Shadows, Radii, Spacing, Typography, Theme } from '../../src/theme/themes';
 import { api } from '../../src/services/apiClient';
+import LogoLoader from '../../src/components/LogoLoader';
 export default function StaffDiary() {
   const {
     user
@@ -19,7 +20,7 @@ export default function StaffDiary() {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState(new Date());
@@ -46,7 +47,7 @@ export default function StaffDiary() {
         setSelectedAssignment(data[0]);
       }
     } catch (error: any) {
-      console.error('Failed to fetch assignments:', error);
+
       try {
         await api.post('/log', {
           msg: 'StaffDiary: fetchAssignments Failed',
@@ -55,7 +56,7 @@ export default function StaffDiary() {
           silent: true
         });
       } catch (e) {
-        if (__DEV__) console.warn('Log post failed:', e);
+        if (__DEV__) {}
       }
       Alert.alert('Error', 'Could not load your assigned classes.');
     } finally {
@@ -78,7 +79,7 @@ export default function StaffDiary() {
       const allEntries = await DiaryService.getAll({});
       setDiaryEntries(allEntries);
     } catch (error: any) {
-      console.error('Error fetching global history:', error);
+
       try {
         await api.post('/log', {
           msg: 'StaffDiary: fetchDiaryHistory Failed',
@@ -87,7 +88,7 @@ export default function StaffDiary() {
           silent: true
         });
       } catch (e) {
-        if (__DEV__) console.warn('Log post failed:', e);
+        if (__DEV__) {}
       }
     }
   };
@@ -102,7 +103,7 @@ export default function StaffDiary() {
       });
 
       // Find if there's an entry for the specific subject today
-      const match = data.find(e => e.subject_id === selectedAssignment.subject_id);
+      const match = data.find((e) => e.subject_id === selectedAssignment.subject_id);
       if (match) {
         setExistingEntry(match);
         setTitle(match.title || '');
@@ -121,12 +122,12 @@ export default function StaffDiary() {
         setDueDate(new Date());
       }
     } catch (error) {
-      console.error('Error checking existing homework:', error);
+
     }
   };
   const handleEdit = (entry: DiaryEntry) => {
     // 1. Find the assignment matching this entry
-    const matchingAssignment = assignments.find(a => a.class_section_id === entry.class_section_id && a.subject_id === entry.subject_id);
+    const matchingAssignment = assignments.find((a) => a.class_section_id === entry.class_section_id && a.subject_id === entry.subject_id);
     if (matchingAssignment) {
       // 2. Switch context & Lock
       setSelectedAssignment(matchingAssignment);
@@ -165,7 +166,7 @@ export default function StaffDiary() {
         silent: true
       });
     } catch (e) {
-      if (__DEV__) console.warn('Log post failed:', e);
+      if (__DEV__) {}
     }
     if (!selectedAssignment) {
       Alert.alert('Error', 'Please select a class and subject');
@@ -180,7 +181,7 @@ export default function StaffDiary() {
 
     // Optional Enhancement: Duplicate Check
     if (!existingEntry) {
-      const duplicate = diaryEntries.find(e => e.class_section_id === selectedAssignment.class_section_id && e.subject_id === selectedAssignment.subject_id && e.homework_due_date === dueStr);
+      const duplicate = diaryEntries.find((e) => e.class_section_id === selectedAssignment.class_section_id && e.subject_id === selectedAssignment.subject_id && e.homework_due_date === dueStr);
       if (duplicate) {
         Alert.alert("Duplicate found", "Homework already exists for this class, subject, and due date. Update the existing one instead?", [{
           text: "Cancel",
@@ -214,7 +215,7 @@ export default function StaffDiary() {
       fetchDiaryHistory();
       if (!isEditing) checkExistingHomework();
     } catch (error: any) {
-      console.error(error);
+
       try {
         await api.post('/log', {
           msg: 'StaffDiary: handlePost Failed',
@@ -224,7 +225,7 @@ export default function StaffDiary() {
           silent: true
         });
       } catch (e) {
-        if (__DEV__) console.warn('Log post failed:', e);
+        if (__DEV__) {}
       }
       Alert.alert('Error', 'Failed to save homework');
     } finally {
@@ -242,7 +243,7 @@ export default function StaffDiary() {
       justifyContent: 'center',
       alignItems: 'center'
     }]}>
-                <ActivityIndicator size="large" color={theme.colors.primary} />
+                <LogoLoader size={60} color={theme.colors.primary} />
             </View>;
   }
   return <View style={[styles.container, {
@@ -250,9 +251,7 @@ export default function StaffDiary() {
   }]}>
             <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={theme.colors.background} />
             <StaffHeader title="Diary & Homework" showBackButton={true} />
-
             <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-
                 {/* Assignment Selection */}
                 <View style={[styles.selectionSection, isEditing && {
         opacity: 0.6
@@ -279,8 +278,8 @@ export default function StaffDiary() {
                             </TouchableOpacity>}
                     </View>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.assignmentsScroll} pointerEvents={isEditing ? 'none' : 'auto'}>
-                        {assignments.map(assign => {
-return <TouchableOpacity key={assign.assignment_id} disabled={isEditing} style={[styles.assignmentChip, {
+                        {assignments.map((assign) => {
+            return <TouchableOpacity key={assign.assignment_id} disabled={isEditing} style={[styles.assignmentChip, {
               borderColor: theme.colors.border,
               backgroundColor: theme.colors.card
             }, selectedAssignment?.assignment_id === assign.assignment_id && {
@@ -299,7 +298,6 @@ return <TouchableOpacity key={assign.assignment_id} disabled={isEditing} style={
           })}
                     </ScrollView>
                 </View>
-
                 {/* Form Card */}
                 <Animated.View entering={FadeInDown.delay(100).duration(600)} style={[styles.formCard, {
         backgroundColor: theme.colors.card,
@@ -315,7 +313,6 @@ return <TouchableOpacity key={assign.assignment_id} disabled={isEditing} style={
                                 <Text style={styles.existingBadgeText}>Existing Entry</Text>
                             </View>}
                     </View>
-
                     <View style={styles.inputGroup}>
                         <Text style={[styles.label, {
             color: theme.colors.textSecondary
@@ -326,7 +323,6 @@ return <TouchableOpacity key={assign.assignment_id} disabled={isEditing} style={
             color: theme.colors.text
           }]} placeholder="e.g. Chapter 5 Summary" placeholderTextColor="#94A3B8" value={title} onChangeText={setTitle} />
                     </View>
-
                     <View style={styles.inputGroup}>
                         <Text style={[styles.label, {
             color: theme.colors.textSecondary
@@ -337,7 +333,6 @@ return <TouchableOpacity key={assign.assignment_id} disabled={isEditing} style={
             color: theme.colors.text
           }]} placeholder="Details about the homework..." placeholderTextColor="#94A3B8" multiline numberOfLines={4} value={description} onChangeText={setDescription} textAlignVertical="top" />
                     </View>
-
                     <View style={styles.row}>
                         <View style={[styles.inputGroup, {
             flex: 1
@@ -357,12 +352,11 @@ return <TouchableOpacity key={assign.assignment_id} disabled={isEditing} style={
                         </View>
                         {showDatePicker && <DateTimePicker value={dueDate} mode="date" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={onDateChange} minimumDate={new Date()} />}
                     </View>
-
                     <TouchableOpacity style={[styles.postButton, {
           backgroundColor: theme.colors.primary,
           opacity: submitting ? 0.7 : 1
         }]} activeOpacity={0.8} onPress={handlePost} disabled={submitting}>
-                        {submitting ? <ActivityIndicator color="#fff" /> : <>
+                        {submitting ? <LogoLoader color="#fff" /> : <>
                                 <Text style={styles.postButtonText}>{existingEntry ? 'Update Homework' : 'Post Homework'}</Text>
                                 <Ionicons name={existingEntry ? "save-outline" : "send"} size={18} color="#fff" style={{
               marginLeft: 8
@@ -370,14 +364,12 @@ return <TouchableOpacity key={assign.assignment_id} disabled={isEditing} style={
                             </>}
                     </TouchableOpacity>
                 </Animated.View>
-
                 {/* Recent History */}
                 <View style={styles.sectionHeader}>
                     <Text style={[styles.sectionTitle, {
           color: theme.colors.textStrong
         }]}>Recent Homework Tasks</Text>
                 </View>
-
                 <View style={styles.listContainer}>
                     {diaryEntries.length === 0 ? <View style={styles.emptyState}>
                             <Ionicons name="book-outline" size={48} color={theme.colors.border} />
@@ -389,8 +381,8 @@ return <TouchableOpacity key={assign.assignment_id} disabled={isEditing} style={
           if (!groups[date]) groups[date] = [];
           groups[date].push(item);
           return groups;
-        }, {} as Record<string, DiaryEntry[]>)).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()).map((date, gIndex) => {
-return <View key={date} style={styles.dateGroup}>
+        }, {} as Record<string, DiaryEntry[]>)).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()).map((date) => {
+          return <View key={date} style={styles.dateGroup}>
                                     <View style={styles.dateHeader}>
                                         <View style={[styles.dateLine, {
                 backgroundColor: theme.colors.border
@@ -404,8 +396,8 @@ return <View key={date} style={styles.dateGroup}>
                 backgroundColor: theme.colors.border
               }]} />
                                     </View>
-                                    {diaryEntries.filter(e => e.entry_date === date).map((item, index) => {
-return <Animated.View key={item.id} entering={FadeInDown.delay(100 + index * 50).duration(600)} style={[styles.postCard, {
+                                    {diaryEntries.filter((e) => e.entry_date === date).map((item, index) => {
+              return <Animated.View key={item.id} entering={FadeInDown.delay(100 + index * 50).duration(600)} style={[styles.postCard, {
                 backgroundColor: theme.colors.card,
                 borderColor: theme.colors.border
               }]}>
@@ -441,11 +433,9 @@ return <Animated.View key={item.id} entering={FadeInDown.delay(100 + index * 50)
                     }]} numberOfLines={2}>{item.content}</Text>
                                                 </View>
                                             </View>
-
                                             <View style={[styles.divider, {
                   backgroundColor: theme.colors.border
                 }]} />
-
                                             <View style={styles.postFooter}>
                                                 <View style={styles.footerInfo}>
                                                     <Text style={styles.dueText}>Due: {item.homework_due_date ? format(parseISO(item.homework_due_date), 'MMM d') : 'N/A'}</Text>
@@ -467,11 +457,10 @@ return <Animated.View key={item.id} entering={FadeInDown.delay(100 + index * 50)
                                 </View>;
         })}
                 </View>
-
             </ScrollView>
         </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1
   },

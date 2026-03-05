@@ -3,7 +3,6 @@ import React from 'react';
 import { TouchableWithoutFeedback, View, Text, StyleSheet, Dimensions } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
 import { User } from 'phosphor-react-native/src/icons/User';
 import { WarningCircle } from 'phosphor-react-native/src/icons/WarningCircle';
 import { ChatCircleDots } from 'phosphor-react-native/src/icons/ChatCircleDots';
@@ -13,7 +12,6 @@ import { Heart } from 'phosphor-react-native/src/icons/Heart';
 import { Flask } from 'phosphor-react-native/src/icons/Flask';
 import { FileText } from 'phosphor-react-native/src/icons/FileText';
 import { IconProps } from 'phosphor-react-native';
-import { Radii } from '../theme/themes';
 import { HapticFeedback } from '../utils/animations';
 
 const { width } = Dimensions.get('window');

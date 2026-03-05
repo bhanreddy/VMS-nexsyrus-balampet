@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AdminHeader from '../../src/components/AdminHeader';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { ComplaintService, Complaint } from '../../src/services/commonServices';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 export default function AdminComplaints() {
   const {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<'ALL' | 'OPEN' | 'IN PROGRESS' | 'CLOSED'>('ALL');
@@ -24,7 +25,7 @@ export default function AdminComplaints() {
       const data = await ComplaintService.getAll();
       setComplaints(data);
     } catch (error) {
-      console.error('Failed to fetch complaints:', error);
+
       Alert.alert('Error', 'Failed to load complaints');
     } finally {
       setLoading(false);
@@ -74,7 +75,7 @@ export default function AdminComplaints() {
       day: 'numeric'
     });
   };
-  const filteredData = complaints.filter(item => {
+  const filteredData = complaints.filter((item) => {
     if (filterType === 'ALL') return true;
     if (filterType === 'IN PROGRESS') return item.status?.toLowerCase() === 'in progress';
     return (item.status || 'open').toUpperCase() === filterType;
@@ -86,13 +87,13 @@ export default function AdminComplaints() {
       Alert.alert('Success', 'Complaint resolved successfully');
       fetchComplaints();
     } catch (error) {
-      console.error('Failed to resolve complaint:', error);
+
       Alert.alert('Error', 'Failed to resolve complaint');
       setLoading(false);
     }
   };
 
-  const handleAssign = (id: string) => {
+  const handleAssign = () => {
     // Placeholder for Assignment Modal/Logic
     Alert.alert('Assign', 'Assignment functionality coming soon.');
   };
@@ -100,10 +101,8 @@ export default function AdminComplaints() {
   const renderItem = ({
     item,
     index
-  }: {
-    item: Complaint;
-    index: number;
-  }) => {
+
+  }: { item: Complaint; index: number; }) => {
     const category = item.category || 'General';
     const statusStyle = getStatusStyle(item.status);
     const color = getCategoryColor(category);
@@ -138,11 +137,11 @@ export default function AdminComplaints() {
           }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text style={styles.title}>{item.title}</Text>
-              {item.priority?.toLowerCase() === 'high' && (
+              {item.priority?.toLowerCase() === 'high' &&
                 <View style={[styles.priorityBadge, { backgroundColor: '#FEF2F2' }]}>
                   <Text style={{ fontSize: 10, color: '#EF4444', fontWeight: 'bold' }}>HIGH</Text>
                 </View>
-              )}
+              }
             </View>
             <Text style={styles.targetText}>Ticket: <Text style={{
               fontWeight: '700'
@@ -162,7 +161,7 @@ export default function AdminComplaints() {
           <TouchableOpacity style={[styles.actionBtn, { borderColor: '#10B981' }]} onPress={() => handleResolve(item.id)}>
             <Text style={[styles.actionBtnText, { color: '#10B981' }]}>Resolve</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionBtn, { borderColor: '#3B82F6', marginLeft: 8 }]} onPress={() => handleAssign(item.id)}>
+          <TouchableOpacity style={[styles.actionBtn, { borderColor: '#3B82F6', marginLeft: 8 }]} onPress={() => handleAssign()}>
             <Text style={[styles.actionBtnText, { color: '#3B82F6' }]}>Assign</Text>
           </TouchableOpacity>
         </View>
@@ -175,7 +174,7 @@ export default function AdminComplaints() {
 
     <View style={styles.filterSection}>
       <View style={styles.tabContainer}>
-        {['ALL', 'OPEN', 'IN PROGRESS', 'CLOSED'].map(type => {
+        {['ALL', 'OPEN', 'IN PROGRESS', 'CLOSED'].map((type) => {
           return <TouchableOpacity key={type} style={[styles.tab, filterType === type && styles.activeTab]} onPress={() => setFilterType(type as any)}>
             <Text style={[styles.tabText, filterType === type && styles.activeTabText]}>
               {type}
@@ -186,8 +185,8 @@ export default function AdminComplaints() {
     </View>
 
     {loading ? <View style={styles.centerContainer}>
-      <ActivityIndicator size="large" color="#6366F1" />
-    </View> : <FlatList data={filteredData} keyExtractor={item => item.id} renderItem={renderItem} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false} ListHeaderComponent={() => {
+      <LogoLoader size={60} color="#6366F1" />
+    </View> : <FlatList data={filteredData} keyExtractor={(item) => item.id} renderItem={renderItem} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false} ListHeaderComponent={() => {
       return <Text style={styles.listHeader}>Recent Reports ({filteredData.length})</Text>;
     }} ListEmptyComponent={<Text style={styles.emptyText}>No complaints found</Text>} refreshing={loading} onRefresh={fetchComplaints} />}
     <TouchableOpacity style={styles.fab}>
@@ -195,7 +194,7 @@ export default function AdminComplaints() {
     </TouchableOpacity>
   </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card
@@ -358,22 +357,22 @@ const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   priorityBadge: {
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: 4
   },
   actionButtons: {
     flexDirection: 'row',
     marginTop: 12,
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-end'
   },
   actionBtn: {
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 8,
-    borderWidth: 1,
+    borderWidth: 1
   },
   actionBtnText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '700'
   },
   fab: {
     position: 'absolute',
@@ -389,6 +388,6 @@ const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 6,
+    elevation: 6
   }
 });

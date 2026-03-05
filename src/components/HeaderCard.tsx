@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, Image, Dimensions } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
     FadeInDown,
@@ -10,8 +9,9 @@ import Animated, {
     withTiming,
     Easing,
 } from 'react-native-reanimated';
+import { useTranslation } from 'react-i18next';
 import { SCHOOL_CONFIG } from '../constants/schoolConfig';
-import { Shadows, Radii, Spacing } from '../theme/themes';
+import { Radii, Spacing } from '../theme/themes';
 
 interface HeaderCardProps {
     studentName: string;
@@ -26,6 +26,7 @@ const HeaderCard: React.FC<HeaderCardProps> = ({
     classSec,
     rollNo,
 }) => {
+    const { t } = useTranslation();
     /* ---------------- Animations ---------------- */
     const shimmerX = useSharedValue(-width);
     const pulse = useSharedValue(1);
@@ -50,9 +51,6 @@ const HeaderCard: React.FC<HeaderCardProps> = ({
         );
     }, []);
 
-    const shimmerStyle = useAnimatedStyle(() => ({
-        transform: [{ translateX: shimmerX.value }],
-    }));
 
     const pulseStyle = useAnimatedStyle(() => ({
         transform: [{ scale: pulse.value }],
@@ -114,7 +112,7 @@ const HeaderCard: React.FC<HeaderCardProps> = ({
 
                             <View style={styles.metaPill}>
                                 <Ionicons name="id-card" size={13} color="#67E8F9" />
-                                <Text style={styles.metaText}>Roll {rollNo}</Text>
+                                <Text style={styles.metaText}>{t('rollValue', { value: rollNo }) || `Roll ${rollNo}`}</Text>
                             </View>
                         </View>
                     </View>

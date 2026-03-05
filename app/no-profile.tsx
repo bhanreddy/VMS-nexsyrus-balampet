@@ -10,7 +10,7 @@ export default function NoProfileScreen() {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const {
     logout,
     user
@@ -35,7 +35,7 @@ export default function NoProfileScreen() {
             </View>
         </SafeAreaView>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FEF2F2',

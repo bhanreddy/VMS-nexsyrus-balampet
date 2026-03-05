@@ -1,7 +1,8 @@
 import React, { useContext } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { ThemeContext } from '../context/ThemeContext';
+import LogoLoader from './LogoLoader';
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
     const { isAppLocked, loading } = useAuth();
@@ -18,7 +19,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             {(isAppLocked || loading) && (
                 <View style={[StyleSheet.absoluteFill, styles.overlay, { backgroundColor: theme.colors.background }]}>
                     {loading ? (
-                        <ActivityIndicator size="large" color={theme.colors.primary} />
+                        <LogoLoader size={60} color={theme.colors.primary} />
                     ) : (
                         <View style={styles.lockedWarning}>
                             <Text style={[styles.text, { color: theme.colors.text }]}>

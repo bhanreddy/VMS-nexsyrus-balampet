@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AdminHeader from '../../../src/components/AdminHeader';
 import { FeeService } from '../../../src/services/feeService';
 import { useTheme } from '../../../src/hooks/useTheme';
 import { Theme } from '../../../src/theme/themes';
+import LogoLoader from '../../../src/components/LogoLoader';
 export default function AdjustFeeScreen() {
   const {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const router = useRouter();
   const params = useLocalSearchParams();
   const [loading, setLoading] = useState(false);
@@ -82,13 +83,13 @@ export default function AdjustFeeScreen() {
                     <TextInput style={[styles.input, styles.textArea]} multiline numberOfLines={4} value={reason} onChangeText={setReason} placeholder="Enter official reason for adjustment..." />
 
                     <TouchableOpacity style={[styles.btn, loading && styles.disabledBtn]} onPress={handleAdjust} disabled={loading}>
-                        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Apply Adjustment</Text>}
+                        {loading ? <LogoLoader color="#fff" /> : <Text style={styles.btnText}>Apply Adjustment</Text>}
                     </TouchableOpacity>
                 </View>
             </ScrollView>
         </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.card

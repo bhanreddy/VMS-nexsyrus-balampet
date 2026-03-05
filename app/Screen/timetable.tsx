@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { TimetableService, TimetableSlot } from '../../src/services/timetableService';
-import StudentHeader from '../../src/components/StudentHeader';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import LogoLoader from '../../src/components/LogoLoader';
 // Spacing should be imported from standard react native or theme if custom
 // But this code actually uses standard integers or a local Spacing object. If it doesn't exist, we will define it.
 const Spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 };
@@ -44,13 +43,10 @@ export default function TimetableScreen() {
       const todaySlots = data.sort((a, b) => a.period_number - b.period_number);
       setSlots(todaySlots);
     } catch (error) {
-      console.error(error);
+
     } finally {
       setLoading(false);
     }
-  };
-  const getSlot = (period: number) => {
-    return slots.find(s => s.period_number === period);
   };
 
   const renderDaySchedule = () => {
@@ -67,8 +63,8 @@ export default function TimetableScreen() {
 
     return (
       <View style={styles.timetableContainer}>
-        {PERIODS.map(periodNum => {
-          const slot = slots.find(s => s.period_number === periodNum); // Find any slot for this period
+        {PERIODS.map((periodNum) => {
+          const slot = slots.find((s) => s.period_number === periodNum); // Find any slot for this period
           return (
             <View key={`period-${periodNum}`} style={styles.periodCard as any}>
               <View style={styles.timeColumn}>
@@ -77,21 +73,21 @@ export default function TimetableScreen() {
                 <Text style={styles.timeText}>{PERIOD_TIMES[periodNum as keyof typeof PERIOD_TIMES].end}</Text>
               </View>
               <View style={[styles.slotContent, !slot && styles.emptySlot]}>
-                {slot ? (
-                  <>
+                {slot ?
+                <>
                     <Text style={styles.subjectText}>{slot.subject_name}</Text>
                     <Text style={styles.teacherText}>{slot.teacher_name}</Text>
                     {slot.room_no && <Text style={styles.roomText}>Room: {slot.room_no}</Text>}
-                  </>
-                ) : (
-                  <Text style={styles.noClassText}>Free Period</Text>
-                )}
+                  </> :
+
+                <Text style={styles.noClassText}>Free Period</Text>
+                }
               </View>
-            </View>
-          );
+            </View>);
+
         })}
-      </View>
-    );
+      </View>);
+
   };
 
   return (
@@ -99,8 +95,8 @@ export default function TimetableScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
-        >
+          onPress={() => router.back()}>
+
           <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Daily Timetable</Text>
@@ -109,23 +105,23 @@ export default function TimetableScreen() {
       <ScrollView
         style={styles.content}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {loading ? (
-          <ActivityIndicator size="large" color={theme.colors.primary} style={styles.loader} />
-        ) : slots.length === 0 ? (
-          <View style={styles.emptyState}>
+        contentContainerStyle={styles.scrollContent}>
+
+        {loading ?
+        <LogoLoader size={60} color={theme.colors.primary} style={styles.loader} /> :
+        slots.length === 0 ?
+        <View style={styles.emptyState}>
             <Ionicons name="calendar-outline" size={48} color={theme.colors.textSecondary} />
             <Text style={styles.emptyText}>No timetable found</Text>
-          </View>
-        ) : (
-          <View style={styles.timetableContainer}>
+          </View> :
+
+        <View style={styles.timetableContainer}>
             {renderDaySchedule()}
           </View>
-        )}
+        }
       </ScrollView>
-    </View>
-  );
+    </View>);
+
 }
 const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
   container: {
@@ -150,7 +146,7 @@ const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
     color: theme.colors.text
   },
   content: {
-    flex: 1,
+    flex: 1
   },
   scrollContent: {
     padding: Spacing.md,

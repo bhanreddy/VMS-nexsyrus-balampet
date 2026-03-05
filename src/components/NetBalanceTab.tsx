@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNetBalance } from '../hooks/useNetBalance';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import LogoLoader from './LogoLoader';
 
 // Helper to format currency
 const formatCurrency = (amount: number) => {
@@ -120,7 +121,7 @@ export default function NetBalanceTab() {
 
             {loading ? (
                 <View style={styles.centered}>
-                    <ActivityIndicator size="large" color="#6366F1" />
+                    <LogoLoader size={60} color="#6366F1" />
                 </View>
             ) : error ? (
                 <View style={styles.centered}>

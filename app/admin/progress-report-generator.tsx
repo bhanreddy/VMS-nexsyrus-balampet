@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert, Dimensions, ActivityIndicator, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { Ionicons, Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AdminHeader from '../../src/components/AdminHeader';
 import { ADMIN_THEME } from '../../src/constants/adminTheme';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { StudentService } from '../../src/services/studentService';
 import { SCHOOL_CONFIG } from '@/src/constants/schoolConfig';
 import { Image } from 'react-native';
 import { useTheme } from '../../src/hooks/useTheme';
 import { Theme } from '../../src/theme/themes';
+import LogoLoader from '../../src/components/LogoLoader';
 
 // --- Types ---
 interface SubjectMark {
@@ -67,8 +67,7 @@ export default function ProgressReportGenerator() {
     theme,
     isDark
   } = useTheme();
-  const styles = React.useMemo(() => getStyles(theme, isDark), [theme, isDark]);
-  const router = useRouter();
+  const styles = React.useMemo(() => getStyles(theme), [theme]);
   const [studentId, setStudentId] = useState('');
   const [loading, setLoading] = useState(false);
   const [resultData, setResultData] = useState<StudentResult | null>(null);
@@ -84,7 +83,7 @@ export default function ProgressReportGenerator() {
       let student = null;
       const searchResults = await StudentService.search(studentId);
       if (searchResults && searchResults.length > 0) {
-        const exactMatch = searchResults.find(s => s.admission_no === studentId);
+        const exactMatch = searchResults.find((s) => s.admission_no === studentId);
         student = exactMatch || searchResults[0];
       }
 
@@ -93,9 +92,9 @@ export default function ProgressReportGenerator() {
         try {
           student = await StudentService.getById(studentId);
         } catch (e) {
+
           // Not found by ID
-        }
-      }
+        }}
       if (!student) {
         Alert.alert('Error', 'Student not found');
         return;
@@ -108,7 +107,7 @@ export default function ProgressReportGenerator() {
       let totalMax = 0;
       let totalObtained = 0;
       let hasFailed = false;
-      marks.forEach(m => {
+      marks.forEach((m) => {
         totalMax += m.maxMarks;
         totalObtained += m.obtained;
         if (m.obtained < 35) hasFailed = true;
@@ -122,7 +121,7 @@ export default function ProgressReportGenerator() {
       const currentEnrollment = student.current_enrollment;
       const cls = currentEnrollment?.class_code || 'N/A';
       const sec = currentEnrollment?.section_name || '';
-      const fatherObj = student.parents?.find(p => p.relation === 'Father');
+      const fatherObj = student.parents?.find((p) => p.relation === 'Father');
       const father = fatherObj ? `${fatherObj.first_name} ${fatherObj.last_name}` : 'Guardian';
       const data: StudentResult = {
         id: student.id,
@@ -143,7 +142,7 @@ export default function ProgressReportGenerator() {
       };
       setResultData(data);
     } catch (error) {
-      console.error(error);
+
       Alert.alert('Error', 'Student not found or error fetching data.');
     } finally {
       setLoading(false);
@@ -157,13 +156,11 @@ export default function ProgressReportGenerator() {
   // --- Render Components ---
 
   const renderReportCard = () => {
-if (!resultData) return null;
+    if (!resultData) return null;
     const isPass = resultData.result === 'PASS';
     return <Animated.View entering={FadeInDown.springify()} style={styles.previewContainer}>
-
                 {/* Visual Paper Sheet */}
                 <View style={styles.paperSheet}>
-
                     {/* Header */}
                     <View style={styles.headerSection}>
                         <View style={styles.logoCircle}>
@@ -184,7 +181,6 @@ if (!resultData) return null;
             width: 40
           }} />
                     </View>
-
                     {/* Student Details Grid */}
                     <View style={styles.detailsGrid}>
                         <View style={styles.detailRow}>
@@ -212,7 +208,6 @@ if (!resultData) return null;
                             <Text style={styles.detailValue}>{resultData.attendance}</Text>
                         </View>
                     </View>
-
                     {/* Marks Table */}
                     <View style={styles.tableContainer}>
                         <View style={styles.tableHeader}>
@@ -222,7 +217,7 @@ if (!resultData) return null;
                             <Text style={[styles.colGrade, styles.th]}>Grade</Text>
                         </View>
                         {resultData.marks.map((m, i) => {
-return <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.rowAlt]}>
+            return <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.rowAlt]}>
                                 <Text style={[styles.colSubject, styles.td]}>{m.subject}</Text>
                                 <Text style={[styles.colMarks, styles.td]}>{m.maxMarks}</Text>
                                 <Text style={[styles.colMarks, styles.td, m.obtained < 35 && styles.textDanger]}>
@@ -232,7 +227,6 @@ return <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.rowAlt]}>
                             </View>;
           })}
                     </View>
-
                     {/* Summary Section */}
                     <View style={styles.summarySection}>
                         <View style={styles.summaryRow}>
@@ -256,9 +250,7 @@ return <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.rowAlt]}>
                                 <Text style={styles.summaryValue}>{resultData.division}</Text>
                             </View>}
                     </View>
-
                     <View style={styles.divider} />
-
                     {/* Footer / Signatures */}
                     <View style={styles.footerSignatures}>
                         <View style={styles.signBox}>
@@ -271,7 +263,6 @@ return <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.rowAlt]}>
                             <Text style={styles.signLabel}>Parent</Text>
                         </View>
                     </View>
-
                     {/* School Watermark (Decorative) */}
                     <View style={styles.watermark}>
                         <Image source={SCHOOL_CONFIG.logo} style={{
@@ -282,7 +273,6 @@ return <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.rowAlt]}>
           }} />
                     </View>
                 </View>
-
                 {/* Print Button */}
                 <TouchableOpacity style={styles.printBtn} onPress={handlePrint} activeOpacity={0.8}>
                     <LinearGradient colors={[ADMIN_THEME.colors.primary, '#6366F1']} style={styles.printGradient}>
@@ -290,16 +280,13 @@ return <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.rowAlt]}>
                         <Text style={styles.printText}>Print Report Card</Text>
                     </LinearGradient>
                 </TouchableOpacity>
-
             </Animated.View>;
   };
   return <View style={styles.root}>
             <LinearGradient colors={[ADMIN_THEME.colors.background.app, '#F0F4FF']} style={StyleSheet.absoluteFill} />
             <AdminHeader title="Progress Reports" showBackButton />
-
             <ScrollView contentContainerStyle={styles.scroll}>
                 <View style={styles.content}>
-
                     {/* Search Section */}
                     <Text style={styles.sectionTitle}>Generate Report</Text>
                     <View style={styles.searchCard}>
@@ -310,19 +297,17 @@ return <View key={i} style={[styles.tableRow, i % 2 === 0 && styles.rowAlt]}>
                                 <TextInput style={styles.input} placeholder="e.g. 01, 101, John Doe" placeholderTextColor={ADMIN_THEME.colors.text.muted} value={studentId} onChangeText={setStudentId} />
                             </View>
                             <TouchableOpacity style={[styles.searchBtn, loading && styles.disabledBtn]} onPress={handleSearch} disabled={loading}>
-                                {loading ? <ActivityIndicator size="small" color="#FFF" /> : <Feather name="arrow-right" size={20} color="#FFF" />}
+                                {loading ? <LogoLoader size={30} color="#FFF" /> : <Feather name="arrow-right" size={20} color="#FFF" />}
                             </TouchableOpacity>
                         </View>
                     </View>
-
                     {/* Report Render */}
                     {renderReportCard()}
-
                 </View>
             </ScrollView>
         </View>;
 }
-const getStyles = (theme: Theme, isDark: boolean) => StyleSheet.create({
+const getStyles = (theme: Theme) => StyleSheet.create({
   root: {
     flex: 1
   },

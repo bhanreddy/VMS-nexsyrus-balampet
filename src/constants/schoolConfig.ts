@@ -264,7 +264,7 @@ export const schoolTheme: { light: SchoolTheme; dark: SchoolTheme } = {
 
 export const SCHOOL_CONFIG = {
   // The official name of the school displayed in headers and reports
-  name: "Slate School Kosgi",
+  name: "Default School",
 
   // Short line under the school name on the header ribbon (gold text)
   tagline: "You can LEARN something new Everyday,  if you LISTEN",

@@ -31,6 +31,7 @@ debug_*.txt
 
 # macOS
 .DS_Store
+._*
 *.pem
 
 # local env files

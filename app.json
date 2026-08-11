@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Chanakya E/M School Maddur",
-    "slug": "chanakyamaddur",
+    "name": "Bhashyam Vidyanikethan School Mohammadabad",
+    "slug": "bashyammhbd",
     "version": "2.1.8",
     "platforms": [
       "android",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "requireFullScreen": false,
-      "bundleIdentifier": "com.nexsyrussims.chanakyamaddur",
+      "bundleIdentifier": "com.nexsyrussims.bashyammhbd",
       "buildNumber": "1",
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
@@ -31,7 +31,7 @@
       }
     },
     "android": {
-      "package": "com.nexsyrussims.chanakyamaddur",
+      "package": "com.nexsyrussims.bashyammhbd",
       "jsEngine": "hermes",
       "versionCode": 1,
       "googleServicesFile": "./google-services.json",
@@ -52,6 +52,7 @@
       ]
     },
     "web": {
+      "bundler": "metro",
       "favicon": "./assets/images/icon.png"
     },
     "notification": {
@@ -118,7 +119,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "4140d517-6452-4a7c-9fb2-979009194eb6"
+        "projectId": ""
       }
     },
     "owner": "nexsyrus1"

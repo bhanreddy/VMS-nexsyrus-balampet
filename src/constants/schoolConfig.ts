@@ -25,14 +25,14 @@ import { defaultDarkTheme, defaultLightTheme } from '../theme/types';
 export function schoolColorWithAlpha(hex: string | undefined | null, alpha: number): string {
   'worklet';
   if (hex == null || typeof hex !== 'string') {
-    return `rgba(212,43,43,${alpha})`;
+    return `rgba(212,175,55,${alpha})`;
   }
   let h = hex.trim().replace('#', '');
   if (h.length === 3) {
     h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
   }
   if (!/^[0-9a-fA-F]{6}$/.test(h)) {
-    return `rgba(212,43,43,${alpha})`;
+    return `rgba(212,175,55,${alpha})`;
   }
   const r = parseInt(h.slice(0, 2), 16);
   const g = parseInt(h.slice(2, 4), 16);
@@ -54,54 +54,54 @@ export const schoolTheme: { light: SchoolTheme; dark: SchoolTheme } = {
     ...defaultLightTheme,
     colors: {
       ...defaultLightTheme.colors,
-      // Primary brand color – Logo Red Ring
-      primary: '#D42B2B',
-      primaryLight: '#E57373',
-      primaryDark: '#8B1A1A',
-      // Secondary color – Logo Tree Green
-      secondary: '#1B5E20',
-      // Accent color – Logo Gold Stars & Trim
-      accent: '#D4AF37',
-      // Backgrounds – warm cream neutrals (matching red/gold warmth)
-      background: '#FFF8F0',
+      // Primary brand color – Royal Indigo (logo outer ring)
+      primary: '#3535A8',
+      primaryLight: '#0082C8',   // Cerulean Blue (logo book & center figure)
+      primaryDark: '#282889',    // Deep Indigo (ring darker areas)
+      // Secondary color – Vibrant Orange (logo side figures)
+      secondary: '#F26522',
+      // Accent color – Bright Yellow/Gold (logo ring text)
+      accent: '#FFE600',
+      // Backgrounds – cool blue-tinted neutrals
+      background: '#F8FAFC',
       surface: '#FFFFFF',
-      card: '#FFFAF5',
-      // Text colors – warm dark neutrals from logo border
-      textPrimary: '#2D2D2D',
-      textStrong: '#1A1A1A',
-      textSecondary: '#5D4037',
-      textMuted: '#8D6E63',
-      text: '#2D2D2D',
-      textTertiary: '#D4AF37',
-      // Borders – warm beige
-      border: '#E8D5B7',
-      borderLight: '#F5E6D0',
+      card: '#FFFFFF',
+      // Text colors – indigo palette
+      textPrimary: '#3535A8',
+      textStrong: '#282889',
+      textSecondary: '#475569',
+      textMuted: '#64748B',
+      text: '#3535A8',
+      textTertiary: '#64748B',
+      // Borders – indigo-tinted
+      border: '#E2E8F0',
+      borderLight: '#F1F5F9',
       // Semantic colors
-      danger: '#C62828',
-      success: '#2E7D32',
+      danger: '#D32F2F',
+      success: '#10B981',
       warning: '#F59E0B',
-      info: '#1565C0',
-      notification: '#C62828',
-      // Navigation – red tints from logo
-      navPill: '#FDECEA',
-      navIconActive: '#D42B2B',
-      navIconInactive: '#E57373',
+      info: '#0082C8',           // Cerulean Blue
+      notification: '#F26522',
+      // Navigation – indigo pill tints
+      navPill: '#E0E7FF',
+      navIconActive: '#3535A8',
+      navIconInactive: '#64748B',
       // Header/Footer backgrounds (with transparency for glass effect)
-      headerBg: 'rgba(255,248,240, 0.92)',
-      footerBg: 'rgba(255,250,245, 0.94)',
+      headerBg: 'rgba(248,250,252, 0.88)',
+      footerBg: 'rgba(255,255,255, 0.92)',
       // Alert colors
-      alertBg: '#FFF8F0',
-      alertBorder: '#E8D5B7',
-      alertIcon: '#D42B2B',
-      alertText: '#8B1A1A',
+      alertBg: '#EEEDFA',        // Light indigo wash
+      alertBorder: '#C7C7F0',    // Indigo border tint
+      alertIcon: '#3535A8',
+      alertText: '#282889',
       alertBgDanger: '#FEF2F2',
       alertBorderDanger: '#FECACA',
-      alertIconDanger: '#C62828',
-      alertTextDanger: '#7F1D1D',
-      alertBgInfo: '#E3F2FD',
-      alertBorderInfo: '#BBDEFB',
-      alertIconInfo: '#1565C0',
-      alertTextInfo: '#0D47A1',
+      alertIconDanger: '#D32F2F',
+      alertTextDanger: '#991B1B',
+      alertBgInfo: '#E6F4FE',    // Cerulean blue wash
+      alertBorderInfo: '#B3DDFB',
+      alertIconInfo: '#0082C8',
+      alertTextInfo: '#282889',
     },
     typography: {
       fontFamily: 'System',
@@ -153,9 +153,9 @@ export const schoolTheme: { light: SchoolTheme; dark: SchoolTheme } = {
         elevation: 6,
       },
       lg: {
-        shadowColor: '#D42B2B',
+        shadowColor: '#0F172A',
         shadowOffset: { width: 0, height: 12 },
-        shadowOpacity: 0.1,
+        shadowOpacity: 0.12,
         shadowRadius: 24,
         elevation: 12,
       },
@@ -165,54 +165,54 @@ export const schoolTheme: { light: SchoolTheme; dark: SchoolTheme } = {
     ...defaultDarkTheme,
     colors: {
       ...defaultDarkTheme.colors,
-      // Primary – lighter red for dark mode legibility
-      primary: '#EF5350',
-      primaryLight: '#EF9A9A',
-      primaryDark: '#D42B2B',
-      // Secondary – lighter green
-      secondary: '#66BB6A',
-      // Accent – bright gold for dark backgrounds
-      accent: '#FFD54F',
-      // Dark backgrounds – deep warm-charcoal tones (from logo border)
-      background: '#1A1A1A',
-      surface: '#2D2D2D',
-      card: '#3E2723',
+      // Primary – lighter indigo for dark mode legibility
+      primary: '#9595E0',       // Lightened Royal Indigo
+      primaryLight: '#C7D2FE',
+      primaryDark: '#3535A8',   // Royal Indigo (full strength)
+      // Secondary – light orange for dark mode
+      secondary: '#FFA066',
+      // Accent – bright yellow
+      accent: '#FFE600',
+      // Dark backgrounds – deep dark slate/indigo tones
+      background: '#0F1228',    // Very dark indigo-tinted
+      surface: '#1C1E38',       // Dark indigo surface
+      card: '#1C1E38',
       // Light text for dark backgrounds
-      textPrimary: '#FFF8F0',
+      textPrimary: '#F1F5F9',
       textStrong: '#FFFFFF',
-      textSecondary: '#D7CCC8',
-      textMuted: '#BCAAA4',
-      text: '#FFF8F0',
-      textTertiary: '#FFD54F',
-      // Darker borders – warm brown
-      border: '#5D4037',
-      borderLight: '#6D4C41',
+      textSecondary: '#94A3B8',
+      textMuted: '#64748B',
+      text: '#F1F5F9',
+      textTertiary: '#64748B',
+      // Darker borders – indigo-tinted slate
+      border: '#2E3052',
+      borderLight: '#3D4068',
       // Lighter semantic colors for dark mode
-      danger: '#EF5350',
-      success: '#66BB6A',
+      danger: '#F87171',
+      success: '#34D399',
       warning: '#FBBF24',
-      info: '#42A5F5',
-      notification: '#EF5350',
-      // Navigation – red tint for dark
-      navPill: 'rgba(212,43,43, 0.2)',
-      navIconActive: '#EF5350',
-      navIconInactive: '#D42B2B',
-      // Header/Footer with dark warm glass effect
-      headerBg: 'rgba(26,26,26, 0.92)',
-      footerBg: 'rgba(45,45,45, 0.94)',
+      info: '#5CC4F0',          // Light cerulean
+      notification: '#FFA066',
+      // Navigation – indigo tint
+      navPill: 'rgba(53, 53, 168, 0.2)',
+      navIconActive: '#C7D2FE',
+      navIconInactive: '#94A3B8',
+      // Header/Footer with dark indigo glass effect
+      headerBg: 'rgba(15, 18, 40, 0.88)',
+      footerBg: 'rgba(28, 30, 56, 0.92)',
       // Alert colors (dark mode)
-      alertBg: 'rgba(212,43,43, 0.12)',
-      alertBorder: 'rgba(239,83,80, 0.3)',
-      alertIcon: '#EF5350',
-      alertText: '#FFF8F0',
-      alertBgDanger: 'rgba(198,40,40, 0.1)',
-      alertBorderDanger: 'rgba(198,40,40, 0.2)',
-      alertIconDanger: '#EF5350',
-      alertTextDanger: '#FFCDD2',
-      alertBgInfo: 'rgba(21,101,192, 0.12)',
-      alertBorderInfo: 'rgba(21,101,192, 0.25)',
-      alertIconInfo: '#42A5F5',
-      alertTextInfo: '#BBDEFB',
+      alertBg: 'rgba(53, 53, 168, 0.12)',
+      alertBorder: 'rgba(53, 53, 168, 0.25)',
+      alertIcon: '#C7D2FE',
+      alertText: '#C7D2FE',
+      alertBgDanger: 'rgba(248,113,113, 0.1)',
+      alertBorderDanger: 'rgba(248,113,113, 0.2)',
+      alertIconDanger: '#F87171',
+      alertTextDanger: '#FECACA',
+      alertBgInfo: 'rgba(0, 130, 200, 0.15)',
+      alertBorderInfo: 'rgba(0, 130, 200, 0.3)',
+      alertIconInfo: '#5CC4F0',
+      alertTextInfo: '#B3DDFB',
     },
     typography: {
       fontFamily: 'System',
@@ -264,9 +264,9 @@ export const schoolTheme: { light: SchoolTheme; dark: SchoolTheme } = {
         elevation: 6,
       },
       lg: {
-        shadowColor: '#D42B2B',
+        shadowColor: '#0F172A',
         shadowOffset: { width: 0, height: 12 },
-        shadowOpacity: 0.2,
+        shadowOpacity: 0.15,
         shadowRadius: 24,
         elevation: 12,
       },
@@ -276,26 +276,26 @@ export const schoolTheme: { light: SchoolTheme; dark: SchoolTheme } = {
 
 export const SCHOOL_CONFIG = {
   // The official name of the school displayed in headers and reports
-  name: "Chanakya E/M School",
+  name: "Bhashyam Vidyanikethan Mohammadabad",
 
-  // Short line under the school name on the header ribbon
-  tagline: "Commited to Genuine Education",
+  // Short line under the school name on the header ribbon (gold text)
+  tagline: "Education with Moral Values",
 
   // Motto / core values shown in the first info column of the ribbon (letterhead)
-  motto: "Imagine , Believe , Achieve",
+  motto: "Care and Achieve through Quality Education and Discipline",
 
   // The school logo used in headers and reports
   // Ensure the image exists in assets/images/
   logo: require('../../assets/images/icon.png'),
 
   // Optional: School Address for reports
-  address: "Narayanapet Road, Maddur, Dist Narayanapet, Telangana-509411",
+  address: "Bhashyam Vidyanikethan School,VenkatReddypally Road, Mohammadabad,Mahabubnagar District, Telangana-509337",
 
   // Optional: Contact info for reports
-  contact: "9010619786",
+  contact: "9966868389",
 
   // Optional: School email for letterhead / reports
-  email: "chanakyaschool7939@gmail.com",
+  email: "bhashyamvidyanikethan@gmail.com",
 
   // Website or Email
   website: "www.nexsyrus.com",
@@ -311,7 +311,7 @@ export const SCHOOL_CONFIG = {
   cbseAffiliationNo: "NA",
 
   // School Code (if applicable)
-  schoolCode: "VMS",
+  schoolCode: "BVS",
 
   /**
    * Full recognition / affiliation sentence for certificates & PDFs.
@@ -319,19 +319,19 @@ export const SCHOOL_CONFIG = {
    */
   recognitionLine: "",
 
-  recognitionNo: "192/A1/PVT/2026",
+  recognitionNo: "",
 
   /**
    * Colour theme for ribbon / letterhead chrome (SchoolRibbon, etc.).
-   * Extracted from the logo: red outer ring, dark-green tree, gold stars, blue ribbon.
+   * Extracted from the logo: rich navy/royal blue with bright yellow accents.
    */
   theme: {
-    /** Gold stripes, dividers, and trim (logo gold stars & accents) */
-    accent: '#D4AF37',
-    /** Tagline text – warm gold */
-    ribbonTagline: '#FFE082',
-    /** Four-stop diagonal ribbon – red ring → deep maroon → dark green tree depth */
-    ribbonGradient: ['#5D101D', '#8B1A1A', '#D42B2B', '#1B5E20'] as const,
+    /** Bright golden yellow dividers and trim (logo ring text) */
+    accent: '#FFE600',
+    /** Tagline text – bright gold/yellow */
+    ribbonTagline: '#FFE600',
+    /** Four-stop diagonal ribbon – deep indigo to royal blue gradient (extracted from logo ring) */
+    ribbonGradient: ['#282889', '#3535A8', '#3D4FC0', '#4B64D4'] as const,
     /** Optional stops for expo-linear-gradient (length must match ribbonGradient) */
     ribbonGradientLocations: [0, 0.30, 0.65, 1] as const,
     /** Main title on the ribbon */

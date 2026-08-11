@@ -1,22 +1,36 @@
+/**
+ * Extracted from: android-icon-foreground-v2.png (Bhashyam Vidyanikethan logo)
+ *
+ * Palette:
+ *   Ring / Badge ......... #3535A8  (Royal Indigo)
+ *   Ring Dark shade ...... #282889  (Deep Indigo)
+ *   Text on ring ......... #FFE600  (Bright Yellow / Gold)
+ *   Center figure/Book ... #0082C8  (Cerulean Blue)
+ *   Side figures ......... #F26522  (Vibrant Orange)
+ *   Book spine ........... #1A2B6D  (Navy)
+ *   Background ........... #FFFFFF  (White)
+ */
 export const Colors = {
-    primary: '#D42B2B',       // Logo red ring
-    primaryDark: '#8B1A1A',   // Deep maroon
-    secondary: '#1B5E20',     // Logo tree green
-    background: '#FFF8F0',    // Warm cream
-    text: '#2D2D2D',          // Logo near-black
-    textStrong: '#1A1A1A',    // Deep black
-    textSecondary: '#5D4037',  // Warm brown-gray
-    border: '#E8D5B7',        // Warm beige
+    primary: '#3535A8',       // Royal Indigo (logo outer ring)
+    primaryDark: '#282889',   // Deep Indigo (ring shadow/darker areas)
+    primaryLight: '#0082C8',  // Cerulean Blue (book & center figure)
+    secondary: '#F26522',     // Vibrant Orange (side figures)
+    accent: '#FFE600',        // Bright Yellow (text on ring)
+    background: '#F8FAFC',
+    text: '#1F2937',
+    textStrong: '#111827',
+    textSecondary: '#6B7280',
+    border: '#E5E7EB',
     white: '#FFFFFF',
     black: '#000000',
-    muted: '#8D6E63',         // Warm muted brown
+    muted: '#94A3B8',
 
     // Status Colors
     status: {
         present: '#16a34a',
         absent: '#dc2626',
         late: '#ca8a04',
-        holiday: '#1565C0',   // Logo blue ribbon
+        holiday: '#9333ea',
         leave: '#f59e0b',
     },
 };

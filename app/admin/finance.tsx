@@ -436,7 +436,7 @@ export default function AdminFinanceScreen() {
               </View>
             </View>
             <Text style={styles.dueListDescription}>
-              Download school total fee, waiver/discount given, final fee, paid fee and due amount. Students with fee waivers are included even when their balance is zero. Village is taken from the student’s active transport stop.
+              Download each student’s father/guardian name, available contact number, school total fee, waiver/discount given, final fee, paid fee and due amount. Students with fee waivers are included even when their balance is zero. Village is taken from the student’s active transport stop.
             </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dueFilterChips}>
               <TouchableOpacity

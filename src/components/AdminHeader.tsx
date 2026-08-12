@@ -37,7 +37,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     showMenuButton = true,
     showProfileButton = true,
     showBackButton = false,
-    showNotification = false,
+    showNotification = true,
     hideAppSearch = false,
     rightAction,
     scrollY,
@@ -246,7 +246,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                         <ClayIconButton
                             onPress={() => {
                                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                router.push('/admin/notifications' as any);
+                                router.push('/notifications' as any);
                             }}
                             isDark={isDark}
                             accent={accent}

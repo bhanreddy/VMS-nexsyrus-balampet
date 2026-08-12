@@ -23,6 +23,63 @@ Notifications.setNotificationHandler({
 const PROCESSED_IDS_KEY = 'fcm_processed_message_ids';
 const MAX_STORED_IDS = 200; // Keep last 200 to avoid unbounded growth
 
+// These identifiers are shared with the APNs payload created by the backend.
+// They intentionally describe the *action* rather than a specific event, so a
+// new notification type can safely fall back to the standard “Open” action.
+const ACTION_OPEN = 'OPEN_NOTIFICATION';
+const CATEGORY_OPEN = 'schoolims_open';
+const CATEGORY_TRACK = 'schoolims_track_transport';
+const CATEGORY_FEES = 'schoolims_view_fees';
+const CATEGORY_REVIEW = 'schoolims_review';
+
+interface NotificationPresentation {
+  categoryIdentifier: string;
+  subtitle: string;
+  color: string;
+}
+
+/**
+ * Keep system notifications native, but give each family a clear visual cue
+ * and a single useful primary action. Using one action avoids duplicate
+ * “Open” affordances while still making the expanded notification actionable.
+ */
+function presentationFor(type: string): NotificationPresentation {
+  if (type.startsWith('TRANSPORT_') || type.startsWith('BUS_') || type.startsWith('STUDENT_BUS_')) {
+    return { categoryIdentifier: CATEGORY_TRACK, subtitle: 'SchoolIMS · Transport', color: '#0082C8' };
+  }
+  if (type.startsWith('FEE_') || type === 'ARREARS_REMINDER') {
+    return { categoryIdentifier: CATEGORY_FEES, subtitle: 'SchoolIMS · Fees', color: '#F26522' };
+  }
+  if (
+    type.startsWith('LEAVE_') ||
+    type.startsWith('EXPENSE_') ||
+    type === 'COMPLAINT_CREATED' ||
+    type === 'COMPLAINT_RESPONSE' ||
+    type === 'ACCESS_RESPONSE'
+  ) {
+    return { categoryIdentifier: CATEGORY_REVIEW, subtitle: 'SchoolIMS · Action needed', color: '#D97706' };
+  }
+  if (type.startsWith('ATTENDANCE_')) {
+    return { categoryIdentifier: CATEGORY_OPEN, subtitle: 'SchoolIMS · Attendance', color: '#3535A8' };
+  }
+  if (type === 'RESULT_RELEASED') {
+    return { categoryIdentifier: CATEGORY_OPEN, subtitle: 'SchoolIMS · Results', color: '#7C3AED' };
+  }
+  if (type === 'DIARY_UPDATED' || type === 'LMS_CONTENT' || type === 'TIMETABLE_UPDATED') {
+    return { categoryIdentifier: CATEGORY_OPEN, subtitle: 'SchoolIMS · Academics', color: '#3535A8' };
+  }
+  if (type === 'NOTICE_ADMIN_STUDENT') {
+    return { categoryIdentifier: CATEGORY_OPEN, subtitle: 'SchoolIMS · Notice', color: '#0082C8' };
+  }
+  if (type === 'PAYROLL_SUCCESS') {
+    return { categoryIdentifier: CATEGORY_OPEN, subtitle: 'SchoolIMS · Payroll', color: '#10B981' };
+  }
+  if (type === 'MESSAGE_RECEIVED') {
+    return { categoryIdentifier: CATEGORY_OPEN, subtitle: 'SchoolIMS · Messages', color: '#3535A8' };
+  }
+  return { categoryIdentifier: CATEGORY_OPEN, subtitle: 'SchoolIMS', color: '#3535A8' };
+}
+
 export async function requestNotificationPermission() {
   if (Platform.OS === 'android' && Platform.Version >= 33) {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -49,6 +106,7 @@ class NotificationManager {
   // ─── In-memory dedup & channel guard ───
   private seenIds = new Set<string>();
   private channelsReady = false;
+  private categoriesReady = false;
   private cachedLanguage: string = 'en';
 
   async loadLanguagePreference(): Promise<void> {
@@ -57,6 +115,32 @@ class NotificationManager {
       this.cachedLanguage = lang || 'en';
     } catch {
       this.cachedLanguage = 'en';
+    }
+  }
+
+  /** Register native action buttons once. This does not affect delivery or routing. */
+  async createActionCategories() {
+    if (this.categoriesReady || Platform.OS === 'web') return;
+
+    const isTelugu = this.cachedLanguage === 'te';
+    const action = (english: string, telugu: string) => ([{
+      identifier: ACTION_OPEN,
+      buttonTitle: isTelugu ? telugu : english,
+      options: { opensAppToForeground: true },
+    }]);
+
+    try {
+      await Promise.all([
+        Notifications.setNotificationCategoryAsync(CATEGORY_OPEN, action('Open', 'తెరవండి')),
+        Notifications.setNotificationCategoryAsync(CATEGORY_TRACK, action('Track bus', 'బస్సును ట్రాక్ చేయండి')),
+        Notifications.setNotificationCategoryAsync(CATEGORY_FEES, action('View fees', 'ఫీజులను చూడండి')),
+        Notifications.setNotificationCategoryAsync(CATEGORY_REVIEW, action('Review', 'సమీక్షించండి')),
+      ]);
+      this.categoriesReady = true;
+    } catch (error) {
+      // Categories are a presentation enhancement; a device-specific failure
+      // must never stop notifications from being delivered.
+      console.warn('[NotificationManager] Could not register notification actions:', error);
     }
   }
 
@@ -122,6 +206,7 @@ class NotificationManager {
     // Hydrate in-memory dedup set from AsyncStorage on startup
     await this.hydrateSeenIds();
     await this.loadLanguagePreference();
+    await this.createActionCategories();
 
     // Check if previous registration failed — force retry
     const needsSync = await AsyncStorage.getItem('push_token_needs_sync');
@@ -324,6 +409,7 @@ class NotificationManager {
     let body = remoteMessage.notification?.body || remoteMessage.data?.body || '';
     const type = remoteMessage.data?.type || '';
     const deepLink = remoteMessage.data?.deepLink || '';
+    const presentation = presentationFor(type);
     let channelId = remoteMessage.data?.channelId || 'voice_alert_custom';
 
     // 6. Ensure language is loaded for headless/background execution
@@ -365,9 +451,13 @@ class NotificationManager {
       await Notifications.scheduleNotificationAsync({
         content: {
           title: title || 'Notification',
+          subtitle: presentation.subtitle,
           body: body || '',
           data: { ...remoteMessage.data, deepLink, type },
-          sound: finalSound
+          sound: finalSound,
+          color: presentation.color,
+          priority: Notifications.AndroidNotificationPriority.HIGH,
+          categoryIdentifier: presentation.categoryIdentifier,
         },
         trigger: { channelId } as Notifications.ChannelAwareTriggerInput,
       });

@@ -23,6 +23,12 @@ import { useTheme } from '../../src/hooks/useTheme';
 import { useDriverLocationPermission } from '../../src/hooks/useDriverLocationPermission';
 import { useTranslation } from 'react-i18next';
 import { driverDateLocale } from '../../src/utils/driverI18n';
+import {
+  setDriverNextStopTarget,
+  postBusLocation,
+  startDriverLocationUpdates,
+  stopDriverLocationUpdates,
+} from '../../src/services/driverLocationTask';
 
 /** Legacy trips may still use `active`; canonical live status is `in_progress`. */
 const tripStatusIsActive = (s?: string | null) =>
@@ -58,6 +64,7 @@ type TripPayload = {
     route_name?: string;
     direction?: string;
     date?: string;
+    bus_id?: string | null;
   };
   stops: {
     stop_id: string;
@@ -66,6 +73,8 @@ type TripPayload = {
     status?: string;
     reached_at?: string | null;
     assigned_students?: number;
+    latitude?: number | null;
+    longitude?: number | null;
   }[];
 };
 
@@ -77,6 +86,7 @@ export default function DriverTripScreen() {
   const [noRoute, setNoRoute] = useState(false);
   const [confirmComplete, setConfirmComplete] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const foregroundWatchRef = useRef<Location.LocationSubscription | null>(null);
   const { theme } = useTheme();
   const { requestPermissions: requestDriverLocationPermissions, disclosureModal } = useDriverLocationPermission();
   const { t, i18n } = useTranslation();
@@ -130,6 +140,69 @@ export default function DriverTripScreen() {
   const trip = payload?.trip;
   const stops = payload?.stops ?? [];
 
+  const startForegroundTrackingFallback = useCallback(async (busId: string) => {
+    if (Platform.OS === 'web' || foregroundWatchRef.current) return;
+    try {
+      foregroundWatchRef.current = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          timeInterval: 5_000,
+          distanceInterval: 10,
+        },
+        (fix) => { void postBusLocation(busId, fix); },
+      );
+    } catch {
+      // Manual controls remain available if the device's foreground location
+      // service cannot be started.
+    }
+  }, []);
+
+  const stopAllLocationTracking = useCallback(async () => {
+    try { foregroundWatchRef.current?.remove(); } catch { /* no-op */ }
+    foregroundWatchRef.current = null;
+    await stopDriverLocationUpdates();
+  }, []);
+
+  // The one-tap Trip portal must use the same continuous GPS pipeline as the
+  // dashboard. Without it, a calibrated route has no fixes to evaluate while
+  // the driver is travelling and can never mark stops automatically.
+  useEffect(() => {
+    if (!tripStatusIsActive(trip?.status) || !trip?.bus_id || Platform.OS === 'web') return;
+    let cancelled = false;
+    void (async () => {
+      const [foreground, background] = await Promise.all([
+        Location.getForegroundPermissionsAsync(),
+        Location.getBackgroundPermissionsAsync(),
+      ]);
+      if (cancelled || !foreground.granted) return;
+      try {
+        if (background.granted) await startDriverLocationUpdates(trip.bus_id!);
+        else await startForegroundTrackingFallback(trip.bus_id!);
+      } catch {
+        await startForegroundTrackingFallback(trip.bus_id!);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [trip?.id, trip?.status, trip?.bus_id, startForegroundTrackingFallback]);
+
+  useEffect(() => () => { void stopAllLocationTracking(); }, [stopAllLocationTracking]);
+
+  useEffect(() => {
+    if (!tripStatusIsActive(trip?.status)) {
+      void setDriverNextStopTarget(null);
+      return;
+    }
+    const next = stops.find((stop) => stop.status !== 'completed' && stop.status !== 'skipped');
+    if (next?.latitude == null || next.longitude == null) {
+      void setDriverNextStopTarget(null);
+      return;
+    }
+    void setDriverNextStopTarget({
+      latitude: Number(next.latitude),
+      longitude: Number(next.longitude),
+    });
+  }, [trip?.status, stops]);
+
   const onRefresh = () => {
     setRefreshing(true);
     loadTrip(true);
@@ -168,12 +241,23 @@ export default function DriverTripScreen() {
     if (!trip?.id || submitting) return;
     setSubmitting(true);
     try {
-      // Natural moment to ask for GPS: fixes captured on "Mark reached" feed
-      // route calibration (Phase A). Non-blocking; trip starts either way.
+      // A trip start is the consent point for precise, background GPS. This
+      // keeps calibrated routes marking stops even when the app is minimized.
+      let locationGranted = Platform.OS === 'web';
       if (Platform.OS !== 'web') {
-        await requestDriverLocationPermissions({ requestBackground: false }).catch(() => false);
+        locationGranted = await requestDriverLocationPermissions({ requestBackground: true }).catch(() => false);
       }
       await api.post(`/transport/driver/trip/${trip.id}/start`, {});
+      if (locationGranted && trip.bus_id && Platform.OS !== 'web') {
+        const background = await Location.getBackgroundPermissionsAsync();
+        if (background.granted) await startDriverLocationUpdates(trip.bus_id);
+        else await startForegroundTrackingFallback(trip.bus_id);
+      } else if (Platform.OS !== 'web') {
+        alertCompat(
+          t('driver_ui.location_sharing_paused'),
+          t('driver_ui.location_permission_instructions'),
+        );
+      }
       await loadTrip(true);
     } catch {
       alertCompat(t('driver_ui.error'), t('driver_ui.failed_to_start_trip'));
@@ -188,6 +272,7 @@ export default function DriverTripScreen() {
     setConfirmComplete(false);
     try {
       await api.post(`/transport/driver/trip/${trip.id}/complete`, {});
+      await stopAllLocationTracking();
       await loadTrip(true);
     } catch {
       alertCompat(t('driver_ui.error'), t('driver_ui.could_not_complete_trip'));

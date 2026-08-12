@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Platform, ViewStyle, TextStyle, Image, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, Platform, ViewStyle, TextStyle, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -16,29 +16,11 @@ import { Shadows, Spacing } from '../theme/themes';
 import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SCHOOL_CONFIG, schoolColorWithAlpha } from '../constants/schoolConfig';
+import { schoolColorWithAlpha } from '../constants/schoolConfig';
 
 /** Brand violet used to tint every clay puck's shadow across the app. */
 const CLAY_ACCENT = '#7C6BB8';
-const GOLD = SCHOOL_CONFIG.theme.accent;
 const ICON_SIZE = 36;
-
-/** Short school label for the center brand pill (first 1–2 name tokens). */
-const SCHOOL_BRAND = (() => {
-    const words = SCHOOL_CONFIG.name.split(/\s+/).filter(Boolean);
-    return words.slice(0, Math.min(2, words.length)).join(' ') || 'School';
-})();
-
-/** Compact subtitle that fits a header — never the full ribbon tagline. */
-const SCHOOL_BRAND_SUB = (() => {
-    const words = SCHOOL_CONFIG.name.split(/\s+/).filter(Boolean);
-    const remainder = words.slice(2).join(' ');
-    if (remainder) return remainder;
-    if (SCHOOL_CONFIG.schoolCode && SCHOOL_CONFIG.schoolCode !== 'NA') {
-        return SCHOOL_CONFIG.schoolCode;
-    }
-    return 'Student';
-})();
 
 interface StudentHeaderProps {
     onMenuPress?: () => void;
@@ -149,38 +131,6 @@ const StudentHeader: React.FC<StudentHeaderProps & { showBackButton?: boolean, t
         };
     }, [isDark]);
 
-    const brandSubStyle = useAnimatedStyle(() => {
-        if (!scrollY) return { color: schoolColorWithAlpha(GOLD, 0.92) };
-        return {
-            color: interpolateColor(
-                scrollY.value,
-                [0, 50],
-                [schoolColorWithAlpha(GOLD, 0.92), isDark ? '#38BDF8' : '#0369A1']
-            ),
-        };
-    }, [isDark]);
-
-    const brandPillStyle = useAnimatedStyle(() => {
-        if (!scrollY) {
-            return {
-                backgroundColor: 'rgba(255,255,255,0.10)',
-                borderColor: 'rgba(255,255,255,0.16)',
-            };
-        }
-        return {
-            backgroundColor: interpolateColor(
-                scrollY.value,
-                [0, 50],
-                ['rgba(255,255,255,0.10)', isDark ? 'rgba(255,255,255,0.06)' : 'rgba(124,107,184,0.08)']
-            ),
-            borderColor: interpolateColor(
-                scrollY.value,
-                [0, 50],
-                ['rgba(255,255,255,0.16)', schoolColorWithAlpha(CLAY_ACCENT, isDark ? 0.28 : 0.18)]
-            ),
-        };
-    }, [isDark]);
-
     // Without scrollY this header always uses the cosmic navy gradient, even
     // while the app is in light mode. Base the toggle contrast on its actual
     // surface instead of the global theme.
@@ -202,7 +152,7 @@ const StudentHeader: React.FC<StudentHeaderProps & { showBackButton?: boolean, t
         />
     );
 
-    const rightCount = (rightAction ? 1 : 0) + (showSettingsButton ? 1 : 0);
+    const rightCount = 1 + (rightAction ? 1 : 0) + (showSettingsButton ? 1 : 0);
     const leftCount = 1 + (showNavBack ? 1 : 0) + (showNavMenu ? 1 : 0);
 
     return (
@@ -244,31 +194,30 @@ const StudentHeader: React.FC<StudentHeaderProps & { showBackButton?: boolean, t
                 {leftCount < rightCount ? <View style={styles.sideBalance} /> : null}
             </View>
 
-            {/* Center: page title when present; otherwise a compact school brand. */}
+            {/* Center: page title only. */}
             <View style={styles.centerRegion} pointerEvents="none">
                 {title ? (
                     <Animated.Text style={[styles.headerTitle, fontColorStyle, titleStyleOverride]} numberOfLines={1}>
                         {title}
                     </Animated.Text>
-                ) : (
-                    <Animated.View style={[styles.brandPill, brandPillStyle]}>
-                        <View style={styles.brandLogoWrap}>
-                            <Image source={SCHOOL_CONFIG.logo} style={styles.brandLogo} />
-                        </View>
-                        <View style={styles.brandCopy}>
-                            <Animated.Text style={[styles.brandName, fontColorStyle]} numberOfLines={1}>
-                                {SCHOOL_BRAND}
-                            </Animated.Text>
-                            <Animated.Text style={[styles.brandTag, brandSubStyle]} numberOfLines={1}>
-                                {SCHOOL_BRAND_SUB}
-                            </Animated.Text>
-                        </View>
-                    </Animated.View>
-                )}
+                ) : null}
             </View>
 
             <View style={[styles.sideRegion, styles.rightRegion]}>
                 {rightCount < leftCount ? <View style={styles.sideBalance} /> : null}
+
+                <ClayIconButton
+                    onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        router.push('/notifications' as any);
+                    }}
+                    isDark
+                    accent={CLAY_ACCENT}
+                    round
+                    size={ICON_SIZE}
+                >
+                    <Ionicons name="notifications-outline" size={17} color="#F4F0FB" />
+                </ClayIconButton>
 
                 {rightAction && (
                     <ClayIconButton
@@ -351,50 +300,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 6,
-    },
-    brandPill: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        maxWidth: '100%',
-        gap: 8,
-        paddingVertical: 5,
-        paddingLeft: 5,
-        paddingRight: 12,
-        borderRadius: 999,
-        borderWidth: 1,
-        overflow: 'hidden',
-    },
-    brandLogoWrap: {
-        width: 30,
-        height: 30,
-        borderRadius: 15,
-        backgroundColor: '#FFFFFF',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: schoolColorWithAlpha(GOLD, 0.4),
-    },
-    brandLogo: {
-        width: 20,
-        height: 20,
-        resizeMode: 'contain',
-    },
-    brandCopy: {
-        flexShrink: 1,
-        minWidth: 0,
-        gap: 1,
-    },
-    brandName: {
-        fontSize: 13,
-        fontWeight: '800',
-        letterSpacing: 0.2,
-    },
-    brandTag: {
-        fontSize: 10,
-        fontWeight: '700',
-        letterSpacing: 0.3,
-        textTransform: 'uppercase',
-        opacity: 0.95,
     },
     headerTitle: {
         fontSize: 17,

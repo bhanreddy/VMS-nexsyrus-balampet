@@ -328,7 +328,7 @@ export default function RouteCalibrationScreen() {
                 <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Stops learned</Text>
               </View>
               <View style={[styles.statCard, { backgroundColor: surface, borderColor: theme.colors.border }]}>
-                <Text style={[styles.statValue, { color: theme.colors.textStrong }]}>{leg.clean_trip_count}/2</Text>
+                <Text style={[styles.statValue, { color: theme.colors.textStrong }]}>{leg.clean_trip_count}/4</Text>
                 <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Clean trips</Text>
               </View>
               <View style={[styles.statCard, { backgroundColor: surface, borderColor: theme.colors.border }]}>

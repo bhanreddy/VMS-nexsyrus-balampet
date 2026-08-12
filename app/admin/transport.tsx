@@ -721,23 +721,12 @@ export default function AdminTransport() {
           <TouchableOpacity
             style={styles.trackButton}
             activeOpacity={0.8}
-            onPress={async () => {
-              try {
-                const detail = await api.get<{
-                  route: string;
-                  trip: { ui_status?: string } | null;
-                  stops: { name: string; status: string | null }[];
-                }>(`/transport/routes/${item.route_id}/live`);
-                const lines = detail.stops
-                  .map((s) => `${s.name}: ${s.status || '—'}`)
-                  .join('\n');
-                alertCompat(detail.route, lines || 'No stops details');
-              } catch {
-                alertCompat('Error', 'Could not load route live status');
-              }
-            }}
+            onPress={() => router.push({
+              pathname: '/admin/live-bus-tracking' as any,
+              params: { routeId: item.route_id },
+            })}
           >
-            <Text style={styles.trackButtonText}>View Stop Progress</Text>
+            <Text style={styles.trackButtonText}>Track Live Bus</Text>
             <MaterialIcons name="arrow-forward-ios" size={14} color="#0EA5E9" />
           </TouchableOpacity>
         </View>

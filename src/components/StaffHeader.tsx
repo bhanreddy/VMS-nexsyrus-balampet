@@ -147,6 +147,15 @@ const StaffHeader: React.FC<StaffHeaderProps> = ({
 
                 {/* Right: Actions */}
                 <View style={styles.rightSection}>
+                    <ClayIconButton
+                        onPress={() => router.push('/notifications' as any)}
+                        isDark={isDark}
+                        accent={accent}
+                        round
+                        size={40}
+                    >
+                        <Ionicons name="notifications-outline" size={18} color={accent} />
+                    </ClayIconButton>
                     {showProfileButton && (
                         <ClayIconButton
                             onPress={() => router.push({ pathname: '/staff/settings', params: viewAsParams } as any)}
@@ -209,7 +218,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     rightSection: {
-        width: 44,
+        width: 92,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'flex-end',

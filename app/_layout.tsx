@@ -220,6 +220,7 @@ function ThemeSyncWrapper() {
                 <Stack.Screen name="staff" options={{ headerShown: false }} />
                 <Stack.Screen name="accounts" options={{ headerShown: false }} />
                 <Stack.Screen name="Screen" options={{ headerShown: false }} />
+                <Stack.Screen name="notifications" options={{ headerShown: false }} />
               </Stack>
             </AuthGate>
           </View>

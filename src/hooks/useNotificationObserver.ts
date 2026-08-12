@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { useAuth } from './useAuth';
+import { notificationInboxService } from '../services/notificationInboxService';
 
 // Verified route map — fallback if deepLink missing from payload
 const NOTIFICATION_ROUTES: Record<string, string> = {
@@ -41,6 +42,7 @@ const NOTIFICATION_ROUTES: Record<string, string> = {
 interface PendingNotification {
   route: string;
   recipientUserId: string | null;
+  notificationId: string | null;
 }
 
 // Stored when notification tapped before auth is ready.
@@ -60,7 +62,7 @@ const LEGACY_ROUTES: Record<string, string> = {
   '/staff/payroll': '/staff/payslip',
 };
 
-function resolveRoute(data: Record<string, any> | null | undefined): string | null {
+export function resolveNotificationRoute(data: Record<string, any> | null | undefined): string | null {
   if (!data) return null;
   // Priority 1 — explicit deepLink from FCM payload (already correct path)
   if (data.deepLink && data.deepLink.trim() !== '') {
@@ -94,7 +96,7 @@ export function useNotificationObserver() {
   // from a ref instead of closing over the user present at mount time.
   authRef.current = { user, loading, switchAccount };
 
-  const navigate = useCallback(async (route: string, recipientUserId: string | null) => {
+  const navigate = useCallback(async (route: string, recipientUserId: string | null, notificationId: string | null = null) => {
     // Clean any accidental protocol prefix just in case
     const cleanRoute = '/' + route.replace(/^testapp:\/+/, '').replace(/^\/+/, '');
     try {
@@ -102,7 +104,7 @@ export function useNotificationObserver() {
       const activeUserId = activeAuth.user?.userId ?? null;
       if (!activeUserId || activeAuth.loading) {
         console.log('[Notifications] Auth not ready — storing pending route:', cleanRoute);
-        pendingNotification = { route: cleanRoute, recipientUserId };
+        pendingNotification = { route: cleanRoute, recipientUserId, notificationId };
         return;
       }
 
@@ -110,7 +112,7 @@ export function useNotificationObserver() {
         if (switchingRef.current) {
           // Keep the most recent tap and process it once the in-flight switch
           // settles. A notification must never open under the wrong account.
-          pendingNotification = { route: cleanRoute, recipientUserId };
+          pendingNotification = { route: cleanRoute, recipientUserId, notificationId };
           return;
         }
 
@@ -129,6 +131,9 @@ export function useNotificationObserver() {
       }
 
       console.log('[Notifications] Navigating to:', cleanRoute);
+      // Mark after any account switch, so a notification sent to a vaulted
+      // account is never marked under the currently active account by mistake.
+      if (notificationId) void notificationInboxService.markRead(notificationId);
       router.push(cleanRoute as any);
     } catch (err) {
       console.log('[Notifications] Navigation error:', err);
@@ -142,7 +147,7 @@ export function useNotificationObserver() {
       pendingNotification = null;
       console.log('[Notifications] Flushing pending route:', notification.route);
       setTimeout(() => {
-        void navigate(notification.route, notification.recipientUserId);
+        void navigate(notification.route, notification.recipientUserId, notification.notificationId);
       }, 300);
     }
   }, [user, loading, navigate]);
@@ -157,22 +162,22 @@ export function useNotificationObserver() {
     // CASE 1 — App KILLED, user tapped FCM notification
     getInitialNotification(msg).then((remoteMessage) => {
       if (!remoteMessage || !isMounted) return;
-      const route = resolveRoute(remoteMessage.data);
-      if (route) setTimeout(() => void navigate(route, resolveRecipientUserId(remoteMessage.data)), 500);
+      const route = resolveNotificationRoute(remoteMessage.data);
+      if (route) setTimeout(() => void navigate(route, resolveRecipientUserId(remoteMessage.data), String(remoteMessage.data?.notificationId || '') || null), 500);
     });
 
     // CASE 2 — App BACKGROUNDED, user tapped FCM notification
     const unsubFCM = onNotificationOpenedApp(msg, (remoteMessage) => {
-      const route = resolveRoute(remoteMessage.data);
-      if (route) void navigate(route, resolveRecipientUserId(remoteMessage.data));
+      const route = resolveNotificationRoute(remoteMessage.data);
+      if (route) void navigate(route, resolveRecipientUserId(remoteMessage.data), String(remoteMessage.data?.notificationId || '') || null);
     });
 
     // CASE 3 — User tapped expo-notifications notification (all states)
     const unsubExpo = Notifications.addNotificationResponseReceivedListener(
       (response) => {
         const data = response.notification.request.content.data;
-        const route = resolveRoute(data);
-        if (route) void navigate(route, resolveRecipientUserId(data));
+        const route = resolveNotificationRoute(data);
+        if (route) void navigate(route, resolveRecipientUserId(data), String(data?.notificationId || '') || null);
       }
     );
 
@@ -180,8 +185,8 @@ export function useNotificationObserver() {
     Notifications.getLastNotificationResponseAsync().then((response) => {
       if (!response || !isMounted) return;
       const data = response.notification.request.content.data;
-      const route = resolveRoute(data);
-      if (route) setTimeout(() => void navigate(route, resolveRecipientUserId(data)), 500);
+      const route = resolveNotificationRoute(data);
+      if (route) setTimeout(() => void navigate(route, resolveRecipientUserId(data), String(data?.notificationId || '') || null), 500);
     });
 
     return () => {

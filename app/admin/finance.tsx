@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { ActivityIndicator, Modal, View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, useWindowDimensions, Platform } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { ActivityIndicator, Modal, View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, useWindowDimensions, Platform, KeyboardAvoidingView } from 'react-native';
 import { alertCompat } from '../../src/utils/crossPlatformAlert';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,6 +30,9 @@ import {
 } from '../../src/hooks/useCollectionReportColumns';
 import PremiumDatePickerModal from '../../src/components/PremiumDatePickerModal';
 import AppDatePicker from '../../src/components/AppDatePicker';
+import AppTextInput from '../../src/components/AppTextInput';
+import { styles as ds } from '../../src/theme/styles';
+import { clayCard, clayInset } from '../../src/theme/clayStyles';
 import {
   daysAgoInput,
   formatDateShort,
@@ -61,6 +64,17 @@ type PendingCollectionPrint = {
   meta: CollectionReportMeta;
 };
 
+type DueFilterItem = { id: string; name: string; label?: string };
+
+type DueFilterPickerState = {
+  title: string;
+  items: DueFilterItem[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+};
+
+const DUE_PICKER_ROW_H = 52;
+
 type FinanceStats = {
   today_collection: number;
   monthly_collection: number;
@@ -73,7 +87,7 @@ type FinanceStats = {
 export default function AdminFinanceScreen() {
   const { theme, isDark } = useTheme();
   const { authChecked, user } = useAuth();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const isWide = Platform.OS === 'web' && width >= 768;
   const styles = useMemo(() => getStyles(theme, isWide), [theme, isWide]);
   const { t } = useTranslation();
@@ -101,6 +115,8 @@ export default function AdminFinanceScreen() {
   const [dueVillageId, setDueVillageId] = useState<string>('');
   const [dueOverdueOnly, setDueOverdueOnly] = useState(false);
   const [dueExporting, setDueExporting] = useState(false);
+  const [dueFilterPicker, setDueFilterPicker] = useState<DueFilterPickerState | null>(null);
+  const [dueFilterQuery, setDueFilterQuery] = useState('');
   const [receiptFromDate, setReceiptFromDate] = useState(todayDateInput());
   const [receiptToDate, setReceiptToDate] = useState(todayDateInput());
   const [receiptExporting, setReceiptExporting] = useState(false);
@@ -224,18 +240,34 @@ export default function AdminFinanceScreen() {
 
   const selectDueFilter = (
     title: string,
-    items: { id: string; name: string; label?: string }[],
+    items: DueFilterItem[],
+    selectedId: string,
     onSelect: (id: string) => void,
   ) => {
-    alertCompat(title, 'Select a filter', [
-      { text: 'All', onPress: () => onSelect('') },
-      ...items.map((item) => ({
-        text: item.label || item.name,
-        onPress: () => onSelect(item.id),
-      })),
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+    setDueFilterQuery('');
+    setDueFilterPicker({ title, items, selectedId, onSelect });
   };
+
+  const closeDueFilterPicker = useCallback(() => {
+    setDueFilterPicker(null);
+    setDueFilterQuery('');
+  }, []);
+
+  const dueFilterVisibleItems = useMemo(() => {
+    if (!dueFilterPicker) return [];
+    const query = dueFilterQuery.trim().toLowerCase();
+    const matched = query
+      ? dueFilterPicker.items.filter((item) =>
+          (item.label || item.name).toLowerCase().includes(query),
+        )
+      : dueFilterPicker.items;
+    return [{ id: '', name: 'All', label: 'All' }, ...matched];
+  }, [dueFilterPicker, dueFilterQuery]);
+
+  const duePickerListHeight = Math.min(
+    Math.max(dueFilterVisibleItems.length, 1) * DUE_PICKER_ROW_H,
+    Math.round(Math.max(height, 480) * 0.48),
+  );
 
   const selectedDueClass = dueListOptions?.classes.find((item) => item.id === dueClassId);
   const selectedDueSection = dueListOptions?.sections.find((item) => item.id === dueSectionId);
@@ -526,7 +558,7 @@ export default function AdminFinanceScreen() {
               <TouchableOpacity
                 disabled={!dueListOptions}
                 style={[styles.filterChip, dueClassId && styles.filterChipActive]}
-                onPress={() => selectDueFilter('Filter by Class', dueListOptions?.classes || [], (id) => setDueClassId(id))}
+                onPress={() => selectDueFilter('Filter by Class', dueListOptions?.classes || [], dueClassId, setDueClassId)}
               >
                 <Ionicons name="school-outline" size={13} color={dueClassId ? theme.colors.primary : theme.colors.textSecondary} style={{ marginRight: 5 }} />
                 <Text style={[styles.filterChipText, dueClassId && { color: theme.colors.primary }]}>Class: {selectedDueClass?.name || 'All'}</Text>
@@ -535,7 +567,7 @@ export default function AdminFinanceScreen() {
               <TouchableOpacity
                 disabled={!dueListOptions}
                 style={[styles.filterChip, dueSectionId && styles.filterChipActive]}
-                onPress={() => selectDueFilter('Filter by Section', dueListOptions?.sections || [], (id) => setDueSectionId(id))}
+                onPress={() => selectDueFilter('Filter by Section', dueListOptions?.sections || [], dueSectionId, setDueSectionId)}
               >
                 <Ionicons name="layers-outline" size={13} color={dueSectionId ? theme.colors.primary : theme.colors.textSecondary} style={{ marginRight: 5 }} />
                 <Text style={[styles.filterChipText, dueSectionId && { color: theme.colors.primary }]}>Section: {selectedDueSection?.name || 'All'}</Text>
@@ -544,7 +576,7 @@ export default function AdminFinanceScreen() {
               <TouchableOpacity
                 disabled={!dueListOptions}
                 style={[styles.filterChip, dueVillageId && styles.filterChipActive]}
-                onPress={() => selectDueFilter('Filter by Village', dueListOptions?.villages || [], (id) => setDueVillageId(id))}
+                onPress={() => selectDueFilter('Filter by Village', dueListOptions?.villages || [], dueVillageId, setDueVillageId)}
               >
                 <Ionicons name="location-outline" size={13} color={dueVillageId ? theme.colors.primary : theme.colors.textSecondary} style={{ marginRight: 5 }} />
                 <Text style={[styles.filterChipText, dueVillageId && { color: theme.colors.primary }]}>Village: {selectedDueVillage?.label || 'All'}</Text>
@@ -857,6 +889,99 @@ export default function AdminFinanceScreen() {
             </View>
           </View>
         </View>
+      </Modal>
+
+      <Modal
+        visible={dueFilterPicker !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={closeDueFilterPicker}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.duePickerOverlay}
+        >
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={closeDueFilterPicker}
+            accessibilityLabel="Dismiss filter"
+          />
+          <View style={[styles.duePickerCard, clayCard(isDark, 'md')]}>
+            <LinearGradient
+              colors={isDark ? ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0)'] : ['rgba(255,255,255,0.55)', 'rgba(255,255,255,0)']}
+              start={{ x: 0.15, y: 0 }}
+              end={{ x: 0.75, y: 0.55 }}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
+            <View style={styles.duePickerHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.duePickerTitle}>{dueFilterPicker?.title || 'Select'}</Text>
+                <Text style={styles.duePickerSubtitle}>
+                  {dueFilterVisibleItems.length > 1
+                    ? `${dueFilterVisibleItems.length - 1} option${dueFilterVisibleItems.length - 1 === 1 ? '' : 's'}`
+                    : 'No matches'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={closeDueFilterPicker}
+                style={styles.duePickerClose}
+                accessibilityLabel="Close filter"
+              >
+                <Ionicons name="close" size={20} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <View style={[styles.duePickerSearch, clayInset(isDark, false)]}>
+              <Ionicons name="search" size={16} color={theme.colors.textSecondary} />
+              <AppTextInput
+                style={[ds.inputInChrome, styles.duePickerSearchInput]}
+                placeholder="Search…"
+                placeholderTextColor={theme.colors.textSecondary}
+                value={dueFilterQuery}
+                onChangeText={setDueFilterQuery}
+                autoCorrect={false}
+                autoCapitalize="none"
+                returnKeyType="search"
+              />
+              {dueFilterQuery.length > 0 ? (
+                <TouchableOpacity onPress={() => setDueFilterQuery('')} hitSlop={8}>
+                  <Ionicons name="close-circle" size={16} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            <ScrollView
+              style={[styles.duePickerList, { height: duePickerListHeight }]}
+              contentContainerStyle={styles.duePickerListContent}
+              keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled
+              showsVerticalScrollIndicator
+            >
+              {dueFilterVisibleItems.map((item) => {
+                const selected = (dueFilterPicker?.selectedId || '') === item.id;
+                return (
+                  <TouchableOpacity
+                    key={item.id || 'all'}
+                    style={[styles.duePickerRow, selected && styles.duePickerRowSelected]}
+                    onPress={() => {
+                      dueFilterPicker?.onSelect(item.id);
+                      closeDueFilterPicker();
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <Text
+                      style={[styles.duePickerRowText, selected && { color: theme.colors.primary, fontWeight: '800' }]}
+                      numberOfLines={2}
+                    >
+                      {item.label || item.name}
+                    </Text>
+                    {selected ? <Ionicons name="checkmark" size={18} color={theme.colors.primary} /> : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <PremiumDatePickerModal 
@@ -1422,5 +1547,95 @@ const getStyles = (theme: Theme, isWide: boolean) => StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '800',
-  }
+  },
+
+  duePickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  duePickerCard: {
+    width: '100%',
+    maxWidth: 440,
+    maxHeight: '86%',
+    borderRadius: 24,
+    overflow: 'hidden',
+    zIndex: 2,
+    paddingBottom: 10,
+  },
+  duePickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 12,
+  },
+  duePickerTitle: {
+    color: theme.colors.text,
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  duePickerSubtitle: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 3,
+  },
+  duePickerClose: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    backgroundColor: isWide ? theme.colors.card : theme.colors.background,
+  },
+  duePickerSearch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    height: 44,
+    borderRadius: 14,
+  },
+  duePickerSearchInput: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '500',
+    color: theme.colors.text,
+    paddingVertical: 0,
+    ...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : null),
+  },
+  duePickerList: {
+    flexGrow: 0,
+    ...(Platform.OS === 'web' ? { overflowY: 'auto' } as any : null),
+  },
+  duePickerListContent: {
+    paddingHorizontal: 10,
+    paddingBottom: 12,
+  },
+  duePickerRow: {
+    minHeight: DUE_PICKER_ROW_H,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 14,
+  },
+  duePickerRowSelected: {
+    backgroundColor: theme.colors.primary + '14',
+  },
+  duePickerRowText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
 });

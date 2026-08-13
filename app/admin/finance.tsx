@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, useWindowDimensions, Platform } from 'react-native';
+import { ActivityIndicator, Modal, View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, useWindowDimensions, Platform } from 'react-native';
 import { alertCompat } from '../../src/utils/crossPlatformAlert';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,7 +13,17 @@ import { FeeService, PendingFeeFilterOptions } from '../../src/services/feeServi
 import { useAuth } from '../../src/hooks/useAuth';
 import LogoLoader from '../../src/components/LogoLoader';
 import CollectionReportColumnSelector from '../../src/components/accounts/CollectionReportColumnSelector';
-import { printCollectionReport, exportCollectionCsv } from '../../src/utils/collectionReport';
+import CashDenominationCalculator from '../../src/components/accounts/CashDenominationCalculator';
+import {
+  CASH_DENOMINATIONS,
+  buildCashDenominationBreakdownFromPieces,
+  computeCollectionTotals,
+  exportCollectionCsv,
+  formatAmount,
+  printCollectionReport,
+  type CashDenominationPieces,
+  type CollectionReportMeta,
+} from '../../src/utils/collectionReport';
 import {
   useCollectionReportColumns,
   useCollectionReportDenominations,
@@ -38,6 +48,17 @@ const colorFor = (name: string) => {
   let h = 0;
   for (let i = 0; i < (name || '').length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
+};
+
+const emptyDenominationPieces = (): CashDenominationPieces => {
+  const pieces: CashDenominationPieces = {};
+  for (const denomination of CASH_DENOMINATIONS) pieces[denomination] = 0;
+  return pieces;
+};
+
+type PendingCollectionPrint = {
+  rows: any[];
+  meta: CollectionReportMeta;
 };
 
 type FinanceStats = {
@@ -83,6 +104,10 @@ export default function AdminFinanceScreen() {
   const [receiptFromDate, setReceiptFromDate] = useState(todayDateInput());
   const [receiptToDate, setReceiptToDate] = useState(todayDateInput());
   const [receiptExporting, setReceiptExporting] = useState(false);
+  const [pendingCollectionPrint, setPendingCollectionPrint] = useState<PendingCollectionPrint | null>(null);
+  const [denominationPieces, setDenominationPieces] = useState<CashDenominationPieces>(emptyDenominationPieces);
+  const [denominationEdited, setDenominationEdited] = useState(false);
+  const [printingCollection, setPrintingCollection] = useState(false);
   const {
     columns: reportColumns,
     hydrated: reportColumnsHydrated,
@@ -293,6 +318,65 @@ export default function AdminFinanceScreen() {
     return true;
   });
 
+  const pendingCashTotal = useMemo(() => {
+    if (!pendingCollectionPrint) return 0;
+    return computeCollectionTotals(pendingCollectionPrint.rows).byMode.cash?.total || 0;
+  }, [pendingCollectionPrint]);
+
+  const printCollectionPdf = async (
+    printJob: PendingCollectionPrint,
+    pieces?: CashDenominationPieces,
+  ) => {
+    if (printingCollection) return;
+    setPrintingCollection(true);
+    try {
+      await printCollectionReport(printJob.rows, printJob.meta, reportColumns, {
+        includeDenominations: pieces !== undefined,
+        denominationPieces: pieces,
+      });
+      setPendingCollectionPrint(null);
+    } catch {
+      alertCompat('Error', 'Failed to generate PDF.');
+    } finally {
+      setPrintingCollection(false);
+    }
+  };
+
+  const requestCollectionPrint = (printJob: PendingCollectionPrint) => {
+    if (!includeDenominations) {
+      void printCollectionPdf(printJob);
+      return;
+    }
+    // Never infer the physical cash drawer. Every admin print starts with a
+    // blank count and requires an explicit manual denomination review.
+    setDenominationPieces(emptyDenominationPieces());
+    setDenominationEdited(false);
+    setPendingCollectionPrint(printJob);
+  };
+
+  const confirmDenominationPrint = () => {
+    if (!pendingCollectionPrint || printingCollection) return;
+    const counted = buildCashDenominationBreakdownFromPieces(denominationPieces).allocatedTotal;
+    const difference = Number((counted - pendingCashTotal).toFixed(2));
+    const runPrint = () => {
+      void printCollectionPdf(pendingCollectionPrint, denominationPieces);
+    };
+
+    if (difference !== 0) {
+      alertCompat(
+        'Cash count does not match',
+        `Counted denominations are ${formatAmount(counted)} but cash collections are ${formatAmount(pendingCashTotal)} (${difference > 0 ? 'excess' : 'short'} ${formatAmount(Math.abs(difference))}). Print anyway?`,
+        [
+          { text: 'Edit counts', style: 'cancel' },
+          { text: 'Print anyway', onPress: runPrint },
+        ],
+      );
+      return;
+    }
+
+    runPrint();
+  };
+
   const collectionRate = useMemo(() => {
     const collected = Number(stats.collected_total) || 0;
     const pending = Number(stats.pending_dues) || 0;
@@ -436,7 +520,7 @@ export default function AdminFinanceScreen() {
               </View>
             </View>
             <Text style={styles.dueListDescription}>
-              Download school total fee, waiver/discount given, final fee, paid fee and due amount. Students with fee waivers are included even when their balance is zero. Village is taken from the student’s active transport stop.
+              Download father’s name, any linked mobile number, school-fee totals and transport pending fee when configured. Students with transport-only dues or fee waivers are also included. Village is taken from the student’s active transport stop.
             </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dueFilterChips}>
               <TouchableOpacity
@@ -662,10 +746,10 @@ export default function AdminFinanceScreen() {
       }
       {/* Floating Action Button */}
       <TouchableOpacity
-        disabled={!reportColumnsHydrated || !denominationsHydrated}
+        disabled={!reportColumnsHydrated || !denominationsHydrated || printingCollection}
         style={[
           styles.fab,
-          (!reportColumnsHydrated || !denominationsHydrated) && { opacity: 0.55 },
+          (!reportColumnsHydrated || !denominationsHydrated || printingCollection) && { opacity: 0.55 },
         ]}
         onPress={() => {
           if (!filteredTransactions || filteredTransactions.length === 0) {
@@ -681,12 +765,8 @@ export default function AdminFinanceScreen() {
           alertCompat('Export Collection', 'How would you like to export this collection?', [
             {
               text: 'Print PDF',
-              onPress: async () => {
-                try {
-                  await printCollectionReport(filteredTransactions, meta, reportColumns, { includeDenominations });
-                } catch (e) {
-                  alertCompat('Error', 'Failed to generate PDF.');
-                }
+              onPress: () => {
+                requestCollectionPrint({ rows: [...filteredTransactions], meta });
               }
             },
             {
@@ -704,6 +784,80 @@ export default function AdminFinanceScreen() {
         }}>
         <Ionicons name="download-outline" size={24} color="#fff" />
       </TouchableOpacity>
+
+      <Modal
+        visible={pendingCollectionPrint !== null && includeDenominations}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!printingCollection) setPendingCollectionPrint(null);
+        }}
+      >
+        <View style={styles.denominationModalOverlay}>
+          <View style={styles.denominationModalCard}>
+            <View style={styles.denominationModalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.denominationModalTitle}>Count cash before printing</Text>
+                <Text style={styles.denominationModalSubtitle}>
+                  Use − / + or type the physical number of each note or coin. Nothing is filled automatically.
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setPendingCollectionPrint(null)}
+                disabled={printingCollection}
+                style={styles.denominationModalClose}
+                accessibilityLabel="Close denomination entry"
+              >
+                <Ionicons name="close" size={20} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              style={styles.denominationModalScroll}
+              contentContainerStyle={styles.denominationModalScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator
+            >
+              <CashDenominationCalculator
+                cashTotal={pendingCashTotal}
+                pieces={denominationPieces}
+                onChange={(pieces) => {
+                  setDenominationPieces(pieces);
+                  setDenominationEdited(true);
+                }}
+                isDark={isDark}
+                accentColor={theme.colors.primary}
+                showSuggestion={false}
+              />
+            </ScrollView>
+            <View style={styles.denominationModalActions}>
+              <TouchableOpacity
+                onPress={() => setPendingCollectionPrint(null)}
+                disabled={printingCollection}
+                style={styles.denominationCancelButton}
+              >
+                <Text style={styles.denominationCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={confirmDenominationPrint}
+                disabled={printingCollection || (!denominationEdited && pendingCashTotal > 0)}
+                style={[
+                  styles.denominationPrintButton,
+                  (printingCollection || (!denominationEdited && pendingCashTotal > 0)) && styles.dueDownloadButtonDisabled,
+                ]}
+              >
+                {printingCollection ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Ionicons name="print-outline" size={18} color="#fff" />
+                )}
+                <Text style={styles.denominationPrintText}>
+                  {printingCollection ? 'Preparing…' : denominationEdited || pendingCashTotal === 0 ? 'Print PDF' : 'Enter cash counts'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <PremiumDatePickerModal 
         visible={showDatePicker} 
@@ -1178,5 +1332,95 @@ const getStyles = (theme: Theme, isWide: boolean) => StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6
+  },
+  denominationModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.72)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  denominationModalCard: {
+    width: '100%',
+    maxWidth: 720,
+    maxHeight: '92%',
+    backgroundColor: theme.colors.background,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    overflow: 'hidden',
+  },
+  denominationModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    padding: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  denominationModalTitle: {
+    color: theme.colors.text,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  denominationModalSubtitle: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 4,
+  },
+  denominationModalClose: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    backgroundColor: theme.colors.card,
+  },
+  denominationModalScroll: {
+    flexShrink: 1,
+  },
+  denominationModalScrollContent: {
+    padding: 16,
+    paddingBottom: 0,
+  },
+  denominationModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    backgroundColor: theme.colors.card,
+  },
+  denominationCancelButton: {
+    minHeight: 46,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  denominationCancelText: {
+    color: theme.colors.text,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  denominationPrintButton: {
+    minHeight: 46,
+    minWidth: 150,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    backgroundColor: theme.colors.primary,
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  denominationPrintText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '800',
   }
 });

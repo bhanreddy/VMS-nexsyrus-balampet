@@ -446,7 +446,7 @@ export function CustomAlertProvider({ children }: { children: React.ReactNode })
 }
 
 // ─── Styles ─────────────────────────────────────────────────────────────────────
-const { width: SCREEN_W } = Dimensions.get('window');
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const CARD_W = Math.min(SCREEN_W - 48, 420);
 
 const styles = StyleSheet.create({

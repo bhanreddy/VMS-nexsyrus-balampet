@@ -7,6 +7,7 @@ import {
   FlatList,
   Platform,
   StatusBar,
+  Switch,
 } from 'react-native';
 import KeyboardAwareScreen from '@/components/keyboard/KeyboardAwareScreen';
 import AppTextInput from '@/src/components/AppTextInput';
@@ -256,6 +257,7 @@ export default function FeeAdjustmentsScreen() {
   const [adjustmentType, setAdjustmentType] = useState<FeeAdjustmentType>('waive');
   const [adjustAmount, setAdjustAmount] = useState('');
   const [reason, setReason] = useState('');
+  const [sendNotification, setSendNotification] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const [history, setHistory] = useState<AdjustmentLog[]>([]);
@@ -376,9 +378,15 @@ export default function FeeAdjustmentsScreen() {
         amount: parsedAmount,
         reason: reason.trim(),
         adjustment_type: adjustmentType,
+        send_notification: sendNotification,
       });
 
-      alertCompat('Success', 'Adjustment applied successfully');
+      alertCompat(
+        'Success',
+        sendNotification
+          ? 'Adjustment applied. Student and parents will be notified.'
+          : 'Adjustment applied without sending a notification.'
+      );
 
       setAdjustAmount('');
       setReason('');
@@ -874,6 +882,37 @@ export default function FeeAdjustmentsScreen() {
                 style={styles.formInput}
                 multiline
               />
+
+              <View style={styles.notifyRow}>
+                <View
+                  style={[
+                    styles.notifyIconWrap,
+                    sendNotification ? styles.notifyIconWrapOn : styles.notifyIconWrapOff,
+                  ]}
+                >
+                  <Ionicons
+                    name={sendNotification ? 'notifications' : 'notifications-off-outline'}
+                    size={18}
+                    color={sendNotification ? '#4F46E5' : '#94A3B8'}
+                  />
+                </View>
+                <View style={styles.notifyBody}>
+                  <Text style={styles.notifyTitle}>Notify student & parents</Text>
+                  <Text style={styles.notifyDesc}>
+                    {sendNotification
+                      ? 'They will get a fee-adjusted alert after you apply this.'
+                      : 'No notification will be sent. The adjustment still posts as usual.'}
+                  </Text>
+                </View>
+                <Switch
+                  value={sendNotification}
+                  onValueChange={setSendNotification}
+                  trackColor={{ false: isDark ? '#374151' : '#E2E8F0', true: '#A5B4FC' }}
+                  thumbColor={sendNotification ? '#4F46E5' : isDark ? '#9CA3AF' : '#F8FAFC'}
+                  ios_backgroundColor={isDark ? '#374151' : '#E2E8F0'}
+                  accessibilityLabel="Send notification to student and parents"
+                />
+              </View>
 
               <PremiumButton
                 title={
@@ -1594,6 +1633,47 @@ const getStyles = (theme: Theme, isDark: boolean) =>
       minHeight: 72,
       textAlignVertical: 'top',
       fontWeight: '500',
+    },
+    notifyRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      padding: 14,
+      marginBottom: 12,
+      borderRadius: 14,
+      borderWidth: 1.5,
+      borderColor: isDark ? '#334155' : '#E2E8F0',
+      backgroundColor: isDark ? '#121824' : '#FFFFFF',
+    },
+    notifyIconWrap: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    notifyIconWrapOn: {
+      backgroundColor: isDark ? 'rgba(99,102,241,0.2)' : '#EEF2FF',
+    },
+    notifyIconWrapOff: {
+      backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
+    },
+    notifyBody: {
+      flex: 1,
+      paddingRight: 4,
+    },
+    notifyTitle: {
+      fontSize: 13,
+      fontWeight: '800',
+      color: isDark ? '#F1F5F9' : '#0F172A',
+      letterSpacing: -0.2,
+    },
+    notifyDesc: {
+      fontSize: 11,
+      lineHeight: 15,
+      color: '#64748B',
+      fontWeight: '500',
+      marginTop: 3,
     },
 
     /* Filters */

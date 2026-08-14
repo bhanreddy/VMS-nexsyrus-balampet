@@ -364,6 +364,7 @@ export default function StudentFeeLedger() {
   const [transportCollectDue, setTransportCollectDue] = useState<number | null>(null);
   const [transportAmount, setTransportAmount] = useState('');
   const [transportMode, setTransportMode] = useState<'cash' | 'upi' | 'cheque'>('cash');
+  const [transportRemarks, setTransportRemarks] = useState('');
   const [transportSubmitting, setTransportSubmitting] = useState(false);
 
   // ── Combined multi-fee-type collection ──
@@ -439,6 +440,7 @@ export default function StudentFeeLedger() {
       const due = fee.amount_due - fee.discount - fee.amount_paid;
       setTransportAmount(String(due));
       setTransportMode('cash');
+      setTransportRemarks('');
       setTransportCollectDue(due);
       return;
     }
@@ -478,6 +480,7 @@ export default function StudentFeeLedger() {
         amount,
         payment_method: transportMode,
         transaction_ref: generateUUID(),
+        remarks: transportRemarks.trim() || undefined,
       });
       setTransportCollectDue(null);
       alertCompat(
@@ -622,6 +625,7 @@ export default function StudentFeeLedger() {
           <Pressable style={transportModalStyles.overlay} onPress={() => setTransportCollectDue(null)}>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <Pressable style={transportModalStyles.sheet} onPress={(e) => e.stopPropagation()}>
+              <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
               <Text style={transportModalStyles.title}>Collect transport fee</Text>
               <Text style={transportModalStyles.subtitle}>
                 {studentName}
@@ -655,6 +659,14 @@ export default function StudentFeeLedger() {
                   </Pressable>
                 ))}
               </View>
+              <Text style={transportModalStyles.label}>Remarks</Text>
+              <AppTextInput
+                style={transportModalStyles.remarksInput}
+                multiline
+                value={transportRemarks}
+                onChangeText={setTransportRemarks}
+                placeholder="e.g. Partial for April, receipt note…"
+              />
               <Pressable
                 style={[transportModalStyles.collectBtn, transportSubmitting && { opacity: 0.7 }]}
                 onPress={handleTransportCollect}
@@ -664,6 +676,7 @@ export default function StudentFeeLedger() {
                   ? <ActivityIndicator color="#fff" />
                   : <Text style={transportModalStyles.collectBtnText}>Collect & generate receipt</Text>}
               </Pressable>
+              </ScrollView>
             </Pressable>
             </KeyboardAvoidingView>
           </Pressable>
@@ -738,6 +751,18 @@ const transportModalStyles = StyleSheet.create({
   modeChipActive: { backgroundColor: '#ECFDF5', borderColor: '#059669' },
   modeText: { fontSize: 12, fontWeight: '700', color: '#64748B' },
   modeTextActive: { color: '#059669' },
+  remarksInput: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    fontSize: 15,
+    backgroundColor: '#F8FAFC',
+    color: '#0F172A',
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
   collectBtn: {
     marginTop: 8,
     backgroundColor: '#059669',

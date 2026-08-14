@@ -25,7 +25,7 @@ export default function PaymentDeletionActions({ transaction, isDark, onChanged 
   const [busy, setBusy] = useState(false);
   const status = transaction.deletion_status;
 
-  if (status === 'DELETED' || transaction.can_delete === false || transaction.transaction_source === 'transport') {
+  if (status === 'DELETED' || transaction.can_delete === false) {
     return null;
   }
 

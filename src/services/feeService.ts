@@ -89,6 +89,7 @@ export interface AdjustFeeRequest {
     amount: number;
     reason: string;
     adjustment_type: 'waive' | 'add';
+    send_notification?: boolean;
 }
 
 export type FeeSummaryStatus = 'Paid' | 'Partial' | 'Pending';

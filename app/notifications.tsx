@@ -7,6 +7,10 @@ import NotificationCard, { type NotificationType } from '../src/components/Notif
 import { notificationInboxService, type InboxNotification } from '../src/services/notificationInboxService';
 import { resolveNotificationRoute } from '../src/hooks/useNotificationObserver';
 import { useTheme } from '../src/hooks/useTheme';
+import { useAuth } from '../src/hooks/useAuth';
+import AdminNotificationSwitcher, {
+  canUseAdminNotificationBroadcast,
+} from '../src/components/AdminNotificationSwitcher';
 
 const typeForEvent = (eventType: string | null): NotificationType => {
   switch (eventType) {
@@ -46,6 +50,8 @@ const typeForEvent = (eventType: string | null): NotificationType => {
 export default function NotificationsScreen() {
   const router = useRouter();
   const { theme, isDark } = useTheme();
+  const { role } = useAuth();
+  const canBroadcast = canUseAdminNotificationBroadcast(role);
   const [items, setItems] = useState<InboxNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -92,9 +98,16 @@ export default function NotificationsScreen() {
         </Pressable>
         <View style={styles.headerCopy}>
           <Text style={[styles.title, { color: theme.colors.textStrong }]}>Notifications</Text>
-          <Text style={[styles.subtitle, { color: theme.colors.textMuted }]}>Your recent school updates</Text>
+          <Text style={[styles.subtitle, { color: theme.colors.textMuted }]}>
+            {canBroadcast ? 'Inbox and parent broadcasts' : 'Your recent school updates'}
+          </Text>
         </View>
       </View>
+      {canBroadcast ? (
+        <View style={styles.switcherRow}>
+          <AdminNotificationSwitcher compact />
+        </View>
+      ) : null}
 
       {loading ? (
         <View style={styles.centerState}>
@@ -124,6 +137,20 @@ export default function NotificationsScreen() {
               </View>
               <Text style={[styles.emptyTitle, { color: theme.colors.textStrong }]}>{error ? 'Nothing loaded yet' : 'You’re all caught up'}</Text>
               <Text style={[styles.emptyBody, { color: theme.colors.textMuted }]}>{error || 'New school notifications will appear here.'}</Text>
+              {canBroadcast && !error ? (
+                <Pressable
+                  onPress={() => {
+                    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    router.push('/admin/notifications' as any);
+                  }}
+                  style={({ pressed }) => [styles.sendCta, { backgroundColor: theme.colors.primary }, pressed && styles.pressed]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open bulk notification sender"
+                >
+                  <Ionicons name="megaphone-outline" size={16} color="#FFFFFF" />
+                  <Text style={styles.sendCtaText}>Notify parents</Text>
+                </Pressable>
+              ) : null}
             </View>
           }
         />
@@ -139,6 +166,9 @@ const styles = StyleSheet.create({
   headerCopy: { flex: 1 },
   title: { fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
   subtitle: { marginTop: 3, fontSize: 13, fontWeight: '500' },
+  switcherRow: { paddingHorizontal: 18, paddingTop: 12, paddingBottom: 4 },
+  sendCta: { marginTop: 18, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 14 },
+  sendCtaText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
   list: { paddingVertical: 12, paddingBottom: 36 },
   emptyList: { flexGrow: 1 },
   centerState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },

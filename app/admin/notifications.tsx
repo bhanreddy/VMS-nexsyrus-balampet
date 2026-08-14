@@ -31,6 +31,7 @@ import Animated, {
 import * as Haptics from '@/src/utils/haptics';
 import { Ionicons } from '@expo/vector-icons';
 import AdminHeader from '../../src/components/AdminHeader';
+import AdminNotificationSwitcher from '../../src/components/AdminNotificationSwitcher';
 import { useTheme } from '../../src/hooks/useTheme';
 import { api } from '../../src/services/apiClient';
 import ResponsiveCard from '../../src/components/ResponsiveCard';
@@ -1089,7 +1090,7 @@ export default function NotificationsTriggerPage() {
 
   return (
     <View style={styles.container}>
-      <AdminHeader title="Notifications" showBackButton scrollY={scrollY} />
+      <AdminHeader title="Notifications" showBackButton showNotification={false} scrollY={scrollY} />
 
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
         <LinearGradient
@@ -1106,7 +1107,11 @@ export default function NotificationsTriggerPage() {
       >
         <ResponsiveCard maxWidth={contentWidth} fullWidth>
           <Animated.View style={heroAnimStyle}>
-            <Animated.View entering={FadeIn.delay(50)} style={styles.heroBadge}>
+            <Animated.View entering={FadeIn.delay(50)} style={styles.heroSwitcher}>
+              <AdminNotificationSwitcher />
+            </Animated.View>
+
+            <Animated.View entering={FadeIn.delay(70)} style={styles.heroBadge}>
               <View style={styles.livePulseDot} />
               <Text style={styles.heroBadgeText}>PARENT NOTIFICATIONS</Text>
             </Animated.View>
@@ -1273,6 +1278,9 @@ const getStyles = (
       paddingTop: scrollPaddingTop,
       width: '100%',
       alignSelf: 'stretch',
+    },
+    heroSwitcher: {
+      marginBottom: 18,
     },
     heroBadge: {
       flexDirection: 'row',

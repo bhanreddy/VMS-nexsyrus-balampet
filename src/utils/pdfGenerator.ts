@@ -1093,7 +1093,6 @@ export const generateReceiptPDF = async (transaction: FeeTransaction) => {
     const dueLabel = isFullyPaid ? 'Total Outstanding' : 'Outstanding Balance';
     const dueValue = isFullyPaid ? '₹0.00' : `₹${fmtINR(displayOutstanding)}`;
     const dueBadge = isFullyPaid ? 'Fully Paid' : 'Due Pending';
-    const remarksText = (transaction.remarks || '').trim();
 
     // Compact "all assigned fee dues" breakdown — fills the card with real data
     // instead of whitespace. Capped so an unusually long list can't overflow the
@@ -1189,7 +1188,6 @@ export const generateReceiptPDF = async (transaction: FeeTransaction) => {
           <div class="rc-totrow grand"><span>Amount Paid</span><span>₹${amountFmt}</span></div>
         </div>
         <div class="rc-words"><strong>In Words:</strong> ${words}</div>
-        ${remarksText ? `<div class="rc-words"><strong>Remarks:</strong> ${escapeHtml(remarksText)}</div>` : ''}
         ${duesSectionHtml}
         <div class="rc-due">
           <div class="rc-due-label">${dueLabel}</div>

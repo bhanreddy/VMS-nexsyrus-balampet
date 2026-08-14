@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, Modal, Pressable, Animated,
-  Dimensions, Platform, BackHandler,
+  Dimensions, Platform, BackHandler, ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import BrokenErrorDoodle from './doodles/BrokenErrorDoodle';
@@ -268,14 +268,23 @@ function StandardAlertContent({
           {message ? <Text style={styles.message}>{message}</Text> : null}
         </View>
 
-        <AlertButtons
-          buttons={resolvedButtons}
-          onPressButton={(btn) => {
-            btn.onPress?.();
-            handleDismiss();
-          }}
-          primaryColor={icon.ring}
-        />
+        <ScrollView
+          style={resolvedButtons.length > 2 ? styles.buttonScroll : undefined}
+          contentContainerStyle={resolvedButtons.length > 2 ? styles.buttonScrollContent : undefined}
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="handled"
+          bounces={false}
+          showsVerticalScrollIndicator={resolvedButtons.length > 2}
+        >
+          <AlertButtons
+            buttons={resolvedButtons}
+            onPressButton={(btn) => {
+              btn.onPress?.();
+              handleDismiss();
+            }}
+            primaryColor={icon.ring}
+          />
+        </ScrollView>
       </Animated.View>
     </Animated.View>
   );
@@ -471,6 +480,7 @@ const styles = StyleSheet.create({
   // ambient lift. Depth comes from the sheen gradient + edge, not shadow spam.
   card: {
     width: CARD_W,
+    maxHeight: SCREEN_H * 0.82,
     backgroundColor: '#F5F7FC',
     borderRadius: 28,
     overflow: 'hidden',
@@ -576,6 +586,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 21,
     fontWeight: '500',
+  },
+  buttonScroll: {
+    maxHeight: SCREEN_H * 0.5,
+    flexGrow: 0,
+    ...(Platform.OS === 'web' ? { overflowY: 'auto' } as any : null),
+  },
+  buttonScrollContent: {
+    flexGrow: 0,
+    paddingBottom: 4,
   },
   buttonRow: {
     flexDirection: 'row',

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, useWindowDimensions, Platform } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { ActivityIndicator, Modal, View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, useWindowDimensions, Platform, KeyboardAvoidingView } from 'react-native';
 import { alertCompat } from '../../src/utils/crossPlatformAlert';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,13 +13,26 @@ import { FeeService, PendingFeeFilterOptions } from '../../src/services/feeServi
 import { useAuth } from '../../src/hooks/useAuth';
 import LogoLoader from '../../src/components/LogoLoader';
 import CollectionReportColumnSelector from '../../src/components/accounts/CollectionReportColumnSelector';
-import { printCollectionReport, exportCollectionCsv } from '../../src/utils/collectionReport';
+import CashDenominationCalculator from '../../src/components/accounts/CashDenominationCalculator';
+import {
+  CASH_DENOMINATIONS,
+  buildCashDenominationBreakdownFromPieces,
+  computeCollectionTotals,
+  exportCollectionCsv,
+  formatAmount,
+  printCollectionReport,
+  type CashDenominationPieces,
+  type CollectionReportMeta,
+} from '../../src/utils/collectionReport';
 import {
   useCollectionReportColumns,
   useCollectionReportDenominations,
 } from '../../src/hooks/useCollectionReportColumns';
 import PremiumDatePickerModal from '../../src/components/PremiumDatePickerModal';
 import AppDatePicker from '../../src/components/AppDatePicker';
+import AppTextInput from '../../src/components/AppTextInput';
+import { styles as ds } from '../../src/theme/styles';
+import { clayCard, clayInset } from '../../src/theme/clayStyles';
 import {
   daysAgoInput,
   formatDateShort,
@@ -40,6 +53,28 @@ const colorFor = (name: string) => {
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
 };
 
+const emptyDenominationPieces = (): CashDenominationPieces => {
+  const pieces: CashDenominationPieces = {};
+  for (const denomination of CASH_DENOMINATIONS) pieces[denomination] = 0;
+  return pieces;
+};
+
+type PendingCollectionPrint = {
+  rows: any[];
+  meta: CollectionReportMeta;
+};
+
+type DueFilterItem = { id: string; name: string; label?: string };
+
+type DueFilterPickerState = {
+  title: string;
+  items: DueFilterItem[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+};
+
+const DUE_PICKER_ROW_H = 52;
+
 type FinanceStats = {
   today_collection: number;
   monthly_collection: number;
@@ -52,7 +87,7 @@ type FinanceStats = {
 export default function AdminFinanceScreen() {
   const { theme, isDark } = useTheme();
   const { authChecked, user } = useAuth();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const isWide = Platform.OS === 'web' && width >= 768;
   const styles = useMemo(() => getStyles(theme, isWide), [theme, isWide]);
   const { t } = useTranslation();
@@ -80,9 +115,15 @@ export default function AdminFinanceScreen() {
   const [dueVillageId, setDueVillageId] = useState<string>('');
   const [dueOverdueOnly, setDueOverdueOnly] = useState(false);
   const [dueExporting, setDueExporting] = useState(false);
+  const [dueFilterPicker, setDueFilterPicker] = useState<DueFilterPickerState | null>(null);
+  const [dueFilterQuery, setDueFilterQuery] = useState('');
   const [receiptFromDate, setReceiptFromDate] = useState(todayDateInput());
   const [receiptToDate, setReceiptToDate] = useState(todayDateInput());
   const [receiptExporting, setReceiptExporting] = useState(false);
+  const [pendingCollectionPrint, setPendingCollectionPrint] = useState<PendingCollectionPrint | null>(null);
+  const [denominationPieces, setDenominationPieces] = useState<CashDenominationPieces>(emptyDenominationPieces);
+  const [denominationEdited, setDenominationEdited] = useState(false);
+  const [printingCollection, setPrintingCollection] = useState(false);
   const {
     columns: reportColumns,
     hydrated: reportColumnsHydrated,
@@ -199,18 +240,34 @@ export default function AdminFinanceScreen() {
 
   const selectDueFilter = (
     title: string,
-    items: { id: string; name: string; label?: string }[],
+    items: DueFilterItem[],
+    selectedId: string,
     onSelect: (id: string) => void,
   ) => {
-    alertCompat(title, 'Select a filter', [
-      { text: 'All', onPress: () => onSelect('') },
-      ...items.map((item) => ({
-        text: item.label || item.name,
-        onPress: () => onSelect(item.id),
-      })),
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+    setDueFilterQuery('');
+    setDueFilterPicker({ title, items, selectedId, onSelect });
   };
+
+  const closeDueFilterPicker = useCallback(() => {
+    setDueFilterPicker(null);
+    setDueFilterQuery('');
+  }, []);
+
+  const dueFilterVisibleItems = useMemo(() => {
+    if (!dueFilterPicker) return [];
+    const query = dueFilterQuery.trim().toLowerCase();
+    const matched = query
+      ? dueFilterPicker.items.filter((item) =>
+          (item.label || item.name).toLowerCase().includes(query),
+        )
+      : dueFilterPicker.items;
+    return [{ id: '', name: 'All', label: 'All' }, ...matched];
+  }, [dueFilterPicker, dueFilterQuery]);
+
+  const duePickerListHeight = Math.min(
+    Math.max(dueFilterVisibleItems.length, 1) * DUE_PICKER_ROW_H,
+    Math.round(Math.max(height, 480) * 0.48),
+  );
 
   const selectedDueClass = dueListOptions?.classes.find((item) => item.id === dueClassId);
   const selectedDueSection = dueListOptions?.sections.find((item) => item.id === dueSectionId);
@@ -292,6 +349,65 @@ export default function AdminFinanceScreen() {
     }
     return true;
   });
+
+  const pendingCashTotal = useMemo(() => {
+    if (!pendingCollectionPrint) return 0;
+    return computeCollectionTotals(pendingCollectionPrint.rows).byMode.cash?.total || 0;
+  }, [pendingCollectionPrint]);
+
+  const printCollectionPdf = async (
+    printJob: PendingCollectionPrint,
+    pieces?: CashDenominationPieces,
+  ) => {
+    if (printingCollection) return;
+    setPrintingCollection(true);
+    try {
+      await printCollectionReport(printJob.rows, printJob.meta, reportColumns, {
+        includeDenominations: pieces !== undefined,
+        denominationPieces: pieces,
+      });
+      setPendingCollectionPrint(null);
+    } catch {
+      alertCompat('Error', 'Failed to generate PDF.');
+    } finally {
+      setPrintingCollection(false);
+    }
+  };
+
+  const requestCollectionPrint = (printJob: PendingCollectionPrint) => {
+    if (!includeDenominations) {
+      void printCollectionPdf(printJob);
+      return;
+    }
+    // Never infer the physical cash drawer. Every admin print starts with a
+    // blank count and requires an explicit manual denomination review.
+    setDenominationPieces(emptyDenominationPieces());
+    setDenominationEdited(false);
+    setPendingCollectionPrint(printJob);
+  };
+
+  const confirmDenominationPrint = () => {
+    if (!pendingCollectionPrint || printingCollection) return;
+    const counted = buildCashDenominationBreakdownFromPieces(denominationPieces).allocatedTotal;
+    const difference = Number((counted - pendingCashTotal).toFixed(2));
+    const runPrint = () => {
+      void printCollectionPdf(pendingCollectionPrint, denominationPieces);
+    };
+
+    if (difference !== 0) {
+      alertCompat(
+        'Cash count does not match',
+        `Counted denominations are ${formatAmount(counted)} but cash collections are ${formatAmount(pendingCashTotal)} (${difference > 0 ? 'excess' : 'short'} ${formatAmount(Math.abs(difference))}). Print anyway?`,
+        [
+          { text: 'Edit counts', style: 'cancel' },
+          { text: 'Print anyway', onPress: runPrint },
+        ],
+      );
+      return;
+    }
+
+    runPrint();
+  };
 
   const collectionRate = useMemo(() => {
     const collected = Number(stats.collected_total) || 0;
@@ -436,13 +552,13 @@ export default function AdminFinanceScreen() {
               </View>
             </View>
             <Text style={styles.dueListDescription}>
-              Download each student’s father/guardian name, available contact number, school total fee, waiver/discount given, final fee, paid fee and due amount. Students with fee waivers are included even when their balance is zero. Village is taken from the student’s active transport stop.
+              Download father’s name, any linked mobile number, school-fee totals and transport pending fee when configured. Students with transport-only dues or fee waivers are also included. Village is taken from the student’s active transport stop.
             </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dueFilterChips}>
               <TouchableOpacity
                 disabled={!dueListOptions}
                 style={[styles.filterChip, dueClassId && styles.filterChipActive]}
-                onPress={() => selectDueFilter('Filter by Class', dueListOptions?.classes || [], (id) => setDueClassId(id))}
+                onPress={() => selectDueFilter('Filter by Class', dueListOptions?.classes || [], dueClassId, setDueClassId)}
               >
                 <Ionicons name="school-outline" size={13} color={dueClassId ? theme.colors.primary : theme.colors.textSecondary} style={{ marginRight: 5 }} />
                 <Text style={[styles.filterChipText, dueClassId && { color: theme.colors.primary }]}>Class: {selectedDueClass?.name || 'All'}</Text>
@@ -451,7 +567,7 @@ export default function AdminFinanceScreen() {
               <TouchableOpacity
                 disabled={!dueListOptions}
                 style={[styles.filterChip, dueSectionId && styles.filterChipActive]}
-                onPress={() => selectDueFilter('Filter by Section', dueListOptions?.sections || [], (id) => setDueSectionId(id))}
+                onPress={() => selectDueFilter('Filter by Section', dueListOptions?.sections || [], dueSectionId, setDueSectionId)}
               >
                 <Ionicons name="layers-outline" size={13} color={dueSectionId ? theme.colors.primary : theme.colors.textSecondary} style={{ marginRight: 5 }} />
                 <Text style={[styles.filterChipText, dueSectionId && { color: theme.colors.primary }]}>Section: {selectedDueSection?.name || 'All'}</Text>
@@ -460,7 +576,7 @@ export default function AdminFinanceScreen() {
               <TouchableOpacity
                 disabled={!dueListOptions}
                 style={[styles.filterChip, dueVillageId && styles.filterChipActive]}
-                onPress={() => selectDueFilter('Filter by Village', dueListOptions?.villages || [], (id) => setDueVillageId(id))}
+                onPress={() => selectDueFilter('Filter by Village', dueListOptions?.villages || [], dueVillageId, setDueVillageId)}
               >
                 <Ionicons name="location-outline" size={13} color={dueVillageId ? theme.colors.primary : theme.colors.textSecondary} style={{ marginRight: 5 }} />
                 <Text style={[styles.filterChipText, dueVillageId && { color: theme.colors.primary }]}>Village: {selectedDueVillage?.label || 'All'}</Text>
@@ -662,10 +778,10 @@ export default function AdminFinanceScreen() {
       }
       {/* Floating Action Button */}
       <TouchableOpacity
-        disabled={!reportColumnsHydrated || !denominationsHydrated}
+        disabled={!reportColumnsHydrated || !denominationsHydrated || printingCollection}
         style={[
           styles.fab,
-          (!reportColumnsHydrated || !denominationsHydrated) && { opacity: 0.55 },
+          (!reportColumnsHydrated || !denominationsHydrated || printingCollection) && { opacity: 0.55 },
         ]}
         onPress={() => {
           if (!filteredTransactions || filteredTransactions.length === 0) {
@@ -681,12 +797,8 @@ export default function AdminFinanceScreen() {
           alertCompat('Export Collection', 'How would you like to export this collection?', [
             {
               text: 'Print PDF',
-              onPress: async () => {
-                try {
-                  await printCollectionReport(filteredTransactions, meta, reportColumns, { includeDenominations });
-                } catch (e) {
-                  alertCompat('Error', 'Failed to generate PDF.');
-                }
+              onPress: () => {
+                requestCollectionPrint({ rows: [...filteredTransactions], meta });
               }
             },
             {
@@ -704,6 +816,173 @@ export default function AdminFinanceScreen() {
         }}>
         <Ionicons name="download-outline" size={24} color="#fff" />
       </TouchableOpacity>
+
+      <Modal
+        visible={pendingCollectionPrint !== null && includeDenominations}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!printingCollection) setPendingCollectionPrint(null);
+        }}
+      >
+        <View style={styles.denominationModalOverlay}>
+          <View style={styles.denominationModalCard}>
+            <View style={styles.denominationModalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.denominationModalTitle}>Count cash before printing</Text>
+                <Text style={styles.denominationModalSubtitle}>
+                  Use − / + or type the physical number of each note or coin. Nothing is filled automatically.
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setPendingCollectionPrint(null)}
+                disabled={printingCollection}
+                style={styles.denominationModalClose}
+                accessibilityLabel="Close denomination entry"
+              >
+                <Ionicons name="close" size={20} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              style={styles.denominationModalScroll}
+              contentContainerStyle={styles.denominationModalScrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator
+            >
+              <CashDenominationCalculator
+                cashTotal={pendingCashTotal}
+                pieces={denominationPieces}
+                onChange={(pieces) => {
+                  setDenominationPieces(pieces);
+                  setDenominationEdited(true);
+                }}
+                isDark={isDark}
+                accentColor={theme.colors.primary}
+                showSuggestion={false}
+              />
+            </ScrollView>
+            <View style={styles.denominationModalActions}>
+              <TouchableOpacity
+                onPress={() => setPendingCollectionPrint(null)}
+                disabled={printingCollection}
+                style={styles.denominationCancelButton}
+              >
+                <Text style={styles.denominationCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={confirmDenominationPrint}
+                disabled={printingCollection || (!denominationEdited && pendingCashTotal > 0)}
+                style={[
+                  styles.denominationPrintButton,
+                  (printingCollection || (!denominationEdited && pendingCashTotal > 0)) && styles.dueDownloadButtonDisabled,
+                ]}
+              >
+                {printingCollection ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Ionicons name="print-outline" size={18} color="#fff" />
+                )}
+                <Text style={styles.denominationPrintText}>
+                  {printingCollection ? 'Preparing…' : denominationEdited || pendingCashTotal === 0 ? 'Print PDF' : 'Enter cash counts'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={dueFilterPicker !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={closeDueFilterPicker}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.duePickerOverlay}
+        >
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={closeDueFilterPicker}
+            accessibilityLabel="Dismiss filter"
+          />
+          <View style={[styles.duePickerCard, clayCard(isDark, 'md')]}>
+            <LinearGradient
+              colors={isDark ? ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0)'] : ['rgba(255,255,255,0.55)', 'rgba(255,255,255,0)']}
+              start={{ x: 0.15, y: 0 }}
+              end={{ x: 0.75, y: 0.55 }}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
+            <View style={styles.duePickerHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.duePickerTitle}>{dueFilterPicker?.title || 'Select'}</Text>
+                <Text style={styles.duePickerSubtitle}>
+                  {dueFilterVisibleItems.length > 1
+                    ? `${dueFilterVisibleItems.length - 1} option${dueFilterVisibleItems.length - 1 === 1 ? '' : 's'}`
+                    : 'No matches'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={closeDueFilterPicker}
+                style={styles.duePickerClose}
+                accessibilityLabel="Close filter"
+              >
+                <Ionicons name="close" size={20} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <View style={[styles.duePickerSearch, clayInset(isDark, false)]}>
+              <Ionicons name="search" size={16} color={theme.colors.textSecondary} />
+              <AppTextInput
+                style={[ds.inputInChrome, styles.duePickerSearchInput]}
+                placeholder="Search…"
+                placeholderTextColor={theme.colors.textSecondary}
+                value={dueFilterQuery}
+                onChangeText={setDueFilterQuery}
+                autoCorrect={false}
+                autoCapitalize="none"
+                returnKeyType="search"
+              />
+              {dueFilterQuery.length > 0 ? (
+                <TouchableOpacity onPress={() => setDueFilterQuery('')} hitSlop={8}>
+                  <Ionicons name="close-circle" size={16} color={theme.colors.textSecondary} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            <ScrollView
+              style={[styles.duePickerList, { height: duePickerListHeight }]}
+              contentContainerStyle={styles.duePickerListContent}
+              keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled
+              showsVerticalScrollIndicator
+            >
+              {dueFilterVisibleItems.map((item) => {
+                const selected = (dueFilterPicker?.selectedId || '') === item.id;
+                return (
+                  <TouchableOpacity
+                    key={item.id || 'all'}
+                    style={[styles.duePickerRow, selected && styles.duePickerRowSelected]}
+                    onPress={() => {
+                      dueFilterPicker?.onSelect(item.id);
+                      closeDueFilterPicker();
+                    }}
+                    activeOpacity={0.85}
+                  >
+                    <Text
+                      style={[styles.duePickerRowText, selected && { color: theme.colors.primary, fontWeight: '800' }]}
+                      numberOfLines={2}
+                    >
+                      {item.label || item.name}
+                    </Text>
+                    {selected ? <Ionicons name="checkmark" size={18} color={theme.colors.primary} /> : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       <PremiumDatePickerModal 
         visible={showDatePicker} 
@@ -1178,5 +1457,185 @@ const getStyles = (theme: Theme, isWide: boolean) => StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6
-  }
+  },
+  denominationModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.72)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  denominationModalCard: {
+    width: '100%',
+    maxWidth: 720,
+    maxHeight: '92%',
+    backgroundColor: theme.colors.background,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    overflow: 'hidden',
+  },
+  denominationModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    padding: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  denominationModalTitle: {
+    color: theme.colors.text,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  denominationModalSubtitle: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 4,
+  },
+  denominationModalClose: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    backgroundColor: theme.colors.card,
+  },
+  denominationModalScroll: {
+    flexShrink: 1,
+  },
+  denominationModalScrollContent: {
+    padding: 16,
+    paddingBottom: 0,
+  },
+  denominationModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    backgroundColor: theme.colors.card,
+  },
+  denominationCancelButton: {
+    minHeight: 46,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  denominationCancelText: {
+    color: theme.colors.text,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  denominationPrintButton: {
+    minHeight: 46,
+    minWidth: 150,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    backgroundColor: theme.colors.primary,
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  denominationPrintText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+
+  duePickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  duePickerCard: {
+    width: '100%',
+    maxWidth: 440,
+    maxHeight: '86%',
+    borderRadius: 24,
+    overflow: 'hidden',
+    zIndex: 2,
+    paddingBottom: 10,
+  },
+  duePickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 12,
+  },
+  duePickerTitle: {
+    color: theme.colors.text,
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  duePickerSubtitle: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 3,
+  },
+  duePickerClose: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    backgroundColor: isWide ? theme.colors.card : theme.colors.background,
+  },
+  duePickerSearch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    height: 44,
+    borderRadius: 14,
+  },
+  duePickerSearchInput: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '500',
+    color: theme.colors.text,
+    paddingVertical: 0,
+    ...(Platform.OS === 'web' ? { outlineStyle: 'none' } as any : null),
+  },
+  duePickerList: {
+    flexGrow: 0,
+    ...(Platform.OS === 'web' ? { overflowY: 'auto' } as any : null),
+  },
+  duePickerListContent: {
+    paddingHorizontal: 10,
+    paddingBottom: 12,
+  },
+  duePickerRow: {
+    minHeight: DUE_PICKER_ROW_H,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 14,
+  },
+  duePickerRowSelected: {
+    backgroundColor: theme.colors.primary + '14',
+  },
+  duePickerRowText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: theme.colors.text,
+  },
 });

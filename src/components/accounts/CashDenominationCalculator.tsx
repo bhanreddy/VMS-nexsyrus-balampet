@@ -24,6 +24,7 @@ interface CashDenominationCalculatorProps {
   onChange: (pieces: CashDenominationPieces) => void;
   isDark: boolean;
   accentColor?: string;
+  showSuggestion?: boolean;
 }
 
 function differenceLabel(difference: number): { text: string; tone: 'match' | 'short' | 'excess' } {
@@ -38,6 +39,7 @@ export default function CashDenominationCalculator({
   onChange,
   isDark,
   accentColor = '#0D9488',
+  showSuggestion = true,
 }: CashDenominationCalculatorProps) {
   const breakdown = useMemo(
     () => buildCashDenominationBreakdownFromPieces(pieces),
@@ -94,22 +96,24 @@ export default function CashDenominationCalculator({
           </Text>
         </View>
         <View style={styles.headingActions}>
-          <Pressable
-            onPress={applySuggestion}
-            accessibilityRole="button"
-            accessibilityLabel="Suggest minimum denomination pieces"
-            style={({ pressed }) => [
-              styles.chipButton,
-              {
-                backgroundColor: isDark ? `${accentColor}24` : `${accentColor}12`,
-                borderColor: accentColor,
-                opacity: pressed ? 0.75 : 1,
-              },
-            ]}
-          >
-            <Ionicons name="sparkles-outline" size={14} color={accentColor} />
-            <Text style={[styles.chipButtonText, { color: accentColor }]}>Suggest</Text>
-          </Pressable>
+          {showSuggestion ? (
+            <Pressable
+              onPress={applySuggestion}
+              accessibilityRole="button"
+              accessibilityLabel="Suggest minimum denomination pieces"
+              style={({ pressed }) => [
+                styles.chipButton,
+                {
+                  backgroundColor: isDark ? `${accentColor}24` : `${accentColor}12`,
+                  borderColor: accentColor,
+                  opacity: pressed ? 0.75 : 1,
+                },
+              ]}
+            >
+              <Ionicons name="sparkles-outline" size={14} color={accentColor} />
+              <Text style={[styles.chipButtonText, { color: accentColor }]}>Suggest</Text>
+            </Pressable>
+          ) : null}
           <Pressable
             onPress={clearAll}
             accessibilityRole="button"

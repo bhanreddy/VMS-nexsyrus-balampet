@@ -124,7 +124,7 @@ export default function CollectionReportColumnSelector({
           <View style={styles.denominationCopy}>
             <Text style={[styles.denominationTitle, { color: textColor }]}>Cash denomination summary</Text>
             <Text style={[styles.denominationDescription, { color: secondaryColor }]}>
-              Shows a calculator before print and prints the cash drawer breakup with match totals in the PDF.
+              Asks for manual note and coin counts before print, then includes the cash breakup and match totals in the PDF.
             </Text>
           </View>
           {!denominationsHydrated ? <ActivityIndicator size="small" color={accentColor} /> : (

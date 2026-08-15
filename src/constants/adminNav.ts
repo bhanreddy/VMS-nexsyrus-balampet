@@ -46,7 +46,6 @@ export function buildAdminNavActions(t: TFunction): AdminNavAction[] {
     { title: t('admin_dashboard_v2.smart_insights', 'Insights'), icon: 'bulb-outline', route: '/admin/smart-insights', tier: 'ACADEMIC', gradient: ['#4C1D95', '#2563EB'], category: 'AI' },
     { title: t('admin_dashboard_v2.notices', 'Notices'), icon: 'megaphone-outline', route: '/admin/notices', tier: 'OPS', gradient: ['#7C2D12', '#F97316'], category: 'Comms' },
     { title: t('messages.title', 'Messages'), icon: 'chatbubbles-outline', route: '/admin/messages', tier: 'OPS', gradient: ['#4F46E5', '#6366F1'], category: 'Comms' },
-    { title: t('admin_dashboard_v2.notify_parents', 'Notify Parents'), icon: 'notifications-outline', route: '/admin/notifications', tier: 'OPS', gradient: ['#6D28D9', '#A855F7'], category: 'Comms' },
     { title: t('admin_dashboard_v2.complaints', 'Complaints'), icon: 'chatbubble-ellipses-outline', route: '/admin/complaints', tier: 'OPS', gradient: ['#991B1B', '#F59E0B'], category: 'Support' },
     { title: t('admin_dashboard_v2.transport', 'Transport'), icon: 'bus-outline', route: '/admin/transport', tier: 'OPS', gradient: ['#92400E', '#EAB308'], category: 'Ops' },
     { title: t('admin_dashboard_v2.leaves', 'Leaves'), icon: 'document-text-outline', route: '/admin/leaves', tier: 'OPS', gradient: ['#9A3412', '#FB923C'], category: 'HR' },

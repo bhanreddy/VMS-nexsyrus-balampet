@@ -1,7 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { usePathname, useRouter } from 'expo-router';
 import * as Haptics from '../utils/haptics';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
@@ -10,33 +9,35 @@ export function canUseAdminNotificationBroadcast(role: string | null | undefined
   return role === 'admin' || role === 'principal';
 }
 
+export type NotificationWorkspaceTab = 'inbox' | 'send';
+
 type Props = {
-  /** Compact row for the inbox header; default is the bulk-sender hero. */
+  /** Compact row for tight headers; default is the bulk-sender hero. */
   compact?: boolean;
+  value: NotificationWorkspaceTab;
+  onChange: (tab: NotificationWorkspaceTab) => void;
 };
 
 /**
  * Lets admins switch between their personal inbox and the bulk parent-sender
- * without losing either page. Hidden for every other role.
+ * on the same notifications page.
  */
-export default function AdminNotificationSwitcher({ compact = false }: Props) {
+export default function AdminNotificationSwitcher({ compact = false, value, onChange }: Props) {
   const { role } = useAuth();
   const { theme, isDark } = useTheme();
-  const router = useRouter();
-  const pathname = usePathname();
 
   if (!canUseAdminNotificationBroadcast(role)) return null;
 
-  const sendActive = (pathname || '').includes('/admin/notifications');
+  const sendActive = value === 'send';
   const accent = theme.colors.primary;
   const trackBg = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.06)';
   const trackBorder = isDark ? 'rgba(255,255,255,0.10)' : 'rgba(15,23,42,0.08)';
   const inactiveColor = theme.colors.textMuted;
 
-  const go = (route: '/notifications' | '/admin/notifications') => {
-    if ((route === '/admin/notifications') === sendActive) return;
+  const go = (tab: NotificationWorkspaceTab) => {
+    if (tab === value) return;
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push(route as any);
+    onChange(tab);
   };
 
   return (
@@ -52,7 +53,7 @@ export default function AdminNotificationSwitcher({ compact = false }: Props) {
         accessibilityRole="tab"
         accessibilityState={{ selected: !sendActive }}
         accessibilityLabel="Notification inbox"
-        onPress={() => go('/notifications')}
+        onPress={() => go('inbox')}
         style={({ pressed }) => [
           styles.tab,
           compact && styles.tabCompact,
@@ -73,7 +74,7 @@ export default function AdminNotificationSwitcher({ compact = false }: Props) {
         accessibilityRole="tab"
         accessibilityState={{ selected: sendActive }}
         accessibilityLabel="Send bulk notifications"
-        onPress={() => go('/admin/notifications')}
+        onPress={() => go('send')}
         style={({ pressed }) => [
           styles.tab,
           compact && styles.tabCompact,
@@ -102,6 +103,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 4,
     gap: 4,
+    zIndex: 2,
+    ...Platform.select({ web: { cursor: 'pointer' } as any }),
   },
   trackCompact: {
     borderRadius: 14,
@@ -114,6 +117,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 12,
+    ...Platform.select({ web: { cursor: 'pointer' } as any }),
   },
   tabCompact: {
     paddingHorizontal: 12,

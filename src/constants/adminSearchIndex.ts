@@ -102,13 +102,13 @@ const EXTRA_PAGES: Omit<AdminSearchEntry, 'kind'>[] = [
     keywords: ['preferences', 'profile', 'account'],
   },
   {
-    id: 'page-notification-inbox',
-    title: 'Notification Inbox',
-    subtitle: 'View recent alerts for this account',
-    route: '/notifications',
+    id: 'page-notifications',
+    title: 'Notifications',
+    subtitle: 'View recent alerts',
+    route: '/admin/notifications',
     icon: 'notifications-outline',
     category: 'Admin',
-    keywords: ['alerts', 'inbox', 'bell', 'caught up'],
+    keywords: ['alerts', 'inbox', 'bell'],
   },
   {
     id: 'page-policy',
@@ -168,20 +168,11 @@ export function buildAdminSearchIndex(t: TFunction): AdminSearchEntry[] {
   const fromNav: AdminSearchEntry[] = buildAdminNavActions(t).map((item) => ({
     id: `nav-${item.route}`,
     title: item.title,
-    subtitle: item.route === '/admin/notifications'
-      ? 'Send bulk push notifications to parents'
-      : item.category,
+    subtitle: item.category,
     route: item.route,
     icon: item.icon,
     category: item.category,
-    keywords: [
-      item.category,
-      item.tier,
-      item.title,
-      ...(item.route === '/admin/notifications'
-        ? ['bulk', 'broadcast', 'push', 'sender', 'bell', 'notify']
-        : []),
-    ],
+    keywords: [item.category, item.tier, item.title],
     kind: 'page' as const,
     permission: item.permission,
   }));

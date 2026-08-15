@@ -397,7 +397,7 @@ export default function AdminAttendanceScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [staffList, setStaffList] = useState<any[]>([]);
-  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const originalStaffRef = React.useRef<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -433,7 +433,9 @@ export default function AdminAttendanceScreen() {
     try {
       setLoading(true);
       const data = await api.get<any[]>('/attendance/staff', { date: selectedDate });
-      setStaffList(data || []);
+      const list = data || [];
+      setStaffList(list);
+      originalStaffRef.current = list.map((s) => ({ ...s }));
     } catch { }
     finally {
       setLoading(false);
@@ -451,32 +453,16 @@ export default function AdminAttendanceScreen() {
     );
   };
 
-  const handleMarkAll = (status: string) => {
-    const count = filteredStaff.length;
-    const scope = (deptFilter || statusFilter || searchQuery.trim())
-      ? `the ${count} filtered staff`
-      : 'all staff';
-    alertCompat(
-      'Confirm Bulk Update',
-      `Mark ${scope} as ${STATUS_META[status]?.label}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          style: 'default',
-          onPress: () => {
-            setIsBulkUpdating(true);
-            setTimeout(() => {
-              const ids = new Set(filteredStaff.map((s) => s.staff_id));
-              setStaffList((prev) =>
-                prev.map((s) => (ids.has(s.staff_id) ? { ...s, status } : s))
-              );
-              setIsBulkUpdating(false);
-            }, 50);
-          },
-        },
-      ]
+  const handleMarkAll = () => {
+    const ids = new Set(filteredStaff.map((s) => s.staff_id));
+    if (ids.size === 0) return;
+    setStaffList((prev) =>
+      prev.map((s) => (ids.has(s.staff_id) ? { ...s, status: 'present' } : s))
     );
+  };
+
+  const handleReset = () => {
+    setStaffList(originalStaffRef.current.map((s) => ({ ...s })));
   };
 
   const submitAttendance = async () => {
@@ -484,6 +470,7 @@ export default function AdminAttendanceScreen() {
       setIsSaving(true);
       const records = staffList.map((s) => ({ staff_id: s.staff_id, status: s.status || 'absent' }));
       await api.post('/attendance/staff', { date: selectedDate, attendance: records });
+      originalStaffRef.current = staffList.map((s) => ({ ...s }));
       alertCompat('✓ Saved', 'Attendance marked successfully.');
     } catch {
       alertCompat('Error', 'Failed to save attendance.');
@@ -800,33 +787,35 @@ export default function AdminAttendanceScreen() {
       >
         <View style={styles.quickActions}>
           <TouchableOpacity
-            onPress={() => handleMarkAll('present')}
-            accessibilityLabel="Mark all present"
-            style={[styles.quickBtn, { backgroundColor: isDark ? STATUS_META.present.darkBg : STATUS_META.present.lightBg }]}
+            onPress={handleMarkAll}
+            disabled={filteredStaff.length === 0}
+            accessibilityRole="button"
+            accessibilityLabel="Mark all visible staff present"
+            style={[
+              styles.quickBtn,
+              { backgroundColor: isDark ? STATUS_META.present.darkBg : STATUS_META.present.lightBg },
+              filteredStaff.length === 0 && { opacity: 0.45 },
+            ]}
           >
-            <Ionicons name="checkmark-circle" size={15} color={isDark ? STATUS_META.present.darkText : STATUS_META.present.lightText} />
+            <Ionicons name="checkmark-done" size={15} color={isDark ? STATUS_META.present.darkText : STATUS_META.present.lightText} />
             <Text style={[styles.quickBtnText, { color: isDark ? STATUS_META.present.darkText : STATUS_META.present.lightText }]}>
-              All Present
+              Mark All
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => handleMarkAll('absent')}
-            accessibilityLabel="Mark all absent"
-            style={[styles.quickBtn, { backgroundColor: isDark ? STATUS_META.absent.darkBg : STATUS_META.absent.lightBg }]}
+            onPress={handleReset}
+            disabled={staffList.length === 0}
+            accessibilityRole="button"
+            accessibilityLabel="Reset attendance to last loaded values"
+            style={[
+              styles.quickBtn,
+              { backgroundColor: isDark ? 'rgba(124,111,255,0.16)' : 'rgba(124,111,255,0.10)' },
+              staffList.length === 0 && { opacity: 0.45 },
+            ]}
           >
-            <Ionicons name="close-circle" size={15} color={isDark ? STATUS_META.absent.darkText : STATUS_META.absent.lightText} />
-            <Text style={[styles.quickBtnText, { color: isDark ? STATUS_META.absent.darkText : STATUS_META.absent.lightText }]}>
-              All Absent
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => handleMarkAll('half_day')}
-            accessibilityLabel="Mark all half-day"
-            style={[styles.quickBtn, { backgroundColor: isDark ? STATUS_META.half_day.darkBg : STATUS_META.half_day.lightBg }]}
-          >
-            <Ionicons name="time" size={15} color={isDark ? STATUS_META.half_day.darkText : STATUS_META.half_day.lightText} />
-            <Text style={[styles.quickBtnText, { color: isDark ? STATUS_META.half_day.darkText : STATUS_META.half_day.lightText }]}>
-              All Half
+            <Ionicons name="refresh" size={15} color={isDark ? '#C7D2FE' : '#5A4FE0'} />
+            <Text style={[styles.quickBtnText, { color: isDark ? '#C7D2FE' : '#5A4FE0' }]}>
+              Reset
             </Text>
           </TouchableOpacity>
         </View>
@@ -841,12 +830,12 @@ export default function AdminAttendanceScreen() {
           </View>
           <TouchableOpacity
             onPress={submitAttendance}
-            disabled={isBulkUpdating || isSaving || staffList.length === 0}
+            disabled={isSaving || staffList.length === 0}
             activeOpacity={0.85}
             style={[
               styles.submitBtn,
               clayGlow('#7C6FFF', 'md'),
-              (isBulkUpdating || isSaving || staffList.length === 0) && { opacity: 0.55 },
+              (isSaving || staffList.length === 0) && { opacity: 0.55 },
             ]}
           >
             <LinearGradient
@@ -855,7 +844,7 @@ export default function AdminAttendanceScreen() {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
             >
-              {isSaving || isBulkUpdating ? (
+              {isSaving ? (
                 <LogoLoader size={20} color="#fff" />
               ) : (
                 <>
@@ -1076,7 +1065,7 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   quickBtnText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
   },
   footerRow: {

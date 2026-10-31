@@ -60,6 +60,15 @@
       "channel": "production",
       "android": {
         "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_SCHOOL_ID": "16",
+        "EXPO_PUBLIC_SCHOOL_CODE": "VMS",
+        "EXPO_PUBLIC_SCHOOL_NAME": "Vikas Model School Balampet",
+        "EXPO_PUBLIC_API_URL": "https://simsapi.nexsyrus.com/api/v1",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://jztckbupiepiqfrxhszt.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp6dGNrYnVwaWVwaXFmcnhoc3p0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxMzgyMTYsImV4cCI6MjA4ODcxNDIxNn0.TC6mwwLezkwMmPxkIzRnR7NPyworRVzQ_vXCkRmnz4o",
+        "EXPO_PUBLIC_BUNDLE_ID": "com.nexsyrussims.vikasmodelschool"
       }
     }
   },

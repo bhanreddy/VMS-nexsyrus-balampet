@@ -805,7 +805,9 @@ async function doSwitchAccount(
 function validateUserForAccountSwitch(accessToken: string): Promise<ValidatedUser> {
   return api.post<ValidatedUser>(
     '/auth/validate-school-user',
-    {},
+    // The portal picker refreshes its own list on open. Account switches only
+    // need the authorized identity (including the current student class).
+    { includePortalContexts: false },
     {
       headers: { Authorization: `Bearer ${accessToken}` },
       omitAuth: true,

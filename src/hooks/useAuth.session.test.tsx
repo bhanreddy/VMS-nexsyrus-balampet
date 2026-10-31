@@ -1,10 +1,10 @@
 /* eslint-disable import/first, @typescript-eslint/no-require-imports */
-jest.mock('../services/driverLocationTask', () => ({ stopDriverLocationUpdates: jest.fn(async () => {}), reconcileDriverTracking: jest.fn() }));
+jest.mock('../services/driverLocationTask', () => ({ stopDriverLocationUpdates: jest.fn(async () => {}), reconcileDriverTracking: jest.fn(async () => {}) }));
 jest.mock('../services/supabaseConfig', () => ({ supabase: { auth: {
   startAutoRefresh: jest.fn(), stopAutoRefresh: jest.fn(), onAuthStateChange: jest.fn(),
 } } }));
 jest.mock('../services/authService', () => ({ AuthService: {
-  getSession: jest.fn(), getStoredSession: jest.fn(), restorePersistedSession: jest.fn(),
+  switchAccount: jest.fn(), getSession: jest.fn(), getStoredSession: jest.fn(), restorePersistedSession: jest.fn(),
   refreshSession: jest.fn(), adoptRefreshedSession: jest.fn(), signOut: jest.fn(async () => {}),
 }, isInternalSessionSwap: jest.fn(() => false) }));
 jest.mock('../constants/school', () => ({ SCHOOL_ID: 12 }));
@@ -27,6 +27,9 @@ import { AppState, Platform, type AppStateStatus } from 'react-native';
 import { AuthProvider, useAuth } from './useAuth';
 import { AuthService } from '../services/authService';
 import { supabase } from '../services/supabaseConfig';
+import { stopDriverLocationUpdates } from '../services/driverLocationTask';
+import { requireFingerprintForVaultAccount } from '../services/fingerprintGate';
+import { SessionPolicy } from '../services/sessionPolicyService';
 const renderer = require('react-test-renderer');
 const { act } = renderer;
 
@@ -51,6 +54,8 @@ async function tick(ms = 0) {
 beforeEach(() => {
   jest.clearAllMocks();
   jest.useFakeTimers();
+  (stopDriverLocationUpdates as jest.Mock).mockResolvedValue(undefined);
+  (SessionPolicy.startSession as jest.Mock).mockResolvedValue(undefined);
   Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
   Object.defineProperty(AppState, 'currentState', { value: 'active', configurable: true });
   jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, callback) => {
@@ -127,4 +132,39 @@ it('cancels deferred auth work when the provider unmounts', async () => {
   await tick();
   expect(AuthService.adoptRefreshedSession).not.toHaveBeenCalled();
   expect(unsubscribe).toHaveBeenCalled();
+});
+
+
+it('switches non-driver accounts without waiting for GPS cleanup or diagnostic writes', async () => {
+  await mount();
+  const target = { ...saved, validatedUser: { ...saved.validatedUser, userId: 'staff-2' } };
+  (requireFingerprintForVaultAccount as jest.Mock).mockResolvedValue({ allowed: true });
+  (AuthService.switchAccount as jest.Mock).mockResolvedValue({ session: target });
+  (stopDriverLocationUpdates as jest.Mock).mockClear().mockReturnValue(new Promise(() => {}));
+  (SessionPolicy.startSession as jest.Mock).mockReturnValue(new Promise(() => {}));
+  let completed = false;
+  await act(async () => {
+    void context.switchAccount('staff-2').then(() => { completed = true; });
+  });
+  expect(completed).toBe(true);
+  expect(context.user?.userId).toBe('staff-2');
+  expect(context.loading).toBe(false);
+  // The tracking effect still cleans up in the background after the switch.
+  expect(stopDriverLocationUpdates).toHaveBeenCalledTimes(1);
+});
+
+it('waits for driver tracking to stop before changing the live account', async () => {
+  const driver = { ...saved, validatedUser: { ...saved.validatedUser, role: { code: 'driver' } } };
+  (AuthService.getSession as jest.Mock).mockResolvedValue(driver);
+  (AuthService.restorePersistedSession as jest.Mock).mockResolvedValue(driver);
+  await mount();
+  (requireFingerprintForVaultAccount as jest.Mock).mockResolvedValue({ allowed: true });
+  let stop!: () => void;
+  (stopDriverLocationUpdates as jest.Mock).mockReturnValue(new Promise<void>((resolve) => { stop = resolve; }));
+  (AuthService.switchAccount as jest.Mock).mockResolvedValue({ session: saved });
+  let switching: ReturnType<typeof context.switchAccount>;
+  await act(async () => { switching = context.switchAccount('staff-1'); });
+  expect(AuthService.switchAccount).not.toHaveBeenCalled();
+  await act(async () => { stop(); await switching; });
+  expect(AuthService.switchAccount).toHaveBeenCalledWith('staff-1');
 });

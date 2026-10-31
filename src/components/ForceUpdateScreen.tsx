@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import {
   BackHandler,
+  ActivityIndicator,
   Platform,
   Pressable,
   SafeAreaView,
@@ -9,17 +10,16 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { openPlayStore } from '../utils/openPlayStore';
+import type { PlayStoreUpdateController } from '../hooks/usePlayStoreUpdate';
 
-export default function ForceUpdateScreen() {
+export default function ForceUpdateScreen({ update }: { update: PlayStoreUpdateController }) {
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => true);
     return () => subscription.remove();
   }, []);
 
-  const openStore = () => {
-    void openPlayStore();
-  };
+  const waiting = update.busy || update.downloading || update.installing;
+  const buttonLabel = update.downloaded ? 'Restart & Update' : 'Update Now';
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -29,11 +29,21 @@ export default function ForceUpdateScreen() {
         </View>
         <Text style={styles.title}>Update Required</Text>
         <Text style={styles.message}>
-          A newer version of this school app is required to continue. Please update from the Play Store.
+          {update.downloaded ? 'Your update is ready. Restart the app to finish installing it.'
+            : update.downloading ? `Downloading your update${update.progress === null ? '…' : ` · ${update.progress}%`}`
+            : update.installing ? 'Installing your update…'
+            : 'A newer version of this school app is required to continue. Please update from Google Play.'}
         </Text>
-        <Pressable onPress={openStore} style={styles.button}>
-          <Text style={styles.buttonText}>Update Now</Text>
-          <Ionicons name="open-outline" size={18} color="#FFFFFF" />
+        {update.error ? <Text style={styles.error} accessibilityLiveRegion="polite">{update.error}</Text> : null}
+        <Pressable accessibilityRole="button" disabled={waiting}
+          onPress={() => { void (update.downloaded ? update.completeUpdate() : update.startUpdate()); }}
+          style={[styles.button, waiting && { opacity: 0.7 }]}>
+          <Text style={styles.buttonText}>{waiting ? 'Updating…' : buttonLabel}</Text>
+          {waiting ? <ActivityIndicator color="#FFFFFF" />
+            : <Ionicons name="cloud-download-outline" size={18} color="#FFFFFF" />}
+        </Pressable>
+        <Pressable accessibilityRole="link" onPress={() => { void update.openStore(); }} style={styles.storeLink}>
+          <Text style={styles.storeLinkText}>Open Google Play</Text>
         </Pressable>
         {Platform.OS !== 'android' && (
           <Text style={styles.helper}>If the store does not open, contact your school administrator.</Text>
@@ -107,4 +117,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
   },
+  error: { color: '#B91C1C', textAlign: 'center', marginBottom: 16 },
+  storeLink: { padding: 16 },
+  storeLinkText: { color: '#2563EB', fontSize: 14, fontWeight: '600' },
 });

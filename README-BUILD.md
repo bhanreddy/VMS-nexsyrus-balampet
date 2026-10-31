@@ -1,5 +1,7 @@
 # Building SchoolIMS APK/AAB Files (Multi-Tenant Guide)
 
+For Android update banners, in-app downloads, required-update policy, and the two-version Google Play verification procedure, see [Google Play updates](docs/PLAY_STORE_UPDATES.md).
+
 This guide takes NexSyrus developers step-by-step through the process of compiling Android Application Packages (APKs) for preview builds or App Bundles (AABs) for store deployment after seeding a new school in the Super Admin console.
 
 ## 1. Prerequisites

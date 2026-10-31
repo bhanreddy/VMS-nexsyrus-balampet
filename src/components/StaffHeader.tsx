@@ -132,20 +132,22 @@ const StaffHeader: React.FC<StaffHeaderProps> = ({
                     ) : null}
                 </View>
 
-                {/* Center: Branding */}
+                {/* Center: page title. Home leaves this blank so only the actions remain. */}
                 <View style={styles.centerSection}>
-                    <Text
-                        style={[
-                            styles.title,
-                            { color: theme.colors.textStrong },
-                            { textShadowColor: isDark ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.85)' },
-                        ]}
-                    >
-                        {title}
-                    </Text>
-                    {subtitle && (
+                    {title.trim() ? (
+                        <Text
+                            style={[
+                                styles.title,
+                                { color: theme.colors.textStrong },
+                                { textShadowColor: isDark ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.85)' },
+                            ]}
+                        >
+                            {title}
+                        </Text>
+                    ) : null}
+                    {subtitle ? (
                         <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>{subtitle}</Text>
-                    )}
+                    ) : null}
                 </View>
 
                 {/* Right: Actions */}

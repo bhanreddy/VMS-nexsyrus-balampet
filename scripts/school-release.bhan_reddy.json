@@ -1,0 +1,4 @@
+{
+  "extends": "./school-release.config.json",
+  "account": "bhan_reddy"
+}

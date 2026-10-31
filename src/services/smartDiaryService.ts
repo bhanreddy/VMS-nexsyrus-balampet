@@ -141,7 +141,7 @@ export const SmartDiaryService = {
   uploadPhotos: async (uris: string[], options: DiaryRequestOptions = {}) => {
     const form = new FormData();
     for (let index = 0; index < uris.length; index += 1) {
-      appendFile(form, 'photos', uris[index], `diary-${index}.jpg`, 'image/jpeg');
+      await appendFile(form, 'photos', uris[index], `diary-${index}.jpg`, 'image/jpeg');
     }
     return api.uploadFormData<{ attachments: string[]; can_send: boolean }>('/diary/smart/upload', form, {
       ...options,
@@ -154,7 +154,7 @@ export const SmartDiaryService = {
     const form = new FormData();
     appendContext(form, context);
     for (let index = 0; index < uris.length; index += 1) {
-      appendFile(form, 'photos', uris[index], `diary-${index}.jpg`, 'image/jpeg');
+      await appendFile(form, 'photos', uris[index], `diary-${index}.jpg`, 'image/jpeg');
     }
     return api.uploadFormData<ExtractResult>('/diary/smart/extract', form, { silent: true, timeoutMs: 90000 });
   },
@@ -162,7 +162,7 @@ export const SmartDiaryService = {
   transcribe: async (uri: string, context: Record<string, string | number | null | undefined> = {}) => {
     const form = new FormData();
     appendContext(form, context);
-    appendFile(form, 'audio', uri, 'diary-voice.m4a', 'audio/mp4');
+    await appendFile(form, 'audio', uri, 'diary-voice.m4a', 'audio/mp4');
     return api.uploadFormData<ExtractResult>('/diary/smart/transcribe', form, { silent: true, timeoutMs: 90000 });
   },
 
@@ -179,7 +179,7 @@ export const SmartDiaryService = {
   extractClassDiary: async (uri: string, context: Record<string, string | number | null | undefined> = {}, options: DiaryRequestOptions = {}) => {
     const form = new FormData();
     appendContext(form, context);
-    appendFile(form, 'photos', uri, 'class-diary.jpg', 'image/jpeg');
+    await appendFile(form, 'photos', uri, 'class-diary.jpg', 'image/jpeg');
     return api.uploadFormData<ClassDiaryExtractResult>('/diary/smart/class-diary/extract', form, {
       ...options,
       silent: true,
@@ -197,9 +197,11 @@ function appendContext(form: FormData, context: Record<string, string | number |
   });
 }
 
-function appendFile(form: FormData, field: string, uri: string, name: string, type: string) {
+async function appendFile(form: FormData, field: string, uri: string, name: string, type: string) {
   if (Platform.OS === 'web') {
-    form.append(field, { uri, name, type } as any);
+    const response = await fetch(uri);
+    if (!response.ok) throw new Error('Could not read the selected diary file. Please choose it again.');
+    form.append(field, await response.blob(), name);
     return;
   }
   form.append(field, { uri, name, type } as any);

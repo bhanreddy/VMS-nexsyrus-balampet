@@ -519,7 +519,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // producing expected cross-role 4xx (e.g. 404 "Staff profile not found").
     // Suppress the blocking error dialogs for those until navigation settles.
     suppressTransientApiAlerts();
-    await stopDriverLocationUpdates();
+    // Non-driver sessions were already cleaned up by the tracking effect.
+    // Avoid scanning all local storage and querying native GPS on every switch.
+    if (sessionRef.current?.validatedUser.role?.code === 'driver') {
+      await stopDriverLocationUpdates();
+    }
     const result = await AuthService.switchAccount(userId);
     if (result.session) {
       signingOut.current = false;
@@ -540,7 +544,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(result.session);
       const roleCode = result.session.validatedUser?.role?.code;
       if (roleCode) {
-        await SessionPolicy.startSession(roleCode as any);
+        // Diagnostic metadata must not delay navigation after auth is committed.
+        void SessionPolicy.startSession(roleCode as any).catch(() => {});
       }
       try {
         invalidateApiQueryCache();

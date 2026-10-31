@@ -51,3 +51,12 @@ app-example
 # Tauri
 src-tauri/target/
 tmp/
+
+# Batch release private/generated files
+.env
+.env.*
+/secrets/
+/credentials.json
+/node_modules/
+/android/
+/ios/

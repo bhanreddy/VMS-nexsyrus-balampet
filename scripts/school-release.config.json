@@ -1,0 +1,191 @@
+{
+  "sourceDir": "..",
+  "ssdRoot": "/Volumes/PortableSSD",
+  "outputRoot": "../../.school-releases",
+  "groupByAccount": true,
+  "preserveSourceVersion": true,
+  "accounts": {
+    "nexsyrus": {
+      "username": "nexsyrus",
+      "tokenEnv": null
+    },
+    "nexsyrus1": {
+      "username": "nexsyrus1",
+      "tokenEnv": null
+    },
+    "bhan_reddy": {
+      "username": "bhan_reddy",
+      "tokenEnv": null
+    }
+  },
+  "overlays": [
+    {
+      "from": "app.json",
+      "to": "app.json"
+    },
+    {
+      "from": "eas.json",
+      "to": "eas.json"
+    },
+    {
+      "from": "constants",
+      "to": "src/constants"
+    },
+    {
+      "from": "assets",
+      "to": "assets"
+    },
+    {
+      "from": "wrangler.jsonc",
+      "to": "wrangler.jsonc",
+      "optional": true
+    },
+    {
+      "from": "google-services.json",
+      "to": "google-services.json",
+      "optional": true
+    }
+  ],
+  "schools": [
+    {
+      "key": "ghs",
+      "folder": "GHS File",
+      "repo": "https://github.com/bhanreddy/ghs-maddur-nexsyrus.git",
+      "account": "nexsyrus",
+      "profile": "school-17-production",
+      "branch": null,
+      "expected": {
+        "owner": "nexsyrus",
+        "projectId": "5e99bce0-6c29-4767-9f70-10ea0ea9582f",
+        "androidPackage": "com.nexsyrussims.geetanjalihighschool",
+        "schoolId": "17"
+      }
+    },
+    {
+      "key": "global",
+      "folder": "Global School File",
+      "repo": "https://github.com/bhanreddy/globalschool-nexsyrus.git",
+      "account": "nexsyrus",
+      "profile": "school-14-production",
+      "branch": null,
+      "expected": {
+        "owner": "nexsyrus",
+        "projectId": "dea90aa8-3fd0-45b6-9ab0-9e9a46f5fc97",
+        "androidPackage": "com.nexsyrussims.theglobalschoolravulpally",
+        "schoolId": "14"
+      }
+    },
+    {
+      "key": "samskruthe",
+      "folder": "Samskruthe File",
+      "repo": "https://github.com/bhanreddy/Samskruthe-school-nawabpet-nexsyrus.git",
+      "account": "nexsyrus",
+      "profile": "school-13-production",
+      "branch": null,
+      "expected": {
+        "owner": "nexsyrus",
+        "projectId": "06802539-5f1f-4aa9-abd9-17350b5e65a7",
+        "androidPackage": "com.nexsyrussims.samskrutheschool",
+        "schoolId": "13"
+      }
+    },
+    {
+      "key": "slate",
+      "folder": "Slate School File",
+      "repo": "https://github.com/bhanreddy/slateschool.git",
+      "account": "nexsyrus",
+      "profile": "school-12-production",
+      "branch": null,
+      "expected": {
+        "owner": "nexsyrus",
+        "projectId": "092e54fd-6629-4c8c-ab8d-a21a3ea7633c",
+        "androidPackage": "com.nexsyrussims.slateschool",
+        "schoolId": "12"
+      }
+    },
+    {
+      "key": "vms",
+      "folder": "VMS File",
+      "repo": "https://github.com/bhanreddy/VMS-nexsyrus-balampet.git",
+      "account": "nexsyrus",
+      "profile": "school-16-production",
+      "branch": null,
+      "expected": {
+        "owner": "nexsyrus",
+        "projectId": "431387a6-0e21-4d25-bf0f-5fdd3ad56585",
+        "androidPackage": "com.nexsyrussims.vikasmodelschool",
+        "schoolId": "16"
+      }
+    },
+    {
+      "key": "bhashayam",
+      "folder": "Bhashayam High School File",
+      "repo": "https://github.com/bhanreddy/bvs-mahammadabad-nexsyrus.git",
+      "account": "nexsyrus1",
+      "profile": "school-18-production",
+      "branch": null,
+      "expected": {
+        "owner": "nexsyrus1",
+        "projectId": "9d4acc12-65e1-42e5-a6b5-95d9a15b501a",
+        "androidPackage": "com.nexsyrussims.bashyammhbd",
+        "schoolId": "18"
+      }
+    },
+    {
+      "key": "chaitanya",
+      "folder": "Chaitanya School Nancharla File",
+      "repo": "https://github.com/bhanreddy/chaitanya-nancharla-nexsyrus.git",
+      "account": "nexsyrus1",
+      "profile": "school-15-production",
+      "branch": null,
+      "expected": {
+        "owner": "nexsyrus1",
+        "projectId": "3d8c66b7-942f-41d7-8764-6ee86ca87b02",
+        "androidPackage": "com.nexsyrussims.chaitanyavidyanikethan",
+        "schoolId": "15"
+      }
+    },
+    {
+      "key": "nmms",
+      "folder": "NMMS goka File",
+      "repo": "https://github.com/bhanreddy/new-master-minds-gokafasalwad.git",
+      "account": "nexsyrus1",
+      "profile": "school-19-production",
+      "branch": null,
+      "expected": {
+        "owner": "nexsyrus1",
+        "projectId": "e51574e5-1701-4e8c-828d-32ca5f3fe8ea",
+        "androidPackage": "com.nexsyrussims.nmsgokafasalwad",
+        "schoolId": "19"
+      }
+    },
+    {
+      "key": "chanakya",
+      "folder": "chanakya maddur File",
+      "repo": "https://github.com/bhanreddy/chanakyamaddur-nexsyrus.git",
+      "account": "nexsyrus1",
+      "profile": "school-20-production",
+      "branch": null,
+      "expected": {
+        "owner": "nexsyrus1",
+        "projectId": "4140d517-6452-4a7c-9fb2-979009194eb6",
+        "androidPackage": "com.nexsyrussims.chanakyamaddur",
+        "schoolId": "20"
+      }
+    },
+    {
+      "key": "default",
+      "folder": "Default File",
+      "repo": "https://github.com/bhanreddy/IMS-frontend.git",
+      "account": "bhan_reddy",
+      "profile": "school-1-production",
+      "branch": null,
+      "expected": {
+        "owner": "bhan_reddy",
+        "projectId": "a9e98d3f-cdaf-4af4-b8f6-0d83882035b9",
+        "androidPackage": "com.schoolims.default2",
+        "schoolId": "1"
+      }
+    }
+  ]
+}

@@ -23,12 +23,15 @@ interface HeroSlidesCarouselProps {
   slides: Array<HeroSlideItem | CelebrationSlideItem>;
   /** Dot contrast for the surface behind the carousel. */
   dotTone?: 'onDark' | 'onLight';
+  /** Active pager dot. Defaults to the shared gold used by other heroes. */
+  activeDotColor?: string;
   style?: StyleProp<ViewStyle>;
 }
 
 export default function HeroSlidesCarousel({
   slides,
   dotTone = 'onDark',
+  activeDotColor = '#FACC15',
   style,
 }: HeroSlidesCarouselProps) {
   const scrollRef = useRef<ScrollView>(null);
@@ -124,6 +127,7 @@ export default function HeroSlidesCarousel({
                 styles.dot,
                 dotTone === 'onLight' ? styles.dotOnLight : styles.dotOnDark,
                 dotIndex === index && styles.dotActive,
+                dotIndex === index && { backgroundColor: activeDotColor },
               ]}
             />
           ))}

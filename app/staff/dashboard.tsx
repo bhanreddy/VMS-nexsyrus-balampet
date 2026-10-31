@@ -230,8 +230,12 @@ const MenuCard = React.memo(function MenuCard({ item, badge, onPress, index }: {
 }) {
   const { isDark } = useTheme();
   const { width } = useWindowDimensions();
-  const cardWidth = width < 380 ? width - 40 : width < 760 ? (Math.min(width, 1120) - 40 - MENU_GAP) / 2 : 220;
-  const borderRadius = IS_WEB ? 28 : 24;
+  const contentWidth = Math.min(width, 1120) - 40;
+  const cardWidth = width < 760 ? Math.floor((contentWidth - MENU_GAP) / 2) : 220;
+  const compact = cardWidth < 160;
+  const borderRadius = compact ? 20 : IS_WEB ? 28 : 24;
+  const cardHeight = compact ? 118 : IS_WEB ? 144 : 132;
+  const inset = compact ? 8 : 12;
   const pressScale = useSharedValue(1);
   const hoverLift = useSharedValue(0);
   const cfg = MENU_CONFIGS[item.key] ?? MENU_CONFIGS.diary;
@@ -273,7 +277,7 @@ const MenuCard = React.memo(function MenuCard({ item, badge, onPress, index }: {
   return (
     <Animated.View
       entering={FadeInUp.delay(160 + Math.min(index, 9) * 40).duration(320)}
-      style={[wrapperStyle, clayStyle, { width: cardWidth, height: IS_WEB ? 144 : 132, overflow: 'hidden' }]}
+      style={[wrapperStyle, clayStyle, { width: cardWidth, height: cardHeight, overflow: 'hidden' }]}
     >
       <Pressable
         accessibilityRole="button"
@@ -293,9 +297,9 @@ const MenuCard = React.memo(function MenuCard({ item, badge, onPress, index }: {
           pointerEvents="none"
         />
         <View pointerEvents="none" style={{ position: 'absolute', width: 80, height: 80, borderRadius: 40, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.08)', bottom: -15, right: -15 }} />
-        <View style={{ position: 'absolute', top: 12, left: 12 }}>
-          <View style={{ width: 36, height: 36, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.22)', borderColor: 'rgba(255,255,255,0.32)', borderWidth: 1, alignItems: 'center', justifyContent: 'center' }}>
-            <View style={{ transform: [{ scale: 0.68 }] }}>{cfg.icon}</View>
+        <View style={{ position: 'absolute', top: inset, left: inset }}>
+          <View style={{ width: compact ? 30 : 36, height: compact ? 30 : 36, borderRadius: compact ? 9 : 11, backgroundColor: 'rgba(255,255,255,0.22)', borderColor: 'rgba(255,255,255,0.32)', borderWidth: 1, alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ transform: [{ scale: compact ? 0.56 : 0.68 }] }}>{cfg.icon}</View>
           </View>
           {badge ? (
             <View style={{ position: 'absolute', top: -4, right: -4, backgroundColor: '#FF3D5C', borderRadius: 8, paddingHorizontal: 5, paddingVertical: 1, borderWidth: 1.5, borderColor: '#FFFFFF' }}>
@@ -303,13 +307,13 @@ const MenuCard = React.memo(function MenuCard({ item, badge, onPress, index }: {
             </View>
           ) : null}
         </View>
-        <View style={{ position: 'absolute', top: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,0,0,0.15)', borderColor: 'rgba(255,255,255,0.15)', borderWidth: 1, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 }}>
+        <View style={{ position: 'absolute', top: inset, right: inset, maxWidth: cardWidth - (compact ? 52 : 64), flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,0,0,0.15)', borderColor: 'rgba(255,255,255,0.15)', borderWidth: 1, borderRadius: 8, paddingHorizontal: compact ? 5 : 7, paddingVertical: 3 }}>
           <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: '#FFFFFF' }} />
-          <Text style={{ color: '#FFFFFF', fontSize: 8, fontWeight: '900' }}>{cfg.category}</Text>
+          <Text style={{ color: '#FFFFFF', fontSize: compact ? 7 : 8, fontWeight: '900', flexShrink: 1 }} numberOfLines={1}>{cfg.category}</Text>
         </View>
-        <View style={{ position: 'absolute', bottom: 12, left: 12, right: 12 }}>
-          <Text style={{ fontSize: 13.5, fontWeight: '800', color: '#FFFFFF' }} numberOfLines={1}>{item.title}</Text>
-          <Text style={{ fontSize: 9.5, fontWeight: '600', color: 'rgba(255,255,255,0.78)', marginTop: 2 }} numberOfLines={1}>{item.subtitle}</Text>
+        <View style={{ position: 'absolute', bottom: inset, left: inset, right: inset }}>
+          <Text style={{ fontSize: compact ? 12.5 : 13.5, fontWeight: '800', color: '#FFFFFF' }} numberOfLines={1}>{item.title}</Text>
+          <Text style={{ fontSize: compact ? 9 : 9.5, fontWeight: '600', color: 'rgba(255,255,255,0.78)', marginTop: 2 }} numberOfLines={1}>{item.subtitle}</Text>
         </View>
       </Pressable>
     </Animated.View>
@@ -467,8 +471,7 @@ export default function StaffDashboard() {
     <View style={[styles.root, { backgroundColor: theme.colors.background }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
       <TourTarget id="screen.staff-dashboard.overview"><StaffHeader
-        title="Staff Portal"
-        subtitle={(isViewingAsAdmin ? viewAsName : user?.displayName) || 'Teacher'}
+        title=""
         onMenuPress={() => setToolsOpen(true)}
       /></TourTarget>
       <TourTarget id="screen.staff-dashboard.workspace" style={{ flex: 1 }}><TourScrollView

@@ -1,0 +1,6 @@
+{
+  "platforms": ["android"],
+  "android": {
+    "modules": ["com.schoolims.updates.PlayStoreUpdatesModule"]
+  }
+}

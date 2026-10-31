@@ -26,6 +26,8 @@ interface SchoolStoriesStripProps {
   canAdd?: boolean;
   addPhotoUrl?: string | null;
   tone?: 'onDark' | 'onLight';
+  /** Unseen-story ring. Defaults to the shared gold used by other heroes. */
+  accentColor?: string;
   style?: StyleProp<ViewStyle>;
   onStoryViewed?: (storyId: string) => void;
   onPublished?: () => void | Promise<void>;
@@ -36,6 +38,7 @@ export default function SchoolStoriesStrip({
   canAdd = false,
   addPhotoUrl,
   tone = 'onDark',
+  accentColor = RING,
   style,
   onStoryViewed,
   onPublished,
@@ -102,7 +105,7 @@ export default function SchoolStoriesStrip({
             accessibilityRole="button"
             accessibilityLabel="Add school story"
           >
-            <View style={[styles.ring, { borderColor: RING }]}>
+            <View style={[styles.ring, { borderColor: accentColor }]}>
               {addPhoto ? (
                 <Image source={{ uri: addPhoto }} style={styles.avatar} />
               ) : (
@@ -128,7 +131,7 @@ export default function SchoolStoriesStrip({
               accessibilityRole="button"
               accessibilityLabel={`${author.author_name} school story`}
             >
-              <View style={[styles.ring, { borderColor: author.has_unseen ? RING : seenRing }]}>
+              <View style={[styles.ring, { borderColor: author.has_unseen ? accentColor : seenRing }]}>
                 {avatar ? (
                   <Image source={{ uri: avatar }} style={styles.avatar} />
                 ) : (

@@ -15,14 +15,19 @@ import QuickAccountPickerSheet from '../QuickAccountPickerSheet';
 import { useQuickAccountSwitch } from '../../hooks/useQuickAccountSwitch';
 import HeroSlidesCarousel from '../hero-slides/HeroSlidesCarousel';
 import SchoolStoriesStrip from '../school-stories/SchoolStoriesStrip';
+import { SCHOOL_CONFIG, schoolColorWithAlpha } from '../../constants/schoolConfig';
 import type { HeroSlideItem } from '../../services/schoolHeroSlidesService';
 import type { CelebrationSlideItem } from '../../services/celebrationTypes';
 import type { SchoolStoryAuthor } from '../../services/schoolStoriesService';
 
 const DOUBLE_TAP_MS = 320;
 const LONG_PRESS_MS = 450;
-const NAVY = ['#15245C', '#1B2F78', '#243A86'] as const;
-const RING = '#F5C518';
+const GOLD = SCHOOL_CONFIG.theme.accent;
+const GOLD_MIST = SCHOOL_CONFIG.theme.ribbonTagline;
+const INK = SCHOOL_CONFIG.theme.ribbonGradient[0];
+const CHARCOAL = SCHOOL_CONFIG.theme.ribbonGradient[1];
+const SLATE = SCHOOL_CONFIG.theme.ribbonGradient[2];
+const HERO_WASH = [INK, CHARCOAL, SLATE] as const;
 
 export interface StudentHeroProps {
   firstName: string;
@@ -98,50 +103,64 @@ export default function StudentHero({
 
   return (
     <Animated.View entering={FadeInDown.duration(420)} style={styles.root}>
-      <LinearGradient colors={[...NAVY]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.panel}>
-        <View style={styles.orbOne} pointerEvents="none" />
-        <View style={styles.orbTwo} pointerEvents="none" />
+      <LinearGradient colors={[...HERO_WASH]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={styles.panel}>
+        <LinearGradient
+          colors={[schoolColorWithAlpha(GOLD, 0), schoolColorWithAlpha(GOLD, 0.22), schoolColorWithAlpha(GOLD, 0)]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.goldWash}
+          pointerEvents="none"
+        />
+        <View style={styles.orbGold} pointerEvents="none" />
+        <View style={styles.orbSoft} pointerEvents="none" />
 
         <View style={styles.topRow}>
           <View style={styles.copy}>
             <Text style={styles.hello} numberOfLines={1}>
               {t('studentHome.hiName', { name: firstName, defaultValue: `Hi, ${firstName}` })}
             </Text>
+            <View style={styles.nameRule} />
             <Text style={styles.classLine} numberOfLines={1}>{classLabel}</Text>
             {!!inchargeLabel && (
               <View style={styles.inchargeChip}>
+                <View style={styles.inchargeDot} />
                 <Text style={styles.inchargeText} numberOfLines={1}>{inchargeLabel}</Text>
               </View>
             )}
           </View>
-          <Pressable
-            onPress={handleAvatarPress}
-            onLongPress={handleLongPress}
-            delayLongPress={LONG_PRESS_MS}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={t('driver_ui.account_switch_hint_accessibility', 'Hold to switch accounts; double-tap the photo for the next account')}
-            style={({ pressed }) => [styles.photoRing, pressed && styles.pressed]}
-          >
-            <StudentPhoto
-              photoUrl={photoUrl}
-              displayName={firstName}
-              size={64}
-              borderRadius={32}
-              fallbackTextStyle={styles.photoFallback}
-            />
-            {accounts.length > 0 && (
-              <View style={styles.switchBadge}>
-                <Ionicons name="swap-horizontal" size={10} color="#FFFFFF" />
-                {accounts.length > 1 ? (
-                  <Text style={styles.switchBadgeText}>{accounts.length}</Text>
-                ) : null}
-              </View>
-            )}
-          </Pressable>
+          <View style={styles.photoHalo}>
+            <Pressable
+              onPress={handleAvatarPress}
+              onLongPress={handleLongPress}
+              delayLongPress={LONG_PRESS_MS}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t('driver_ui.account_switch_hint_accessibility', 'Hold to switch accounts; double-tap the photo for the next account')}
+              style={({ pressed }) => [styles.photoRing, pressed && styles.pressed]}
+            >
+              <StudentPhoto
+                photoUrl={photoUrl}
+                displayName={firstName}
+                size={64}
+                borderRadius={32}
+                fallbackTextStyle={styles.photoFallback}
+              />
+              {accounts.length > 0 && (
+                <View style={styles.switchBadge}>
+                  <Ionicons name="swap-horizontal" size={10} color={INK} />
+                  {accounts.length > 1 ? (
+                    <Text style={styles.switchBadgeText}>{accounts.length}</Text>
+                  ) : null}
+                </View>
+              )}
+            </Pressable>
+          </View>
         </View>
 
-        <Text style={styles.welcome} numberOfLines={1}>{welcome}</Text>
+        <View style={styles.welcomeRow}>
+          <View style={styles.welcomeMark} />
+          <Text style={styles.welcome} numberOfLines={1}>{welcome}</Text>
+        </View>
 
         <Pressable
           onPress={() => {
@@ -153,7 +172,7 @@ export default function StudentHero({
           accessibilityLabel={t('studentHome.urgentNotifications', { count: unreadCount })}
         >
           <View style={styles.bellWrap}>
-            <Ionicons name="notifications" size={16} color="#1E3A8A" />
+            <Ionicons name="notifications" size={16} color={GOLD} />
           </View>
           <Text style={styles.urgentText} numberOfLines={1}>
             {unreadCount > 0
@@ -165,10 +184,11 @@ export default function StudentHero({
           </View>
         </Pressable>
 
-        <HeroSlidesCarousel slides={slides} />
+        <HeroSlidesCarousel slides={slides} activeDotColor={GOLD} />
         <SchoolStoriesStrip
           stories={stories}
           tone="onDark"
+          accentColor={GOLD}
           style={{ paddingTop: 12 }}
           onStoryViewed={onStoryViewed}
         />
@@ -193,50 +213,85 @@ const styles = StyleSheet.create({
   panel: {
     borderRadius: 0,
     paddingHorizontal: 18,
-    paddingTop: 6,
-    paddingBottom: 18,
+    paddingTop: 8,
+    paddingBottom: 20,
     overflow: 'hidden',
   },
-  orbOne: {
+  goldWash: { ...StyleSheet.absoluteFillObject },
+  orbGold: {
     position: 'absolute',
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: 'rgba(125,211,252,0.10)',
-    right: -50,
-    top: -70,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: schoolColorWithAlpha(GOLD, 0.16),
+    right: -78,
+    top: -96,
   },
-  orbTwo: {
+  orbSoft: {
     position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(251,191,36,0.10)',
-    left: -40,
-    bottom: 40,
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    backgroundColor: schoolColorWithAlpha(GOLD, 0.08),
+    left: -64,
+    bottom: 8,
   },
-  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 },
   copy: { flex: 1, minWidth: 0 },
-  hello: { color: '#FFFFFF', fontSize: 28, fontWeight: '800', letterSpacing: -0.6 },
-  classLine: { color: 'rgba(255,255,255,0.78)', fontSize: 14, fontWeight: '600', marginTop: 4 },
+  hello: { color: '#FFFFFF', fontSize: 30, fontWeight: '800', letterSpacing: -0.8 },
+  nameRule: {
+    width: 36,
+    height: 2,
+    borderRadius: 2,
+    backgroundColor: GOLD,
+    marginTop: 8,
+  },
+  classLine: { color: 'rgba(255,255,255,0.78)', fontSize: 14, fontWeight: '600', marginTop: 8 },
   inchargeChip: {
     alignSelf: 'flex-start',
-    marginTop: 8,
-    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+    maxWidth: '100%',
+    backgroundColor: schoolColorWithAlpha(GOLD, 0.14),
+    borderWidth: 1,
+    borderColor: schoolColorWithAlpha(GOLD, 0.42),
     borderRadius: 99,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
   },
-  inchargeText: { color: '#1E3A8A', fontSize: 11, fontWeight: '800' },
+  inchargeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: GOLD,
+  },
+  inchargeText: { color: GOLD_MIST, fontSize: 11, fontWeight: '800', flexShrink: 1 },
+  photoHalo: {
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+    borderWidth: 1,
+    borderColor: schoolColorWithAlpha(GOLD, 0.45),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: schoolColorWithAlpha(GOLD, 0.1),
+    shadowColor: GOLD,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.45,
+    shadowRadius: 14,
+    elevation: 6,
+  },
   photoRing: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    borderWidth: 3,
-    borderColor: RING,
+    borderWidth: 2.5,
+    borderColor: GOLD,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: schoolColorWithAlpha('#FFFFFF', 0.08),
   },
   switchBadge: {
     position: 'absolute',
@@ -246,49 +301,64 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     paddingHorizontal: 5,
-    backgroundColor: '#1D4ED8',
+    backgroundColor: GOLD,
     borderWidth: 2,
-    borderColor: '#15245C',
+    borderColor: INK,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
   },
-  switchBadgeText: { color: '#FFFFFF', fontSize: 9, fontWeight: '800' },
-  photoFallback: { color: '#FFFFFF', fontSize: 22 },
+  switchBadgeText: { color: INK, fontSize: 9, fontWeight: '800' },
+  photoFallback: { color: GOLD_MIST, fontSize: 22 },
+  welcomeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 16,
+    marginBottom: 14,
+  },
+  welcomeMark: {
+    width: 16,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: GOLD,
+  },
   welcome: {
-    color: '#7DD3FC',
+    flex: 1,
+    color: GOLD_MIST,
     fontSize: 12,
     fontWeight: '600',
-    marginTop: 14,
-    marginBottom: 12,
+    letterSpacing: 0.3,
   },
   urgentBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: schoolColorWithAlpha(GOLD, 0.32),
     borderRadius: 999,
-    paddingLeft: 8,
+    paddingLeft: 6,
     paddingRight: 6,
     paddingVertical: 6,
     marginBottom: 14,
     gap: 8,
   },
   bellWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#EEF2FF',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: schoolColorWithAlpha(GOLD, 0.18),
     alignItems: 'center',
     justifyContent: 'center',
   },
-  urgentText: { flex: 1, color: '#0F172A', fontSize: 13, fontWeight: '700' },
+  urgentText: { flex: 1, color: '#F7F3EA', fontSize: 13, fontWeight: '700' },
   viewBtn: {
-    backgroundColor: '#FACC15',
+    backgroundColor: GOLD,
     borderRadius: 999,
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
-  viewBtnText: { color: '#1E3A8A', fontSize: 13, fontWeight: '800' },
-  pressed: { opacity: 0.88, transform: [{ scale: 0.99 }] },
+  viewBtnText: { color: INK, fontSize: 13, fontWeight: '800' },
+  pressed: { opacity: 0.88, transform: [{ scale: 0.985 }] },
 });

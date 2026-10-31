@@ -50,67 +50,70 @@ export function useNotificationObserver() {
   const router = useRouter();
   const { user, loading, switchAccount } = useAuth();
   const authRef = useRef({ user, loading, switchAccount });
-  const switchingRef = useRef(false);
+  const navigatingRef = useRef(false);
+  const lastOpenedRef = useRef<{ key: string; at: number } | null>(null);
 
-  // The native listeners are registered once, so read the current auth state
-  // from a ref instead of closing over the user present at mount time.
+  // Native listeners read the latest identity without being re-registered.
   authRef.current = { user, loading, switchAccount };
 
-  const navigate = useCallback(async (raw: Record<string, any> | null | undefined) => {
-    const data = payloadFromUnknown(raw);
-    const recipientUserId = resolveRecipientUserId(data);
-    const notificationId = String(data.notificationId || '') || null;
+  const drainPending = useCallback(async () => {
+    if (navigatingRef.current) return;
+    navigatingRef.current = true;
     try {
-      const activeAuth = authRef.current;
-      const activeUserId = activeAuth.user?.userId ?? null;
-      if (!activeUserId || activeAuth.loading) {
-        pendingNotification = { data };
-        return;
-      }
+      while (pendingNotification && authRef.current.user && !authRef.current.loading) {
+        const { data } = pendingNotification;
+        pendingNotification = null;
+        const recipientUserId = resolveRecipientUserId(data);
+        const notificationId = String(data.notificationId || '') || null;
+        const notificationKey = notificationId
+          ? `${recipientUserId || authRef.current.user.userId}:${notificationId}`
+          : null;
+        // FCM and Expo can both deliver the same tap. Do not switch/open twice.
+        if (notificationKey && notificationKey === lastOpenedRef.current?.key &&
+            Date.now() - lastOpenedRef.current.at < 2000) continue;
 
-      if (recipientUserId && recipientUserId !== activeUserId) {
-        if (switchingRef.current) {
-          // Keep the most recent tap and process it once the in-flight switch
-          // settles. A notification must never open under the wrong account.
-          pendingNotification = { data };
-          return;
-        }
-
-        switchingRef.current = true;
         try {
-          const result = await activeAuth.switchAccount(recipientUserId);
-          if (result.error || result.session?.validatedUser?.userId !== recipientUserId) {
-            // The notification's account is no longer stored locally or can no
-            // longer be restored. Preserve the active account and do not route.
-            console.warn('[Notifications] Could not switch to notification recipient:', result.error || 'recipient session unavailable');
-            return;
+          let recipient = authRef.current.user;
+          if (recipientUserId && recipientUserId !== recipient.userId) {
+            const result = await authRef.current.switchAccount(recipientUserId);
+            if (result.error || result.session?.validatedUser?.userId !== recipientUserId) {
+              console.warn('[Notifications] Could not switch to notification recipient:', result.error || 'recipient session unavailable');
+              continue;
+            }
+            recipient = result.session.validatedUser;
+            // React may not have rendered yet. Use the committed identity for
+            // this route and any tap queued during the switch.
+            authRef.current = { ...authRef.current, user: recipient };
           }
-        } finally {
-          switchingRef.current = false;
+
+          // A newer tap supersedes this destination. Drain it immediately,
+          // including when a failed switch did not trigger a React render.
+          if (pendingNotification) continue;
+          const resolved = resolveNotificationRoute(data, roleCodeFromUser(recipient));
+          pushNotificationRoute(router, resolved);
+          lastOpenedRef.current = notificationKey ? { key: notificationKey, at: Date.now() } : null;
+          if (notificationId) {
+            void notificationInboxService.markRead(notificationId).catch(() => {});
+          }
+        } catch (err) {
+          console.log('[Notifications] Navigation error:', err);
         }
       }
-
-      const resolved = resolveNotificationRoute(data, roleCodeFromUser(authRef.current.user));
-      console.log('[Notifications] Navigating to:', resolved?.pathname);
-      // Mark after any account switch, so a notification sent to a vaulted
-      // account is never marked under the currently active account by mistake.
-      if (notificationId) void notificationInboxService.markRead(notificationId);
-      pushNotificationRoute(router, resolved);
-    } catch (err) {
-      console.log('[Notifications] Navigation error:', err);
+    } finally {
+      navigatingRef.current = false;
     }
   }, [router]);
 
-  // Flush a tap received before auth is ready.
+  const navigate = useCallback((raw: Record<string, any> | null | undefined) => {
+    pendingNotification = { data: payloadFromUnknown(raw) };
+    void drainPending();
+  }, [drainPending]);
+
+  // NavigationReady mounts after the root navigator. Auth readiness, rather
+  // than a fixed timer, determines when a cold-start tap can be opened.
   useEffect(() => {
-    if (user && !loading && pendingNotification) {
-      const notification = pendingNotification;
-      pendingNotification = null;
-      setTimeout(() => {
-        void navigate(notification.data);
-      }, 300);
-    }
-  }, [user, loading, navigate]);
+    if (user && !loading) void drainPending();
+  }, [user, loading, drainPending]);
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
@@ -122,7 +125,7 @@ export function useNotificationObserver() {
     // CASE 1 — App KILLED, user tapped FCM notification
     getInitialNotification(msg).then((remoteMessage) => {
       if (!remoteMessage || !isMounted) return;
-      setTimeout(() => void navigate(payloadFromUnknown(remoteMessage.data)), 500);
+      navigate(payloadFromUnknown(remoteMessage.data));
     });
 
     // CASE 2 — App BACKGROUNDED, user tapped FCM notification

@@ -5,11 +5,17 @@ import StaffDiary from '../../app/staff/diary';
 import { DiaryService } from '../services/commonServices';
 import { enqueueDiary, startDiaryQueueListener } from '../services/diaryOfflineQueue';
 import { alertCompat } from '../utils/crossPlatformAlert';
+import DiaryPhotoEditor from '../components/diary/DiaryPhotoEditor';
+import * as ImagePicker from 'expo-image-picker';
+import { SmartDiaryService } from '../services/smartDiaryService';
 import { DiaryHistoryTabSwitcher } from '../components/diary/DiaryHistoryChrome';
 const { create, act } = require('react-test-renderer');
+jest.mock('../components/diary/DiaryPhotoEditor', () => ({ __esModule: true, default: () => null }));
+jest.mock('expo-image-picker', () => ({ requestCameraPermissionsAsync: jest.fn(async () => ({ granted: true })), requestMediaLibraryPermissionsAsync: jest.fn(async () => ({ granted: true })), launchCameraAsync: jest.fn(), launchImageLibraryAsync: jest.fn() }));
 let mockUser: any;
 let mockPortal: any;
 let mockEntries: any[];
+let mockContext: any;
 const mockClass = { class_section_id: 'current-class', class_name: '6', section_name: 'A', subject_name: 'Math' };
 jest.mock('expo-router', () => ({ useLocalSearchParams: () => ({}) }));
 jest.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: mockUser }) }));
@@ -33,12 +39,13 @@ jest.mock('../services/commonServices', () => ({
 }));
 jest.mock('../services/academicPlannerService', () => ({ AcademicPlannerService: {} }));
 jest.mock('../services/smartDiaryService', () => ({ SmartDiaryService: {
-  getContext: jest.fn(async () => ({ current: mockClass, recent: [] })),
+  extractClassDiary: jest.fn(async () => ({ entries: [], image_url: 'https://example.com/scan.jpg' })),
+  getContext: jest.fn(async () => mockContext),
   getTemplates: jest.fn(async () => ({ mine: [], school: [], favourites: [] })),
 } }));
 jest.mock('../services/diaryOfflineQueue', () => ({
   enqueueDiary: jest.fn(), flushDiaryQueue: jest.fn(async () => ({ flushed: 1 })),
-  startDiaryQueueListener: jest.fn(() => () => {}), readPendingClassDiary: jest.fn(async () => null),
+  startDiaryQueueListener: jest.fn(() => () => {}), readPendingClassDiary: jest.fn(async () => null), writePendingClassDiary: jest.fn(),
 }));
 jest.mock('../services/persistentQueryCache', () => ({ persistentQueryCache: { read: jest.fn(async () => null), write: jest.fn() } }));
 let tree: any;
@@ -52,6 +59,7 @@ beforeEach(() => {
   mockUser = { userId: 'admin-user', role: { code: 'admin' }, displayName: 'Admin' };
   mockPortal = { isViewingAsAdmin: true, userId: 'teacher-user', viewAsName: 'Teacher' };
   mockEntries = [];
+  mockContext = { current: mockClass, recent: [] };
   (DiaryService.update as jest.Mock).mockResolvedValue({});
 });
 afterEach(() => { act(() => tree?.unmount()); });
@@ -96,6 +104,26 @@ it('keeps regular staff writing enabled and their own queue identity', async () 
   expect(startDiaryQueueListener).toHaveBeenCalledWith('staff-user');
 });
 
+it('opens a camera or gallery choice from the photo diary card', async () => {
+  await renderDiary();
+  await press('Photo Diary');
+  expect(button('Camera')).toBeDefined();
+  expect(button('Gallery')).toBeDefined();
+});
+
+it('shows class diary upload for a homeroom teacher', async () => {
+  mockContext = {
+    current: mockClass,
+    recent: [],
+    class_teacher_sections: [{ class_section_id: 'home-room', class_name: '6', section_name: 'A' }],
+  };
+  await renderDiary();
+  expect(button('Upload class diary')).toBeDefined();
+  await press('Upload class diary');
+  expect(button('Take photo')).toBeDefined();
+  expect(button('Choose from gallery')).toBeDefined();
+});
+
 it('saves edits opened from diary history to the original entry', async () => {
   mockEntries = [{ id: 'history-entry', entry_date: today(), class_section_id: 'entry-class', title: 'Reading', content: 'Read chapter 1' }];
   await renderDiary();
@@ -103,4 +131,36 @@ it('saves edits opened from diary history to the original entry', async () => {
   await press('Edit'); await press('Save Changes');
   expect(DiaryService.update).toHaveBeenCalledWith('history-entry', expect.objectContaining({ content: 'Read chapter 1' }));
   expect(enqueueDiary).not.toHaveBeenCalled();
+});
+
+
+it('edits a camera photo before adding it and queues the saved scan for upload', async () => {
+  (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValue({ assets: [{ uri: 'file://camera.jpg' }] });
+  await renderDiary(); await press('Photo Diary'); await press('Camera');
+  expect(enqueueDiary).not.toHaveBeenCalled();
+  expect(tree.root.findByType(DiaryPhotoEditor).props.uri).toBe('file://camera.jpg');
+  await act(async () => tree.root.findByType(DiaryPhotoEditor).props.onSave('file://edited-scan.jpg'));
+  expect(tree.root.findAllByType(DiaryPhotoEditor)).toHaveLength(0);
+  await press('Send Photo Diary');
+  expect(enqueueDiary).toHaveBeenCalledWith('teacher-user', expect.objectContaining({ attachments: [], entry_source: 'PHOTO' }), ['file://edited-scan.jpg']);
+});
+
+it('edits gallery pages in order and leaves the upload closed when cancelled', async () => {
+  (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValue({ assets: [{ uri: 'file://one.jpg' }, { uri: 'file://two.jpg' }] });
+  await renderDiary(); await press('Photo Diary'); await press('Gallery');
+  await act(async () => tree.root.findByType(DiaryPhotoEditor).props.onSave('file://one-edited.jpg'));
+  expect(tree.root.findByType(DiaryPhotoEditor).props.uri).toBe('file://two.jpg');
+  await act(async () => tree.root.findByType(DiaryPhotoEditor).props.onCancel());
+  expect(tree.root.findAllByType(DiaryPhotoEditor)).toHaveLength(0);
+  expect(button('Send Photo Diary')).toBeUndefined();
+  expect(enqueueDiary).not.toHaveBeenCalled();
+});
+
+it('passes the edited class diary photo to text extraction', async () => {
+  mockContext = { current: mockClass, recent: [], class_teacher_sections: [{ class_section_id: 'home-room', class_name: '6', section_name: 'A' }] };
+  (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValue({ assets: [{ uri: 'file://board.jpg' }] });
+  await renderDiary(); await press('Upload class diary'); await press('Take photo');
+  expect(SmartDiaryService.extractClassDiary).not.toHaveBeenCalled();
+  await act(async () => tree.root.findByType(DiaryPhotoEditor).props.onSave('file://board-edited.jpg'));
+  expect(SmartDiaryService.extractClassDiary).toHaveBeenCalledWith('file://board-edited.jpg', expect.objectContaining({ class_section_id: 'home-room' }));
 });

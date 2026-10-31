@@ -45,6 +45,11 @@ import { regularTeacherMetaLabel } from '../../src/utils/manualSubstitutionSlots
 import ManualPlanningBoard from '../../src/components/admin/substitutions/ManualPlanningBoard';
 
 type BoardView = 'time' | 'class';
+type AssignmentFilter = 'all' | 'pending' | 'confirmed';
+
+function isConfirmedCover(slot: SubstitutionSlot) {
+  return Boolean(slot.substitution_id && slot.substitute_teacher_name && !slot.is_auto_suggested);
+}
 
 function timeLabel(value?: string) {
   if (!value) return '';
@@ -65,10 +70,10 @@ function initials(name?: string | null) {
   return words.slice(0, 2).map((word) => word[0]?.toUpperCase()).join('');
 }
 
-function scoreColor(score: number) {
-  if (score >= 85) return '#10B981';
-  if (score >= 70) return '#6366F1';
-  return '#F59E0B';
+function scoreColor(score: number, isDark: boolean) {
+  if (score >= 85) return isDark ? '#6EE7B7' : '#047857';
+  if (score >= 70) return isDark ? '#A5B4FC' : '#4338CA';
+  return isDark ? '#FBBF24' : '#B45309';
 }
 
 export default function DailySubstitutionsScreen() {
@@ -87,6 +92,8 @@ export default function DailySubstitutionsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
   const [teacherFilter, setTeacherFilter] = useState('');
+  const [assignmentFilter, setAssignmentFilter] = useState<AssignmentFilter>('all');
+  const [coverNotice, setCoverNotice] = useState<string | null>(null);
   const [reportVisible, setReportVisible] = useState(false);
   const [reportMode, setReportMode] = useState<SubstitutionReportMode>('complete');
   const [reportDownloading, setReportDownloading] = useState(false);
@@ -101,7 +108,7 @@ export default function DailySubstitutionsScreen() {
   const [assignmentSource, setAssignmentSource] = useState<'board' | 'manual'>('board');
   const [planningOpen, setPlanningOpen] = useState(false);
   const [planningBoard, setPlanningBoard] = useState<SubstitutionBoard | null>(null);
-  const [planningLoading, setPlanningLoading] = useState(false);
+  const [, setPlanningLoading] = useState(false);
   const [planningRefreshing, setPlanningRefreshing] = useState(false);
   const [planningError, setPlanningError] = useState<string | null>(null);
   const [planningNotice, setPlanningNotice] = useState<{ slotId: string; title: string; detail: string } | null>(null);
@@ -156,6 +163,7 @@ export default function DailySubstitutionsScreen() {
 
   useEffect(() => {
     setTeacherFilter('');
+    setCoverNotice(null);
     setSheetVisible(false);
     setAssignmentSource('board');
     setPlanningNotice(null);
@@ -173,6 +181,8 @@ export default function DailySubstitutionsScreen() {
     const q = query.trim().toLowerCase();
     return (board?.slots || []).filter((slot) => {
       if (teacherFilter && slot.regular_teacher_id !== teacherFilter) return false;
+      if (assignmentFilter === 'pending' && isConfirmedCover(slot)) return false;
+      if (assignmentFilter === 'confirmed' && !isConfirmedCover(slot)) return false;
       if (!q) return true;
       return [
         slot.class_name,
@@ -182,7 +192,15 @@ export default function DailySubstitutionsScreen() {
         slot.substitute_teacher_name,
       ].some((value) => String(value || '').toLowerCase().includes(q));
     });
-  }, [board?.slots, query, teacherFilter]);
+  }, [board?.slots, query, teacherFilter, assignmentFilter]);
+
+  const pendingSlots = useMemo(
+    () => (board?.slots || []).filter((slot) => !isConfirmedCover(slot)),
+    [board?.slots]
+  );
+  const nextPendingSlot = filteredSlots
+    .filter((slot) => !isConfirmedCover(slot) && slot.regular_teacher_id)
+    .sort((a, b) => a.period_number - b.period_number)[0];
 
   const groups = useMemo(() => {
     if (view === 'time') {
@@ -194,7 +212,9 @@ export default function DailySubstitutionsScreen() {
             title: info.displayLabel || period.name || `Period ${period.sort_order}`,
             subtitle: `${timeLabel(period.start_time)} – ${timeLabel(period.end_time)}`,
             icon: (info.isBreak ? 'cafe-outline' : 'time-outline') as keyof typeof Ionicons.glyphMap,
-            slots: filteredSlots.filter((slot) => slot.period_number === period.sort_order),
+            slots: filteredSlots
+              .filter((slot) => slot.period_number === period.sort_order)
+              .sort((a, b) => Number(isConfirmedCover(a)) - Number(isConfirmedCover(b))),
           };
         })
         .filter((group) => group.slots.length > 0);
@@ -213,13 +233,15 @@ export default function DailySubstitutionsScreen() {
         title: classLabel(slots[0]),
         subtitle: `${slots.length} teaching period${slots.length === 1 ? '' : 's'}`,
         icon: 'school-outline' as const,
-        slots: [...slots].sort((a, b) => a.period_number - b.period_number),
+        slots: [...slots].sort((a, b) =>
+          Number(isConfirmedCover(a)) - Number(isConfirmedCover(b)) || a.period_number - b.period_number
+        ),
       }))
       .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
   }, [board?.periods, filteredSlots, periodMap, view]);
 
   const assignedSlots = useMemo(
-    () => (board?.slots || []).filter((slot) => Boolean(slot.substitution_id && slot.substitute_teacher_name)),
+    () => (board?.slots || []).filter(isConfirmedCover),
     [board?.slots]
   );
 
@@ -286,7 +308,7 @@ export default function DailySubstitutionsScreen() {
     setTargetSlot(slot);
     setCandidateData(null);
     setSelectedCandidate(null);
-    setReason(slot.substitution_id ? (slot.reason || '') : '');
+    setReason(isConfirmedCover(slot) ? (slot.reason || '') : '');
     setSheetVisible(true);
     setCandidatesLoading(true);
     try {
@@ -331,11 +353,8 @@ export default function DailySubstitutionsScreen() {
         });
         await Promise.all([loadBoard(date), loadPlanning(date)]);
       } else {
-        await loadBoard(date);
-        alertCompat(
-          'Cover assigned',
-          `${teacherName} will cover ${classLabel(slotSnapshot)} for this date only.`
-        );
+        setCoverNotice(`${teacherName} is assigned to ${classLabel(slotSnapshot)} · ${getSlotDisplayInfo(slotSnapshot, periodMap).displayLabel}. Cover applies to this date only.`);
+        await loadBoard(date, true);
       }
     } catch (error: any) {
       alertCompat('Could not assign cover', error?.message || 'Please refresh and try again.');
@@ -410,26 +429,43 @@ export default function DailySubstitutionsScreen() {
                   <Ionicons name="sparkles" size={13} color="#C7D2FE" />
                   <Text style={styles.eyebrowText}>SMART COVER DESK</Text>
                 </View>
-                <Text style={styles.heroTitle}>Keep every class moving.</Text>
+                <Text style={styles.heroTitle}>Daily substitutions</Text>
                 <Text style={styles.heroSubtitle}>
-                  Find genuinely free teachers, balance cover duties, and grant attendance access for one day only.
+                  Review pending classes, choose an available teacher, and confirm one-day cover.
                 </Text>
               </View>
-              <View style={styles.resetBadge}>
-                <Ionicons name="refresh-circle" size={22} color="#A7F3D0" />
-                <View>
-                  <Text style={styles.resetTitle}>Auto resets</Text>
-                  <Text style={styles.resetText}>Regular timetable resumes next day</Text>
+              {nextPendingSlot && !loading && !loadError ? (
+                <View style={styles.heroActionGroup}>
+                  <Pressable
+                    onPress={() => openAssignment(nextPendingSlot)}
+                    disabled={saving || candidatesLoading}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Review next pending class, ${classLabel(nextPendingSlot)}, ${getSlotDisplayInfo(nextPendingSlot, periodMap).displayLabel}`}
+                    style={({ pressed }) => [styles.heroAction, pressed && styles.heroActionPressed, (saving || candidatesLoading) && styles.actionDisabled]}
+                  >
+                    <Ionicons name="person-add-outline" size={20} color={c.action} />
+                    <Text style={styles.heroActionText}>Assign next class</Text>
+                    <Ionicons name="arrow-forward" size={18} color={c.action} />
+                  </Pressable>
+                  <Text style={styles.heroActionHint}>{classLabel(nextPendingSlot)} · {getSlotDisplayInfo(nextPendingSlot, periodMap).displayLabel} · one-day cover</Text>
                 </View>
-              </View>
+              ) : (
+                <View style={styles.resetBadge}>
+                  <Ionicons name="refresh-circle" size={22} color="#A7F3D0" />
+                  <View>
+                    <Text style={styles.resetTitle}>Auto resets</Text>
+                    <Text style={styles.resetText}>Regular timetable resumes next day</Text>
+                  </View>
+                </View>
+              )}
             </View>
 
             <View style={styles.heroStats}>
-              <Stat value={board?.summary.covered_slots || 0} label="Covered today" />
+              <Stat value={assignedSlots.length} label="Confirmed" />
               <View style={styles.statDivider} />
               <Stat
-                value={board?.summary.uncovered_slots ?? (board ? board.summary.total_slots - board.summary.covered_slots : 0)}
-                label="Uncovered classes"
+                value={pendingSlots.length}
+                label="Awaiting assignment"
               />
               <View style={styles.statDivider} />
               <Stat
@@ -510,9 +546,10 @@ export default function DailySubstitutionsScreen() {
                 placeholder="Search class, subject or teacher"
                 placeholderTextColor={c.muted}
                 style={styles.searchInput}
+                accessibilityLabel="Search classes, subjects or teachers"
               />
               {query ? (
-                <TouchableOpacity onPress={() => setQuery('')} style={styles.clearSearch}>
+                <TouchableOpacity onPress={() => setQuery('')} style={styles.clearSearch} accessibilityRole="button" accessibilityLabel="Clear search">
                   <Ionicons name="close" size={15} color={c.muted} />
                 </TouchableOpacity>
               ) : null}
@@ -541,37 +578,31 @@ export default function DailySubstitutionsScreen() {
               ))}
             </TourScrollView>
 
-            <TouchableOpacity
-              onPress={openPlanning}
-              activeOpacity={0.85}
-              style={styles.manualButton}
-              accessibilityRole="button"
-              accessibilityLabel="Add manual substitution"
-            >
-              <Ionicons name="add-circle-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.manualButtonText}>Add manual substitution</Text>
-            </TouchableOpacity>
-
-            <View style={styles.reportCallout}>
-              <View style={styles.reportCalloutIcon}>
-                <Ionicons name="document-text-outline" size={20} color={c.primary} />
-              </View>
-              <View style={styles.reportCalloutCopy}>
-                <Text style={styles.reportCalloutTitle}>Substitution duty register</Text>
-                <Text style={styles.reportCalloutText}>
-                  Download all {assignedSlots.length} confirmed {assignedSlots.length === 1 ? 'assignment' : 'assignments'} as a branded PDF or CSV.
-                </Text>
-              </View>
+            <View style={styles.controlActions}>
+              <TouchableOpacity
+                onPress={openPlanning}
+                activeOpacity={0.85}
+                style={styles.secondaryControlButton}
+                accessibilityRole="button"
+                accessibilityLabel="Add manual substitution"
+              >
+                <Ionicons name="add-circle-outline" size={18} color={c.controlText} />
+                <Text style={styles.secondaryControlText}>Add manual substitution</Text>
+              </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setReportVisible(true)}
                 disabled={loading || assignedSlots.length === 0}
                 activeOpacity={0.82}
-                style={[styles.reportButton, (loading || assignedSlots.length === 0) && styles.reportButtonDisabled]}
+                style={[styles.secondaryControlButton, (loading || assignedSlots.length === 0) && styles.actionDisabled]}
+                accessibilityRole="button"
+                accessibilityLabel={`Download ${assignedSlots.length} confirmed assignments`}
+                accessibilityHint={assignedSlots.length === 0 ? 'Confirm an assignment to enable downloads.' : 'Choose PDF or CSV for the duty register.'}
               >
-                <Ionicons name="download-outline" size={17} color="#FFFFFF" />
-                <Text style={styles.reportButtonText}>Download list</Text>
+                <Ionicons name="download-outline" size={18} color={c.controlText} />
+                <Text style={styles.secondaryControlText}>Download list ({assignedSlots.length})</Text>
               </TouchableOpacity>
             </View>
+            {!loading && assignedSlots.length === 0 ? <Text style={styles.downloadHint}>Confirm an assignment to enable PDF and CSV downloads.</Text> : null}
           </View>
         )}
 
@@ -590,6 +621,45 @@ export default function DailySubstitutionsScreen() {
           />
         ) : (
         <>
+        {coverNotice ? (
+          <View style={styles.coverNotice} role="status" accessibilityLiveRegion="polite">
+            <Ionicons name="checkmark-circle" size={22} color={c.successText} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.coverNoticeTitle}>Substitute assigned</Text>
+              <Text style={styles.coverNoticeText}>{coverNotice}</Text>
+            </View>
+            <TouchableOpacity onPress={() => setCoverNotice(null)} style={styles.noticeDismiss} accessibilityRole="button" accessibilityLabel="Dismiss assignment confirmation">
+              <Ionicons name="close" size={20} color={c.successText} />
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {board && !loading && !loadError && board.slots.length > 0 ? (
+          <View style={styles.boardToolbar}>
+            <View style={styles.statusFilters} accessibilityRole="tablist" accessibilityLabel="Filter classes by assignment status">
+              {([
+                { key: 'all', label: 'All classes', count: board.slots.length },
+                { key: 'pending', label: 'Needs cover', count: pendingSlots.length },
+                { key: 'confirmed', label: 'Confirmed', count: assignedSlots.length },
+              ] as const).map((item) => (
+                <Pressable
+                  key={item.key}
+                  onPress={() => setAssignmentFilter(item.key)}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: assignmentFilter === item.key }}
+                  aria-selected={assignmentFilter === item.key}
+                  accessibilityLabel={`${item.label}, ${item.count}`}
+                  style={[styles.statusFilter, assignmentFilter === item.key && styles.statusFilterActive]}
+                >
+                  <Text style={[styles.statusFilterText, assignmentFilter === item.key && styles.statusFilterTextActive]}>{item.label}</Text>
+                  <Text style={[styles.statusFilterCount, assignmentFilter === item.key && styles.statusFilterTextActive]}>{item.count}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Text style={styles.resultsLabel}>{filteredSlots.length} of {board.slots.length} classes shown</Text>
+          </View>
+        ) : null}
+
         {/* Informational Banner: Attendance not recorded */}
         {board && board.attendance_recorded === false ? (
           <View style={styles.attendanceBanner}>
@@ -604,25 +674,37 @@ export default function DailySubstitutionsScreen() {
         ) : null}
 
         {/* Advisory Banner: Classes needing substitute cover */}
-        {board && board.summary.uncovered_slots > 0 ? (
+        {board && !loading && !loadError && pendingSlots.length > 0 ? (
           <View style={styles.advisoryBanner}>
             <Ionicons name="alert-circle" size={22} color={c.warningText} />
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, minWidth: 180 }}>
               <Text style={styles.advisoryBannerTitle}>
-                Action Required: {board.summary.uncovered_slots} {board.summary.uncovered_slots === 1 ? 'class needs' : 'classes need'} substitute cover
+                {pendingSlots.length} {pendingSlots.length === 1 ? 'class still needs' : 'classes still need'} cover
               </Text>
               <Text style={styles.advisoryBannerText}>
-                Assign available teachers to cover all affected periods for {selectedDateLabel} to ensure student classes are covered.
+                Open a class below to review available teachers, then confirm the assignment.
               </Text>
             </View>
+            {nextPendingSlot ? (
+              <Pressable
+                onPress={() => openAssignment(nextPendingSlot)}
+                disabled={saving || candidatesLoading}
+                accessibilityRole="button"
+                accessibilityLabel={`Assign next class, ${classLabel(nextPendingSlot)}, ${getSlotDisplayInfo(nextPendingSlot, periodMap).displayLabel}`}
+                style={({ pressed }) => [styles.nextClassButton, pressed && styles.assignButtonPressed, (saving || candidatesLoading) && styles.actionDisabled]}
+              >
+                <Text style={styles.nextClassButtonText}>Assign next class</Text>
+                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+              </Pressable>
+            ) : null}
           </View>
-        ) : board && board.summary.total_slots > 0 && board.summary.uncovered_slots === 0 ? (
+        ) : board && !loading && !loadError && board.slots.length > 0 && pendingSlots.length === 0 ? (
           <View style={styles.successBanner}>
             <Ionicons name="checkmark-circle" size={22} color={c.success} />
             <View style={{ flex: 1 }}>
               <Text style={styles.successBannerTitle}>All affected classes covered</Text>
               <Text style={styles.successBannerText}>
-                All {board.summary.total_slots} affected {board.summary.total_slots === 1 ? 'period has' : 'periods have'} confirmed substitute teachers for this date.
+                All {board.slots.length} affected {board.slots.length === 1 ? 'period has' : 'periods have'} confirmed substitute teachers for this date.
               </Text>
             </View>
           </View>
@@ -680,12 +762,12 @@ export default function DailySubstitutionsScreen() {
             <View style={styles.emptyIcon}>
               <Ionicons name="calendar-outline" size={30} color={c.primary} />
             </View>
-            <Text style={styles.emptyTitle}>No matching classes</Text>
+            <Text style={styles.emptyTitle}>{assignmentFilter === 'pending' && pendingSlots.length === 0 ? 'All cover is confirmed' : assignmentFilter === 'confirmed' && assignedSlots.length === 0 ? 'No confirmed assignments yet' : 'No matching classes'}</Text>
             <Text style={styles.emptyText}>
-              No classes match the current search or teacher filter. Try clearing the filters.
+              {assignmentFilter === 'pending' && pendingSlots.length === 0 ? 'Every affected class has a substitute. View all classes to review or change an assignment.' : assignmentFilter === 'confirmed' && assignedSlots.length === 0 ? 'Choose Needs cover to assign a substitute. Confirmed assignments will appear here.' : 'Try another search or clear your filters to see all classes.'}
             </Text>
-            <TouchableOpacity onPress={() => { setQuery(''); setTeacherFilter(''); }} style={styles.clearFilterButton}>
-              <Text style={styles.clearFilterButtonText}>Clear filters</Text>
+            <TouchableOpacity onPress={() => { setQuery(''); setTeacherFilter(''); setAssignmentFilter('all'); }} style={styles.clearFilterButton} accessibilityRole="button">
+              <Text style={styles.clearFilterButtonText}>Show all classes</Text>
             </TouchableOpacity>
           </Animated.View>
         ) : (
@@ -721,6 +803,7 @@ export default function DailySubstitutionsScreen() {
                         styles={styles}
                         onAssign={() => openAssignment(slot)}
                         onCancel={() => cancelAssignment(slot)}
+                        busy={saving || candidatesLoading}
                       />
                     );
                   })}
@@ -790,6 +873,9 @@ function SegmentButton({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      aria-pressed={active}
       style={[staticStyles.segmentButton, active && { backgroundColor: c.primary }]}
     >
       <Ionicons name={icon} size={15} color={active ? '#FFFFFF' : c.muted} />
@@ -814,13 +900,16 @@ function FilterChip({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      aria-pressed={active}
       style={[
         staticStyles.filterChip,
         { backgroundColor: active ? c.primarySoft : c.card, borderColor: active ? c.primary : c.border },
       ]}
     >
       {active ? <Ionicons name="checkmark-circle" size={14} color={c.primary} /> : null}
-      <Text style={[staticStyles.filterChipText, { color: active ? c.primary : c.text }]} numberOfLines={1}>
+      <Text style={[staticStyles.filterChipText, { color: active ? c.controlText : c.text }]} numberOfLines={1}>
         {label}
       </Text>
       {sublabel ? (
@@ -889,8 +978,8 @@ function ReportSheet({
   onClose: () => void;
   c: ReturnType<typeof colors>;
 }) {
-  if (!visible) return null;
   const [format, setFormat] = useState<'pdf' | 'csv'>('pdf');
+  if (!visible) return null;
   const styles = makeStyles(c);
   const teacherCount = new Set(
     assignedSlots.map((slot) => slot.substitute_teacher_id || slot.substitute_teacher_name)
@@ -957,7 +1046,7 @@ function ReportSheet({
                       onPress={() => onModeChange(option.value)}
                       style={[
                         styles.reportOption,
-                        active && { borderColor: c.primary, backgroundColor: c.primarySoft },
+                        active && { borderColor: c.action, backgroundColor: c.primarySoft },
                       ]}
                     >
                       <View style={[styles.reportOptionIcon, active && { backgroundColor: c.primary }]}>
@@ -970,7 +1059,7 @@ function ReportSheet({
                       <Ionicons
                         name={active ? 'radio-button-on' : 'radio-button-off'}
                         size={21}
-                        color={active ? c.primary : c.muted}
+                        color={active ? c.action : c.muted}
                       />
                     </Pressable>
                   );
@@ -992,7 +1081,7 @@ function ReportSheet({
               >
                 <LinearGradient colors={['#312E81', '#4F46E5']} style={styles.confirmButton}>
                   {downloading ? (
-                    <LogoLoader size={22} color="#FFFFFF" />
+                    <View style={styles.savingLabel}><LogoLoader size={22} color="#FFFFFF" /><Text style={styles.confirmText}>Assigning…</Text></View>
                   ) : (
                     <>
                       <Ionicons name="download-outline" size={18} color="#FFFFFF" />
@@ -1024,7 +1113,7 @@ function ReportSheet({
               >
                 <LinearGradient colors={['#059669', '#10B981']} style={styles.confirmButton}>
                   {downloading ? (
-                    <LogoLoader size={22} color="#FFFFFF" />
+                    <View style={styles.savingLabel}><LogoLoader size={22} color="#FFFFFF" /><Text style={styles.confirmText}>Assigning…</Text></View>
                   ) : (
                     <>
                       <Ionicons name="download-outline" size={18} color="#FFFFFF" />
@@ -1058,6 +1147,7 @@ function SubstitutionCard({
   styles,
   onAssign,
   onCancel,
+  busy = false,
 }: {
   slot: SubstitutionSlot;
   periodDisplayLabel?: string;
@@ -1066,8 +1156,10 @@ function SubstitutionCard({
   styles: ReturnType<typeof makeStyles>;
   onAssign: () => void;
   onCancel: () => void;
+  busy?: boolean;
 }) {
-  const covered = Boolean(slot.substitution_id);
+  const suggested = Boolean(slot.is_auto_suggested);
+  const covered = isConfirmedCover(slot);
   const isUncovered = !covered;
 
   return (
@@ -1103,8 +1195,8 @@ function SubstitutionCard({
           <Text style={styles.slotTime}>{timeLabel(slot.start_time)}</Text>
           {isUncovered ? (
             <View style={styles.uncoveredBadge}>
-              <Ionicons name="alert-circle" size={11} color={c.danger} />
-              <Text style={styles.uncoveredBadgeText}>NEEDS SUBSTITUTE</Text>
+              <Ionicons name="time-outline" size={13} color={c.warningText} />
+              <Text style={styles.uncoveredBadgeText}>Awaiting assignment</Text>
             </View>
           ) : null}
         </View>
@@ -1130,46 +1222,57 @@ function SubstitutionCard({
       </View>
 
       {covered ? (
-        <View style={[styles.coverPanel, slot.is_auto_suggested ? { borderColor: '#F59E0B', borderWidth: 1 } : null]}>
-          <View style={[styles.coverCheck, slot.is_auto_suggested ? { backgroundColor: '#F59E0B' } : null]}>
-            <Ionicons name={slot.is_auto_suggested ? "flash" : "checkmark"} size={14} color="#FFFFFF" />
+        <View style={styles.coverPanel}>
+          <View style={styles.coverCheck}>
+            <Ionicons name="checkmark" size={16} color="#FFFFFF" />
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.coverLabel, slot.is_auto_suggested ? { color: '#D97706' } : null]}>
-              {slot.is_auto_suggested ? 'AUTO-SUGGESTED (LEAVE)' : 'COVERED BY'}
-            </Text>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.coverLabel}>COVER CONFIRMED</Text>
             <Text style={styles.coverName}>{slot.substitute_teacher_name}</Text>
             {slot.reason ? <Text style={styles.coverReason} numberOfLines={1}>{slot.reason}</Text> : null}
           </View>
-          {slot.is_auto_suggested ? (
-            <TouchableOpacity onPress={onAssign} style={[styles.cancelButton, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]} accessibilityLabel="Confirm or change suggested substitute">
-              <Ionicons name="checkmark-done" size={16} color="#D97706" />
+          <View style={styles.coverActions}>
+            <TouchableOpacity onPress={onAssign} disabled={busy} style={styles.changeButton} accessibilityRole="button" accessibilityLabel="Change substitute">
+              <Ionicons name="create-outline" size={16} color={c.primary} />
+              <Text style={styles.changeButtonText}>Change</Text>
             </TouchableOpacity>
-          ) : (
-            <View style={styles.coverActions}>
-              <TouchableOpacity onPress={onAssign} style={styles.changeButton} accessibilityLabel="Change substitute">
-                <Ionicons name="create-outline" size={14} color={c.primary} />
-                <Text style={styles.changeButtonText}>Change</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={onCancel} style={styles.cancelButton} accessibilityLabel="Cancel substitution">
-                <Ionicons name="close" size={16} color={c.danger} />
-              </TouchableOpacity>
-            </View>
-          )}
+            <TouchableOpacity onPress={onCancel} disabled={busy} style={styles.cancelButton} accessibilityRole="button" accessibilityLabel="Cancel substitution">
+              <Ionicons name="close" size={18} color={c.danger} />
+            </TouchableOpacity>
+          </View>
         </View>
       ) : (
-        <TouchableOpacity onPress={onAssign} activeOpacity={0.82}>
-          <LinearGradient
-            colors={['#4F46E5', '#6366F1']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.assignButton}
+        <View style={styles.assignmentPanel}>
+          {suggested ? (
+            <View style={styles.suggestionInfo}>
+              <View style={styles.suggestionIcon}>
+                <Ionicons name="flash" size={18} color={c.warningText} />
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.suggestionTitle}>Auto-suggested · review required</Text>
+                {slot.substitute_teacher_name ? (
+                  <Text style={styles.suggestionName}>{slot.substitute_teacher_name}</Text>
+                ) : null}
+                <Text style={styles.suggestionHint}>Review available teachers and confirm cover for this period.</Text>
+              </View>
+            </View>
+          ) : null}
+          <Pressable
+            onPress={onAssign}
+            disabled={busy}
+            accessibilityState={{ disabled: busy }}
+            accessibilityRole="button"
+            accessibilityLabel={suggested ? 'Review and assign substitute' : 'Find and assign substitute'}
+            accessibilityHint="Opens available teachers so you can review and confirm an assignment."
+            style={({ pressed }) => [styles.assignButton, pressed && styles.assignButtonPressed, busy && styles.actionDisabled]}
           >
-            <Ionicons name="person-add-outline" size={16} color="#FFFFFF" />
-            <Text style={styles.assignButtonText}>Find available cover</Text>
-            <Ionicons name="arrow-forward" size={15} color="#C7D2FE" />
-          </LinearGradient>
-        </TouchableOpacity>
+            <Ionicons name="person-add-outline" size={20} color="#FFFFFF" />
+            <Text style={styles.assignButtonText}>
+              {suggested ? 'Review & assign substitute' : 'Find & assign substitute'}
+            </Text>
+            <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+          </Pressable>
+        </View>
       )}
     </View>
   );
@@ -1224,7 +1327,7 @@ function CandidateSheet({
           <View style={styles.sheetHandle} />
           <View style={styles.sheetHeader}>
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={styles.sheetEyebrow}>ASSIGN ONE-DAY COVER</Text>
+              <Text style={styles.sheetEyebrow}>CHOOSE A SUBSTITUTE</Text>
               <Text style={styles.sheetTitle} numberOfLines={1}>{classLabel(target)} · {target.subject_name}</Text>
               <Text style={styles.sheetSubtitle} numberOfLines={1}>
                 {timeLabel(target.start_time)}–{timeLabel(target.end_time)} · replacing {target.regular_teacher_name}
@@ -1262,24 +1365,25 @@ function CandidateSheet({
                 <View style={styles.rankExplainer}>
                   <Ionicons name="analytics-outline" size={16} color={c.primary} />
                   <Text style={styles.rankExplainerText}>
-                    Ranked by subject match, class familiarity, workload and recent cover fairness. Unavailable and conflicting teachers are automatically excluded.
+                    Only available teachers are shown. The best match is selected for you; choose another teacher if needed.
                   </Text>
                 </View>
 
                 <View style={styles.candidateList}>
                   {data?.candidates.map((candidate, index) => {
                     const active = selected?.id === candidate.id;
-                    const accent = scoreColor(candidate.score);
+                    const accent = scoreColor(candidate.score, isDark);
                     return (
                       <Pressable
                         key={candidate.id}
                         onPress={() => onSelect(candidate)}
                         accessibilityRole="radio"
-                        accessibilityState={{ selected: active }}
-                        accessibilityLabel={`Select ${candidate.teacher_name}, match score ${candidate.score}`}
+                        accessibilityState={{ checked: active }}
+                        aria-checked={active}
+                        accessibilityLabel={`Select ${candidate.teacher_name}, ${candidate.recommendation}, ${candidate.reasons.join(', ')}`}
                         style={[
                           styles.candidateCard,
-                          active && { borderColor: c.primary, backgroundColor: c.primarySoft },
+                          active && { borderColor: c.action, backgroundColor: c.primarySoft },
                         ]}
                       >
                         <View style={[styles.rankBadge, index === 0 && { backgroundColor: '#FEF3C7' }]}>
@@ -1292,7 +1396,7 @@ function CandidateSheet({
                         </View>
                         <View style={{ flex: 1, minWidth: 0 }}>
                           <View style={styles.candidateNameRow}>
-                            <Text style={styles.candidateName} numberOfLines={1}>{candidate.teacher_name}</Text>
+                            <Text style={styles.candidateName}>{candidate.teacher_name}</Text>
                             <Text style={[styles.recommendation, { color: accent }]}>{candidate.recommendation}</Text>
                           </View>
                           <View style={styles.reasonChips}>
@@ -1303,13 +1407,10 @@ function CandidateSheet({
                             ))}
                           </View>
                         </View>
-                        <View style={[styles.scoreRing, { borderColor: accent }]}>
-                          <Text style={[styles.scoreText, { color: accent }]}>{candidate.score}</Text>
-                        </View>
                         <Ionicons
                           name={active ? 'radio-button-on' : 'radio-button-off'}
                           size={21}
-                          color={active ? c.primary : c.muted}
+                          color={active ? c.action : c.muted}
                         />
                       </Pressable>
                     );
@@ -1335,22 +1436,30 @@ function CandidateSheet({
           {/* Pinned Bottom Footer (Always visible) */}
           {Boolean(data?.candidates?.length) && !loading ? (
             <View style={styles.sheetFooter}>
+              {selected ? (
+                <View style={styles.selectionSummary}>
+                  <Text style={styles.selectionLabel}>SELECTED SUBSTITUTE</Text>
+                  <Text style={styles.selectionName}>{selected.teacher_name}</Text>
+                  <Text style={styles.selectionDetail}>{classLabel(target)} · {timeLabel(target.start_time)}–{timeLabel(target.end_time)}</Text>
+                </View>
+              ) : null}
               <TouchableOpacity
                 onPress={onAssign}
                 disabled={!selected || saving}
                 activeOpacity={0.85}
                 style={{ opacity: !selected || saving ? 0.55 : 1 }}
                 accessibilityRole="button"
-                accessibilityLabel={selected ? `Assign ${selected.teacher_name}` : 'Select a teacher to assign'}
+                accessibilityLabel={selected ? `Confirm assignment of ${selected.teacher_name} to ${classLabel(target)}` : 'Select a teacher to assign'}
+                accessibilityState={{ disabled: !selected || saving, busy: saving }}
               >
-                <LinearGradient colors={['#4F46E5', '#6366F1']} style={styles.confirmButton}>
+                <LinearGradient colors={[c.action, c.actionPressed]} style={styles.confirmButton}>
                   {saving ? (
-                    <LogoLoader size={22} color="#FFFFFF" />
+                    <View style={styles.savingLabel}><LogoLoader size={22} color="#FFFFFF" /><Text style={styles.confirmText}>Assigning…</Text></View>
                   ) : (
                     <>
                       <Ionicons name="shield-checkmark-outline" size={18} color="#FFFFFF" />
                       <Text style={styles.confirmText}>
-                        {selected ? `Assign ${selected.teacher_name}` : 'Select teacher to assign'}
+                        {selected ? 'Confirm assignment' : 'Select a teacher above'}
                       </Text>
                     </>
                   )}
@@ -1378,7 +1487,11 @@ function colors(isDark: boolean) {
     border: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.09)',
     primary: '#5B5CE2',
     primarySoft: isDark ? 'rgba(91,92,226,0.16)' : '#EEF2FF',
+    controlText: isDark ? '#A5B4FC' : '#4338CA',
+    action: '#1D4ED8',
+    actionPressed: '#1E40AF',
     success: '#10B981',
+    successText: isDark ? '#6EE7B7' : '#047857',
     successSoft: isDark ? 'rgba(16,185,129,0.15)' : '#ECFDF5',
     warning: '#F59E0B',
     warningSoft: isDark ? 'rgba(245,158,11,0.16)' : '#FEF3C7',
@@ -1394,43 +1507,42 @@ function makeStyles(c: ReturnType<typeof colors>) {
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: c.page },
     content: { padding: 20, paddingBottom: 80, width: '100%', maxWidth: 1280, alignSelf: 'center' },
-    hero: { borderRadius: 28, padding: 26, overflow: 'hidden', marginBottom: 16 },
+    hero: { borderRadius: 24, padding: 20, overflow: 'hidden', marginBottom: 16 },
     heroGlowOne: { position: 'absolute', width: 230, height: 230, borderRadius: 115, backgroundColor: 'rgba(129,140,248,0.24)', right: -70, top: -90 },
     heroGlowTwo: { position: 'absolute', width: 170, height: 170, borderRadius: 85, backgroundColor: 'rgba(14,165,233,0.15)', left: '38%', bottom: -120 },
     heroTop: { flexDirection: 'row', flexWrap: 'wrap', gap: 20, justifyContent: 'space-between' },
     heroCopy: { flex: 1, minWidth: 260, maxWidth: 710 },
     eyebrow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 10 },
     eyebrowText: { color: '#C7D2FE', fontSize: 10, fontWeight: '900', letterSpacing: 1.5 },
-    heroTitle: { color: '#FFFFFF', fontSize: Platform.OS === 'web' ? 30 : 25, fontWeight: '900', letterSpacing: -0.9 },
+    heroTitle: { color: '#FFFFFF', fontSize: Platform.OS === 'web' ? 27 : 24, fontWeight: '900', letterSpacing: -0.9 },
     heroSubtitle: { color: '#DDE4FF', fontSize: 14, lineHeight: 21, marginTop: 8, maxWidth: 650 },
+    heroActionGroup: { gap: 8, alignSelf: 'flex-start', maxWidth: '100%' },
+    heroAction: { minHeight: 52, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 14, backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+    heroActionPressed: { backgroundColor: '#DBEAFE' },
+    heroActionText: { color: c.action, fontSize: 14, fontWeight: '800', flexShrink: 1 },
+    heroActionHint: { color: '#E0E7FF', fontSize: 12, lineHeight: 18 },
     resetBadge: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.13)', paddingHorizontal: 14, paddingVertical: 12, borderRadius: 16, alignSelf: 'flex-start' },
     resetTitle: { color: '#D1FAE5', fontSize: 12, fontWeight: '900' },
     resetText: { color: '#E0E7FF', fontSize: 10, marginTop: 2 },
-    heroStats: { flexDirection: 'row', marginTop: 24, paddingTop: 18, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.13)' },
+    heroStats: { flexDirection: 'row', marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.13)' },
     statDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.14)', marginHorizontal: 18 },
     controlCard: { backgroundColor: c.card, borderRadius: 24, borderWidth: 1, borderColor: c.border, padding: 18, marginBottom: 20, shadowColor: c.shadow, shadowOpacity: Platform.OS === 'web' ? 0.08 : 0.12, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 3 },
     controlTop: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
-    dateCell: { flex: 1.2, minWidth: 260 },
-    viewCell: { flex: 1, minWidth: 250 },
+    dateCell: { flex: 1.2, minWidth: 220 },
+    viewCell: { flex: 1, minWidth: 220 },
     controlLabel: { color: c.muted, fontSize: 10, fontWeight: '900', letterSpacing: 1.1, marginBottom: 8 },
     datePicker: { backgroundColor: c.cardAlt, borderRadius: 14, minHeight: 48 },
     segment: { flexDirection: 'row', padding: 4, backgroundColor: c.cardAlt, borderRadius: 14, minHeight: 48 },
     searchWrap: { height: 48, marginTop: 16, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 14, backgroundColor: c.cardAlt, borderWidth: 1, borderColor: c.border },
     searchInput: { flex: 1, color: c.text, fontSize: 14, borderWidth: 0, paddingHorizontal: 0, backgroundColor: 'transparent', height: 46 },
-    clearSearch: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: c.card },
+    clearSearch: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: c.card },
     teacherChips: { gap: 8, paddingRight: 10 },
-    reportCallout: { marginTop: 18, paddingTop: 16, borderTopWidth: 1, borderTopColor: c.border, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
-    reportCalloutIcon: { width: 42, height: 42, borderRadius: 14, backgroundColor: c.primarySoft, alignItems: 'center', justifyContent: 'center' },
-    reportCalloutCopy: { flex: 1, minWidth: 220 },
-    reportCalloutTitle: { color: c.text, fontSize: 13, fontWeight: '900' },
-    reportCalloutText: { color: c.subtext, fontSize: 10, lineHeight: 15, marginTop: 3 },
-    reportButton: { minHeight: 42, paddingHorizontal: 15, borderRadius: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, backgroundColor: c.primary },
-    reportButtonDisabled: { opacity: 0.45 },
-    reportButtonText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
+    controlActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: c.border },
+    secondaryControlButton: { flex: 1, minWidth: 180, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: c.border, backgroundColor: c.cardAlt, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10 },
+    secondaryControlText: { color: c.controlText, fontSize: 12, fontWeight: '800', flexShrink: 1 },
+    downloadHint: { color: c.subtext, fontSize: 11, lineHeight: 16, marginTop: 10 },
     manualButton: { marginTop: 16, minHeight: 46, borderRadius: 14, backgroundColor: c.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 16 },
     manualButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
-    manualButtonSecondary: { backgroundColor: 'transparent', borderWidth: 1, borderColor: c.primary },
-    manualButtonSecondaryText: { color: c.primary },
     planningTopBar: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -1475,9 +1587,29 @@ function makeStyles(c: ReturnType<typeof colors>) {
     attendanceBanner: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, backgroundColor: c.infoSoft, borderWidth: 1, borderColor: 'rgba(59,130,246,0.25)', marginBottom: 16 },
     attendanceBannerTitle: { color: c.infoText, fontSize: 13, fontWeight: '800' },
     attendanceBannerText: { color: c.subtext, fontSize: 11, marginTop: 2, lineHeight: 16 },
-    advisoryBanner: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, backgroundColor: c.warningSoft, borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)', marginBottom: 16 },
+    advisoryBanner: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, backgroundColor: c.warningSoft, borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)', marginBottom: 16 },
     advisoryBannerTitle: { color: c.warningText, fontSize: 13, fontWeight: '900' },
     advisoryBannerText: { color: c.subtext, fontSize: 11, marginTop: 2, lineHeight: 16 },
+    boardToolbar: { gap: 10, marginBottom: 16 },
+    statusFilters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    statusFilter: { minHeight: 44, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: c.border, backgroundColor: c.card, flexDirection: 'row', alignItems: 'center', gap: 8 },
+    statusFilterActive: { borderColor: c.action, backgroundColor: c.action },
+    statusFilterText: { color: c.subtext, fontSize: 13, fontWeight: '700' },
+    statusFilterCount: { color: c.subtext, fontSize: 13, fontWeight: '900' },
+    statusFilterTextActive: { color: '#FFFFFF' },
+    resultsLabel: { color: c.subtext, fontSize: 12 },
+    nextClassButton: { minHeight: 48, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: c.action, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+    nextClassButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
+    actionDisabled: { opacity: 0.55 },
+    coverNotice: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 16, backgroundColor: c.successSoft, borderWidth: 1, borderColor: c.successText, marginBottom: 16 },
+    coverNoticeTitle: { color: c.successText, fontSize: 14, fontWeight: '800' },
+    coverNoticeText: { color: c.subtext, fontSize: 12, lineHeight: 18, marginTop: 3 },
+    noticeDismiss: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+    selectionSummary: { gap: 4 },
+    selectionLabel: { color: c.subtext, fontSize: 10, fontWeight: '800', letterSpacing: 0.8 },
+    selectionName: { color: c.text, fontSize: 16, fontWeight: '800' },
+    selectionDetail: { color: c.subtext, fontSize: 12 },
+    savingLabel: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     successBanner: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 16, backgroundColor: c.successSoft, borderWidth: 1, borderColor: 'rgba(16,185,129,0.3)', marginBottom: 16 },
     successBannerTitle: { color: c.success, fontSize: 13, fontWeight: '900' },
     successBannerText: { color: c.subtext, fontSize: 11, marginTop: 2, lineHeight: 16 },
@@ -1504,19 +1636,19 @@ function makeStyles(c: ReturnType<typeof colors>) {
     groupCount: { minWidth: 30, height: 30, borderRadius: 11, backgroundColor: c.card, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center' },
     groupCountText: { color: c.primary, fontWeight: '900', fontSize: 12 },
     slotGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-    slotCard: { minWidth: 285, flexGrow: 1, backgroundColor: c.card, borderRadius: 20, borderWidth: 1, borderColor: c.border, padding: 17, overflow: 'hidden', shadowColor: c.shadow, shadowOpacity: Platform.OS === 'web' ? 0.06 : 0.1, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 2 },
+    slotCard: { minWidth: 0, flexGrow: 1, backgroundColor: c.card, borderRadius: 20, borderWidth: 1, borderColor: c.border, padding: 17, overflow: 'hidden', shadowColor: c.shadow, shadowOpacity: Platform.OS === 'web' ? 0.06 : 0.1, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 2 },
     slotCardUncovered: { borderColor: 'rgba(245,158,11,0.45)', backgroundColor: c.card },
     slotAccent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4 },
-    slotTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-    slotTopLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    slotTopRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    slotTop: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+    slotTopLeft: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+    slotTopRight: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
     classBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 9, paddingHorizontal: 9, paddingVertical: 6 },
     classBadgeText: { fontSize: 11, fontWeight: '900' },
     periodPill: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 7, backgroundColor: c.cardAlt },
     periodPillText: { color: c.subtext, fontSize: 10, fontWeight: '800' },
     slotTime: { color: c.muted, fontSize: 11, fontWeight: '800' },
-    uncoveredBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, backgroundColor: 'rgba(239,68,68,0.12)' },
-    uncoveredBadgeText: { color: c.danger, fontSize: 8, fontWeight: '900', letterSpacing: 0.5 },
+    uncoveredBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 7, backgroundColor: c.warningSoft },
+    uncoveredBadgeText: { color: c.warningText, fontSize: 11, fontWeight: '800' },
     unavailabilitySourcePill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.warningSoft, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 7, marginTop: 4, alignSelf: 'flex-start' },
     unavailabilitySourceText: { color: c.warningText, fontSize: 9, fontWeight: '800' },
     subjectName: { color: c.text, fontSize: 18, fontWeight: '900', marginTop: 14, marginBottom: 13, letterSpacing: -0.4 },
@@ -1525,17 +1657,24 @@ function makeStyles(c: ReturnType<typeof colors>) {
     avatarText: { color: c.primary, fontSize: 11, fontWeight: '900' },
     metaLabel: { color: c.muted, fontSize: 8, fontWeight: '900', letterSpacing: 0.9 },
     teacherName: { color: c.subtext, fontSize: 13, fontWeight: '800', marginTop: 2 },
-    assignButton: { minHeight: 44, borderRadius: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, paddingHorizontal: 14 },
-    assignButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900', flex: 1, textAlign: 'center' },
-    coverPanel: { minHeight: 54, padding: 10, borderRadius: 13, backgroundColor: c.successSoft, flexDirection: 'row', alignItems: 'center', gap: 10 },
+    assignmentPanel: { gap: 12, marginTop: 'auto' },
+    suggestionInfo: { padding: 14, borderRadius: 13, backgroundColor: c.warningSoft, borderWidth: 1, borderColor: 'rgba(245,158,11,0.4)', flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+    suggestionIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center' },
+    suggestionTitle: { color: c.warningText, fontSize: 12, fontWeight: '800', lineHeight: 18 },
+    suggestionName: { color: c.text, fontSize: 14, fontWeight: '800', marginTop: 4 },
+    suggestionHint: { color: c.subtext, fontSize: 12, lineHeight: 18, marginTop: 4 },
+    assignButton: { minHeight: 52, borderRadius: 12, backgroundColor: c.action, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 14 },
+    assignButtonPressed: { backgroundColor: c.actionPressed },
+    assignButtonText: { color: '#FFFFFF', fontSize: 14, lineHeight: 20, fontWeight: '800', flex: 1, textAlign: 'center' },
+    coverPanel: { flexWrap: 'wrap', minHeight: 54, padding: 10, borderRadius: 13, backgroundColor: c.successSoft, flexDirection: 'row', alignItems: 'center', gap: 10 },
     coverCheck: { width: 28, height: 28, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: c.success },
-    coverLabel: { color: c.success, fontSize: 8, fontWeight: '900', letterSpacing: 0.8 },
+    coverLabel: { color: c.successText, fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
     coverName: { color: c.text, fontSize: 12, fontWeight: '900', marginTop: 1 },
     coverReason: { color: c.subtext, fontSize: 9, marginTop: 2 },
     coverActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-    changeButton: { minHeight: 31, paddingHorizontal: 8, borderRadius: 10, backgroundColor: c.card, flexDirection: 'row', alignItems: 'center', gap: 4 },
-    changeButtonText: { color: c.primary, fontSize: 10, fontWeight: '900' },
-    cancelButton: { width: 31, height: 31, borderRadius: 10, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center' },
+    changeButton: { minHeight: 44, paddingHorizontal: 12, borderRadius: 10, backgroundColor: c.card, flexDirection: 'row', alignItems: 'center', gap: 4 },
+    changeButtonText: { color: c.primary, fontSize: 12, fontWeight: '900' },
+    cancelButton: { width: 44, height: 44, borderRadius: 10, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center' },
     reasonHint: { color: c.muted, fontSize: 10, marginTop: 6 },
     overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(2,6,23,0.58)' },
     sheetContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'transparent' },
@@ -1552,7 +1691,7 @@ function makeStyles(c: ReturnType<typeof colors>) {
     sheetEyebrow: { color: c.primary, fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
     sheetTitle: { color: c.text, fontSize: 20, fontWeight: '900', marginTop: 4, letterSpacing: -0.5 },
     sheetSubtitle: { color: c.subtext, fontSize: 11, marginTop: 5 },
-    sheetClose: { width: 38, height: 38, borderRadius: 13, backgroundColor: c.cardAlt, alignItems: 'center', justifyContent: 'center' },
+    sheetClose: { width: 44, height: 44, borderRadius: 13, backgroundColor: c.cardAlt, alignItems: 'center', justifyContent: 'center' },
     formatSegment: { flexDirection: 'row', backgroundColor: c.cardAlt, borderRadius: 13, padding: 4, gap: 6, marginBottom: 14 },
     formatBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingVertical: 10, borderRadius: 10 },
     formatBtnActive: { backgroundColor: c.primary },
@@ -1561,26 +1700,24 @@ function makeStyles(c: ReturnType<typeof colors>) {
     candidateLoading: { minHeight: 280, alignItems: 'center', justifyContent: 'center', gap: 14 },
     noCandidate: { minHeight: 280, alignItems: 'center', justifyContent: 'center', padding: 24 },
     rankExplainer: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.primarySoft, padding: 11, borderRadius: 12, marginBottom: 12 },
-    rankExplainerText: { color: c.subtext, fontSize: 10, lineHeight: 15, flex: 1, fontWeight: '600' },
-    candidateList: { maxHeight: 350 },
+    rankExplainerText: { color: c.subtext, fontSize: 12, lineHeight: 18, flex: 1, fontWeight: '600' },
+    candidateList: { gap: 10 },
     candidateCard: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 16, borderWidth: 1.5, borderColor: c.border, backgroundColor: c.cardAlt },
     rankBadge: { width: 27, height: 27, borderRadius: 9, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center' },
     rankText: { color: c.muted, fontSize: 10, fontWeight: '900' },
     candidateAvatar: { width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
     candidateAvatarText: { fontSize: 12, fontWeight: '900' },
-    candidateNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    candidateName: { color: c.text, fontSize: 13, fontWeight: '900', flexShrink: 1 },
+    candidateNameRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
+    candidateName: { color: c.text, fontSize: 14, fontWeight: '900', flexShrink: 1 },
     recommendation: { fontSize: 9, fontWeight: '900' },
     reasonChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 6 },
     reasonChip: { backgroundColor: c.card, borderRadius: 7, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: c.border },
-    reasonChipText: { color: c.subtext, fontSize: 8, fontWeight: '700' },
-    scoreRing: { width: 38, height: 38, borderRadius: 19, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-    scoreText: { fontSize: 11, fontWeight: '900' },
+    reasonChipText: { color: c.subtext, fontSize: 11, fontWeight: '700' },
     reasonField: { marginTop: 14 },
     reasonInput: { color: c.text, backgroundColor: c.cardAlt, borderRadius: 13, borderWidth: 1, borderColor: c.border, paddingHorizontal: 13, minHeight: 46 },
     confirmButton: { minHeight: 50, borderRadius: 15, marginTop: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9 },
     confirmText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
-    expiryNote: { color: c.muted, fontSize: 9, textAlign: 'center', marginTop: 9 },
+    expiryNote: { color: c.subtext, fontSize: 11, textAlign: 'center', marginTop: 9 },
     reportSummary: { flexDirection: 'row', gap: 8, marginBottom: 14 },
     reportOptions: { gap: 9 },
     reportOption: { minHeight: 66, padding: 11, borderRadius: 15, borderWidth: 1.5, borderColor: c.border, backgroundColor: c.cardAlt, flexDirection: 'row', alignItems: 'center', gap: 11 },
@@ -1602,7 +1739,7 @@ const staticStyles = StyleSheet.create({
   statLabel: { color: '#C7D2FE', fontSize: 10, marginTop: 3, fontWeight: '700' },
   segmentButton: { flex: 1, borderRadius: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 10, minHeight: 40 },
   segmentLabel: { fontSize: 11, fontWeight: '900' },
-  filterChip: { height: 36, maxWidth: 210, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  filterChip: { minHeight: 44, maxWidth: 210, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
   filterChipText: { fontSize: 11, fontWeight: '800', maxWidth: 120 },
   chipSublabel: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
   chipSublabelText: { fontSize: 8, fontWeight: '800' },

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import * as Application from 'expo-application';
 import Constants from 'expo-constants';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../constants/school';
 import { compareVersions } from '../utils/versionUtils';
@@ -54,6 +54,9 @@ export function useVersionCheck() {
 
   useEffect(() => {
     let mounted = true;
+    let hasServerVerdict = false;
+    let inFlight = false;
+    let controller: AbortController | null = null;
 
     async function applyCachedVerdict() {
       try {
@@ -64,13 +67,14 @@ export function useVersionCheck() {
         // the cached minimum without waiting for the network round trip.
         const stillRequired = cached.updateRequired
           && compareVersions(getCurrentVersion(), cached.minimumVersion) < 0;
-        if (mounted && stillRequired) setUpdateRequired(true);
+        if (mounted && !hasServerVerdict && stillRequired) setUpdateRequired(true);
       } catch {
         AsyncStorage.removeItem(VERSION_CHECK_CACHE_KEY).catch(() => {});
       }
     }
 
     async function checkVersion() {
+      if (inFlight || !mounted) return;
       const schoolId = process.env.EXPO_PUBLIC_SCHOOL_ID;
       if (!schoolId) {
         if (mounted) {
@@ -80,6 +84,8 @@ export function useVersionCheck() {
         return;
       }
 
+      inFlight = true;
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
       try {
         const apiBaseUrl = getApiBaseUrl();
         if (!apiBaseUrl) {
@@ -87,14 +93,15 @@ export function useVersionCheck() {
           return;
         }
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        controller = new AbortController();
+        const requestController = controller;
+        timeoutId = setTimeout(() => requestController.abort(), 10000);
         const baseUrl = apiBaseUrl.replace(/\/$/, '');
         const separator = baseUrl.includes('?') ? '&' : '?';
         const result = await fetch(
           `${baseUrl}/app/version-check${separator}school_id=${encodeURIComponent(schoolId)}`,
           { signal: controller.signal },
-        ).finally(() => clearTimeout(timeoutId));
+        );
 
         if (!result.ok) return;
 
@@ -104,7 +111,9 @@ export function useVersionCheck() {
         const required = forceUpdateEnabled
           && compareVersions(getCurrentVersion(), minimumVersion) < 0;
 
-        if (mounted) setUpdateRequired(required);
+        if (!mounted) return;
+        hasServerVerdict = true;
+        setUpdateRequired(required);
         AsyncStorage.setItem(VERSION_CHECK_CACHE_KEY, JSON.stringify({
           updateRequired: required,
           minimumVersion,
@@ -113,15 +122,25 @@ export function useVersionCheck() {
       } catch {
         // Network failure: keep whatever the cached verdict said.
       } finally {
+        // The timeout includes reading the body, not just receiving headers.
+        // Otherwise a stalled JSON body leaves all future checks locked out.
+        clearTimeout(timeoutId);
+        inFlight = false;
+        controller = null;
         if (mounted) setChecking(false);
       }
     }
 
     applyCachedVerdict();
     checkVersion();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void checkVersion();
+    });
 
     return () => {
       mounted = false;
+      controller?.abort();
+      subscription.remove();
     };
   }, []);
 

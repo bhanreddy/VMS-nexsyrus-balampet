@@ -35,10 +35,23 @@ const IS_WEB = Platform.OS === 'web';
 const webCursor = IS_WEB ? ({ cursor: 'pointer' } as const) : null;
 
 const PAYMENT_MODES = [
-    { id: 'Cash', label: 'Cash', icon: 'cash-outline' as const },
-    { id: 'UPI', label: 'UPI', icon: 'phone-portrait-outline' as const },
-    { id: 'Cheque', label: 'Cheque', icon: 'document-text-outline' as const },
+    { id: 'Cash', label: 'Cash', hint: 'In hand', icon: 'cash' as const, color: '#059669', soft: '#ECFDF5', softDark: 'rgba(5,150,105,0.16)' },
+    { id: 'UPI', label: 'UPI', hint: 'Show QR', icon: 'qr-code' as const, color: '#4F46E5', soft: '#EEF2FF', softDark: 'rgba(79,70,229,0.18)' },
+    { id: 'Cheque', label: 'Cheque', hint: 'Bank slip', icon: 'reader-outline' as const, color: '#B45309', soft: '#FFFBEB', softDark: 'rgba(180,83,9,0.16)' },
 ];
+
+function feeKindIcon(feeType?: string): React.ComponentProps<typeof Ionicons>['name'] {
+    const label = (feeType || '').toLowerCase();
+    if (/transport|bus/.test(label)) return 'bus';
+    if (/book/.test(label)) return 'book';
+    if (/tuition|academic/.test(label)) return 'school';
+    if (/term|installment|instalment/.test(label)) return 'calendar';
+    if (/exam/.test(label)) return 'document-text';
+    if (/uniform|dress/.test(label)) return 'shirt';
+    if (/lab|science/.test(label)) return 'flask';
+    if (/hostel|boarding/.test(label)) return 'bed';
+    return 'receipt';
+}
 
 function formatInr(n: number | string): string {
     const v = Number(n);
@@ -52,99 +65,76 @@ function formatInr(n: number | string): string {
 
 // ─── Animated Mode Button ────────────────────────────────────────────────────
 function ModeButton({
-    item, selected, onPress, theme, isDark
+    item, selected, onPress, isDark
 }: {
     item: typeof PAYMENT_MODES[0];
     selected: boolean;
     onPress: () => void;
-    theme: any;
+    theme?: any;
     isDark: boolean;
 }) {
     const scale = useRef(new Animated.Value(1)).current;
-    const bg = useRef(new Animated.Value(selected ? 1 : 0)).current;
-
-    useEffect(() => {
-        Animated.timing(bg, {
-            toValue: selected ? 1 : 0,
-            duration: 200,
-            useNativeDriver: false,
-        }).start();
-    }, [selected]);
-
     const handlePressIn = () => Animated.spring(scale, { toValue: 0.93, useNativeDriver: true }).start();
     const handlePressOut = () => Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start();
 
-    const backgroundColor = bg.interpolate({
-        inputRange: [0, 1],
-        outputRange: [
-            isDark ? 'rgba(255,255,255,0.04)' : '#FFFFFF',
-            isDark ? 'rgba(5,150,105,0.16)' : '#ECFDF5',
-        ],
-    });
-    const borderColor = bg.interpolate({
-        inputRange: [0, 1],
-        outputRange: [
-            isDark ? 'rgba(255,255,255,0.10)' : '#E2E8F0',
-            '#059669',
-        ],
-    });
-
     return (
         <Animated.View style={{ flex: 1, transform: [{ scale }] }}>
-            <Animated.View style={[modeStyles.btn, { backgroundColor, borderColor }]}>
-                <Pressable
-                    style={modeStyles.inner}
-                    onPress={onPress}
-                    onPressIn={handlePressIn}
-                    onPressOut={handlePressOut}
-                >
-                    <View style={[
-                        modeStyles.iconWrap,
-                        { backgroundColor: selected ? 'rgba(5,150,105,0.12)' : (isDark ? 'rgba(255,255,255,0.06)' : '#F1F5F9') },
-                    ]}>
-                        <Ionicons
-                            name={item.icon}
-                            size={18}
-                            color={selected ? '#059669' : (isDark ? 'rgba(255,255,255,0.55)' : '#64748B')}
-                        />
-                    </View>
-                    <Text style={[
-                        modeStyles.label,
-                        { color: selected ? '#059669' : (isDark ? 'rgba(255,255,255,0.58)' : '#475569') }
-                    ]}>
-                        {item.label}
-                    </Text>
-                    {selected ? <View style={modeStyles.dot} /> : <View style={modeStyles.dotSpacer} />}
-                </Pressable>
-            </Animated.View>
+            <Pressable
+                accessibilityRole="radio"
+                accessibilityState={{ checked: selected }}
+                style={[
+                    modeStyles.btn,
+                    {
+                        backgroundColor: isDark ? item.softDark : item.soft,
+                        borderColor: selected ? item.color : `${item.color}55`,
+                        borderWidth: selected ? 2 : 1.5,
+                    },
+                ]}
+                onPress={onPress}
+                onPressIn={handlePressIn}
+                onPressOut={handlePressOut}
+            >
+                <View style={[
+                    modeStyles.iconWrap,
+                    { backgroundColor: selected ? item.color : (isDark ? 'rgba(255,255,255,0.08)' : '#FFFFFF') },
+                ]}>
+                    <Ionicons
+                        name={item.icon}
+                        size={20}
+                        color={selected ? '#FFFFFF' : item.color}
+                    />
+                </View>
+                <Text style={[modeStyles.label, { color: item.color }]}>{item.label}</Text>
+                <Text style={[modeStyles.hint, { color: item.color }]}>{item.hint}</Text>
+                {selected ? (
+                    <Ionicons name="checkmark-circle" size={14} color={item.color} />
+                ) : (
+                    <View style={modeStyles.dotSpacer} />
+                )}
+            </Pressable>
         </Animated.View>
     );
 }
 
 const modeStyles = StyleSheet.create({
     btn: {
-        borderWidth: 1.5,
-        borderRadius: 14,
-        overflow: 'hidden',
-    },
-    inner: {
+        borderRadius: 16,
         paddingVertical: 12,
+        paddingHorizontal: 6,
         alignItems: 'center',
-        gap: 6,
+        gap: 4,
     },
     iconWrap: {
-        width: 36,
-        height: 36,
-        borderRadius: 12,
+        width: 40,
+        height: 40,
+        borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
+        marginBottom: 2,
     },
-    label: { fontSize: 12, fontWeight: '800', letterSpacing: 0.2 },
-    dot: {
-        width: 6, height: 6, borderRadius: 3,
-        backgroundColor: '#059669', marginTop: 1,
-    },
-    dotSpacer: { width: 6, height: 6, marginTop: 1 },
+    label: { fontSize: 13, fontWeight: '800', letterSpacing: 0.2 },
+    hint: { fontSize: 10, fontWeight: '700', opacity: 0.8 },
+    dotSpacer: { width: 14, height: 14 },
 });
 
 // ─── Main Screen ─────────────────────────────────────────────────────────────
@@ -561,16 +551,27 @@ export default function CollectFeesScreen() {
                                     <Text style={styles.studentName} numberOfLines={1}>
                                         {studentName || 'Unknown Student'}
                                     </Text>
-                                    <Text style={styles.studentMeta} numberOfLines={1}>
-                                        {[admissionNo ? `#${admissionNo}` : null, [className, sectionName].filter(Boolean).join(' · ') || null]
-                                            .filter(Boolean)
-                                            .join('  ·  ') || 'Fee collection'}
-                                    </Text>
+                                    <View style={styles.metaRow}>
+                                        {admissionNo ? (
+                                            <View style={styles.metaPill}>
+                                                <Ionicons name="id-card" size={12} color="#E9D5FF" />
+                                                <Text style={styles.metaPillText}>{admissionNo}</Text>
+                                            </View>
+                                        ) : null}
+                                        {(className || sectionName) ? (
+                                            <View style={styles.metaPill}>
+                                                <Ionicons name="school" size={12} color="#E9D5FF" />
+                                                <Text style={styles.metaPillText} numberOfLines={1}>
+                                                    {[className, sectionName].filter(Boolean).join(' · ')}
+                                                </Text>
+                                            </View>
+                                        ) : null}
+                                    </View>
                                 </View>
                             </View>
                             {feeType ? (
                                 <View style={styles.feeTypeChip}>
-                                    <Ionicons name="receipt-outline" size={13} color="#E9D5FF" />
+                                    <Ionicons name={feeKindIcon(feeType)} size={13} color="#E9D5FF" />
                                     <Text style={styles.feeTypeChipText}>{feeType}</Text>
                                 </View>
                             ) : null}
@@ -578,17 +579,29 @@ export default function CollectFeesScreen() {
 
                         <View style={styles.dueRow}>
                             <View style={styles.dueBlock}>
-                                <Text style={styles.dueLabel}>Outstanding</Text>
+                                <View style={styles.dueLabelRow}>
+                                    <Ionicons name="alert-circle" size={13} color="#DC2626" />
+                                    <Text style={styles.dueLabel}>Due</Text>
+                                </View>
                                 <Text style={styles.dueValue}>{formatInr(dueNum)}</Text>
                             </View>
                             <View style={styles.dueSep} />
                             <View style={styles.dueBlock}>
-                                <Text style={styles.dueLabel}>After this payment</Text>
+                                <View style={styles.dueLabelRow}>
+                                    <Ionicons
+                                        name={remaining <= 0 && amountNum > 0 ? 'checkmark-circle' : (isOverpay ? 'alert-circle' : 'hourglass')}
+                                        size={13}
+                                        color={remaining <= 0 && amountNum > 0 ? '#059669' : (isOverpay ? '#DC2626' : '#D97706')}
+                                    />
+                                    <Text style={styles.dueLabel}>
+                                        {remaining <= 0 && amountNum > 0 ? 'Cleared' : (isOverpay ? 'Over' : 'Left')}
+                                    </Text>
+                                </View>
                                 <Text style={[
                                     styles.dueValue,
-                                    { color: remaining <= 0 && amountNum > 0 ? '#059669' : (isOverpay ? '#DC2626' : (isDark ? '#F8FAFC' : '#0F172A')) }
+                                    { color: remaining <= 0 && amountNum > 0 ? '#059669' : (isOverpay ? '#DC2626' : '#D97706') }
                                 ]}>
-                                    {isOverpay ? formatInr(amountNum - dueNum) + ' over' : formatInr(remaining)}
+                                    {isOverpay ? formatInr(amountNum - dueNum) : formatInr(remaining)}
                                 </Text>
                             </View>
                         </View>
@@ -597,14 +610,27 @@ export default function CollectFeesScreen() {
                                 <View style={styles.dueProgressTrack}>
                                     <View style={[
                                         styles.dueProgressFill,
-                                        { width: `${Math.min(100, Math.max(0, (amountNum / dueNum) * 100))}%` as any },
+                                        {
+                                            width: `${Math.min(100, Math.max(0, (amountNum / dueNum) * 100))}%` as any,
+                                            backgroundColor: remaining <= 0 && amountNum > 0 ? '#059669' : '#D97706',
+                                        },
                                     ]} />
                                 </View>
-                                <Text style={styles.dueProgressText}>
-                                    {amountNum > 0
-                                        ? `${Math.min(100, Math.round((amountNum / dueNum) * 100))}% of this fee will be cleared`
-                                        : 'Choose an amount to collect'}
-                                </Text>
+                                {amountNum > 0 ? (
+                                    <View style={styles.dueStatusRow}>
+                                        <Ionicons
+                                            name={remaining <= 0 ? 'checkmark-circle' : 'pie-chart'}
+                                            size={14}
+                                            color={remaining <= 0 ? '#059669' : '#D97706'}
+                                        />
+                                        <Text style={[
+                                            styles.dueStatusText,
+                                            { color: remaining <= 0 ? '#059669' : '#D97706' },
+                                        ]}>
+                                            {isOverpay ? 'Too much' : remaining <= 0 ? 'Clears this fee' : 'Part payment'}
+                                        </Text>
+                                    </View>
+                                ) : null}
                             </View>
                         ) : null}
                     </Animated.View>
@@ -620,11 +646,16 @@ export default function CollectFeesScreen() {
                         }
                     ]}>
                         <View style={styles.formHeader}>
-                            <Text style={styles.sectionTitle}>Collect payment</Text>
-                            <Text style={styles.sectionHint}>Amount is prefilled. Change it only for a partial payment.</Text>
+                            <View style={styles.formHeaderIcon}>
+                                <Ionicons name="cash" size={16} color="#059669" />
+                            </View>
+                            <Text style={styles.sectionTitle}>Take payment</Text>
                         </View>
 
-                        <Text style={styles.inputLabel}>Amount</Text>
+                        <View style={styles.labelRow}>
+                            <Ionicons name="wallet" size={14} color={isDark ? '#6EE7B7' : '#059669'} />
+                            <Text style={[styles.inputLabel, styles.inputLabelInline]}>Amount</Text>
+                        </View>
                         <View style={[
                             styles.amountBox,
                             focused && styles.amountBoxFocused,
@@ -646,8 +677,13 @@ export default function CollectFeesScreen() {
                             />
                             {isReady && (
                                 <View style={[styles.fullPayBadge, amountNum < dueNum && styles.partialPayBadge]}>
+                                    <Ionicons
+                                        name={amountNum === dueNum ? 'checkmark' : 'pie-chart'}
+                                        size={11}
+                                        color="#FFFFFF"
+                                    />
                                     <Text style={styles.fullPayText}>
-                                        {amountNum === dueNum ? 'Full' : 'Partial'}
+                                        {amountNum === dueNum ? 'Full' : 'Part'}
                                     </Text>
                                 </View>
                             )}
@@ -660,22 +696,49 @@ export default function CollectFeesScreen() {
 
                         {dueNum > 0 && (
                             <View style={styles.chipRow}>
-                                {[0.25, 0.5, 0.75, 1].map((ratio) => {
-                                    const val = Math.round(dueNum * ratio);
-                                    const active = amountNum === val;
+                                {[
+                                    { ratio: 0.5, label: 'Half', icon: 'pie-chart' as const },
+                                    { ratio: 1, label: 'Full', icon: 'checkmark-circle' as const },
+                                ].map((choice) => {
+                                    const val = choice.ratio === 1 ? dueNum : Math.round(dueNum * choice.ratio);
+                                    const active = choice.ratio === 1
+                                        ? amountNum === dueNum
+                                        : amountNum === val && val !== dueNum;
+                                    const isFull = choice.ratio === 1;
                                     return (
                                         <TouchableOpacity
-                                            key={ratio}
-                                            style={[styles.chip, active && styles.chipActive, webCursor]}
+                                            key={choice.label}
+                                            style={[
+                                                styles.chip,
+                                                isFull ? styles.chipFull : styles.chipHalf,
+                                                active && (isFull ? styles.chipActive : styles.chipActivePartial),
+                                                webCursor,
+                                            ]}
                                             onPress={() => {
                                                 setPaymentError(null);
                                                 setAmount(String(val));
                                             }}
                                         >
-                                            <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                                                {ratio === 1 ? 'Full' : `${ratio * 100}%`}
+                                            <Ionicons
+                                                name={choice.icon}
+                                                size={16}
+                                                color={active || isFull ? (isFull ? '#059669' : '#D97706') : (isDark ? '#94A3B8' : '#64748B')}
+                                            />
+                                            <Text style={[
+                                                styles.chipText,
+                                                active && (isFull ? styles.chipTextActive : styles.chipTextPartial),
+                                                !active && isFull && styles.chipTextActive,
+                                            ]}>
+                                                {choice.label}
                                             </Text>
-                                            <Text style={[styles.chipAmount, active && styles.chipTextActive]} numberOfLines={1}>
+                                            <Text
+                                                style={[
+                                                    styles.chipAmount,
+                                                    active && (isFull ? styles.chipTextActive : styles.chipTextPartial),
+                                                    !active && isFull && styles.chipTextActive,
+                                                ]}
+                                                numberOfLines={1}
+                                            >
                                                 {formatInr(val)}
                                             </Text>
                                         </TouchableOpacity>
@@ -684,7 +747,10 @@ export default function CollectFeesScreen() {
                             </View>
                         )}
 
-                        <Text style={[styles.inputLabel, { marginTop: 4 }]}>Payment mode</Text>
+                        <View style={styles.labelRow}>
+                            <Ionicons name="card" size={14} color={isDark ? '#C4B5FD' : '#4F46E5'} />
+                            <Text style={[styles.inputLabel, styles.inputLabelInline]}>How they pay</Text>
+                        </View>
                         <View style={styles.modeRow}>
                             {PAYMENT_MODES.map((m) => (
                                 <ModeButton
@@ -703,7 +769,7 @@ export default function CollectFeesScreen() {
 
                         {showRemarks || remarks.length > 0 ? (
                             <>
-                                <Text style={styles.inputLabel}>Receipt note</Text>
+                                <Text style={styles.inputLabel}>Note</Text>
                                 <AppTextInput
                                     style={styles.remarksInput}
                                     multiline
@@ -719,88 +785,13 @@ export default function CollectFeesScreen() {
                         ) : (
                             <Pressable style={[styles.addNoteBtn, webCursor]} onPress={() => setShowRemarks(true)}>
                                 <Ionicons name="create-outline" size={16} color={isDark ? '#A5B4FC' : '#6366F1'} />
-                                <Text style={styles.addNoteText}>Add a receipt note</Text>
+                                <Text style={styles.addNoteText}>Add a note</Text>
                             </Pressable>
                         )}
                     </Animated.View>
                 </View>
 
-                {/* ── Previous Year Pending Fees ── */}
-                <View style={arrearsStyles.section}>
-                    <View style={arrearsStyles.headerRow}>
-                        <Ionicons name="time-outline" size={16} color={isDark ? '#FCD34D' : '#B45309'} />
-                        <Text style={arrearsStyles.headerTitle}>Previous year dues</Text>
-                    </View>
-
-                    {arrearsLoading ? (
-                        <>
-                            <View style={arrearsStyles.skeletonRow} />
-                            <View style={arrearsStyles.skeletonRow} />
-                        </>
-                    ) : arrearsError ? (
-                        <TouchableOpacity style={arrearsStyles.errorRow} onPress={loadArrears} activeOpacity={0.7}>
-                            <Text style={arrearsStyles.errorText}>Could not load previous dues. Tap to retry.</Text>
-                        </TouchableOpacity>
-                    ) : arrears.length === 0 ? (
-                        <View style={arrearsStyles.emptyRow}>
-                            <Text style={arrearsStyles.emptyCheck}>✓</Text>
-                            <Text style={arrearsStyles.emptyText}>No previous year dues</Text>
-                        </View>
-                    ) : (
-                        arrears.map((due) => {
-                            const isPartial = due.status === 'partially_paid';
-                            const balanceColor = isPartial ? '#D97706' : '#DC2626';
-                            return (
-                                <View key={due.id} style={arrearsStyles.dueRow}>
-                                    <View style={arrearsStyles.dueTopRow}>
-                                        <View style={arrearsStyles.yearBadge}>
-                                            <Text style={arrearsStyles.yearBadgeText}>{due.due_academic_year}</Text>
-                                        </View>
-                                        <View style={[
-                                            arrearsStyles.statusBadge,
-                                            { backgroundColor: isPartial ? '#FEF3C7' : '#FEE2E2' },
-                                        ]}>
-                                            <Text style={[arrearsStyles.statusBadgeText, { color: balanceColor }]}>
-                                                {isPartial ? 'PARTIAL' : 'UNPAID'}
-                                            </Text>
-                                        </View>
-                                    </View>
-
-                                    <View style={arrearsStyles.amountGrid}>
-                                        <View style={arrearsStyles.amountCell}>
-                                            <Text style={arrearsStyles.amountLabel}>Total Due</Text>
-                                            <Text style={arrearsStyles.amountValue}>
-                                                ₹{Number(due.original_amount).toLocaleString('en-IN')}
-                                            </Text>
-                                        </View>
-                                        <View style={arrearsStyles.amountCell}>
-                                            <Text style={arrearsStyles.amountLabel}>Paid</Text>
-                                            <Text style={arrearsStyles.amountValue}>
-                                                ₹{Number(due.paid_amount).toLocaleString('en-IN')}
-                                            </Text>
-                                        </View>
-                                        <View style={arrearsStyles.amountCell}>
-                                            <Text style={arrearsStyles.amountLabel}>Balance</Text>
-                                            <Text style={[arrearsStyles.balanceValue, { color: balanceColor }]}>
-                                                ₹{Number(due.balance).toLocaleString('en-IN')}
-                                            </Text>
-                                        </View>
-                                    </View>
-
-                                    <TouchableOpacity
-                                        style={arrearsStyles.collectBtn}
-                                        onPress={() => openArrearsCollect(due)}
-                                        activeOpacity={0.85}
-                                    >
-                                        <Text style={arrearsStyles.collectBtnText}>Collect arrears</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            );
-                        })
-                    )}
-                </View>
-
-                {/* ── Summary + CTA ── */}
+                {/* ── Pay now. Old dues stay below so they don't block this fee. ── */}
                 <Animated.View style={[
                     {
                         opacity: btnAnim,
@@ -809,73 +800,68 @@ export default function CollectFeesScreen() {
                         }]
                     }
                 ]}>
-                    {isReady && !wide && (
-                        <View style={styles.summaryCard}>
-                            <SummaryRow label="Student" value={studentName || '—'} isDark={isDark} />
-                            <SummaryRow label="Amount" value={formatInr(amountNum)} highlight isDark={isDark} />
-                            <SummaryRow label="Mode" value={mode} isDark={isDark} />
-                            <SummaryRow label="Balance after" value={formatInr(remaining)} isDark={isDark} />
-                        </View>
-                    )}
-
                     {mode === 'UPI' && isReady ? (
                         <View style={styles.upiQrSection}>
-                            <Text style={styles.upiQrTitle}>Pay via UPI</Text>
-                            <Text style={styles.upiQrSub}>
-                                Show this QR to the payer. Amount and note update when you change the fields above.
-                            </Text>
+                            <View style={styles.upiQrHead}>
+                                <View style={styles.upiQrIcon}>
+                                    <Ionicons name="qr-code" size={18} color="#4F46E5" />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.upiQrTitle}>Show this QR</Text>
+                                    <Text style={styles.upiQrSub}>Parent scans. Then tap Collect.</Text>
+                                </View>
+                            </View>
                             {upiLoading ? (
                                 <View style={styles.upiQrCenter}>
-                                    <ActivityIndicator color="#3B82F6" />
-                                    <Text style={styles.upiQrMuted}>Loading school UPI…</Text>
+                                    <ActivityIndicator color="#4F46E5" />
+                                    <Text style={styles.upiQrMuted}>Loading UPI…</Text>
                                 </View>
                             ) : upiLoadError ? (
                                 <View style={styles.upiQrWarn}>
+                                    <Ionicons name="alert-circle" size={16} color="#DC2626" />
                                     <Text style={styles.upiQrWarnText}>{upiLoadError}</Text>
                                     <TouchableOpacity onPress={() => setUpiFetchTick((n) => n + 1)} style={{ marginTop: 10 }}>
                                         <Text style={styles.upiQrLink}>Retry</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity onPress={() => setMode('Cash')}>
-                                        <Text style={[styles.upiQrLink, { marginTop: 6 }]}>Use Cash / Cheque instead</Text>
+                                        <Text style={[styles.upiQrLink, { marginTop: 6 }]}>Use Cash</Text>
                                     </TouchableOpacity>
                                 </View>
                             ) : !schoolUpiId || !schoolPayeeName ? (
                                 <View style={styles.upiQrWarn}>
+                                    <Ionicons name="alert-circle" size={16} color="#D97706" />
                                     <Text style={styles.upiQrWarnText}>
-                                        School UPI is not set. An admin must configure it under Admin → UPI fee settings.
+                                        UPI is not set. Use Cash or Cheque.
                                     </Text>
                                 </View>
                             ) : !inrAmountStr ? (
-                                <Text style={styles.upiQrMuted}>Enter a valid amount to generate the QR.</Text>
+                                <Text style={styles.upiQrMuted}>Enter an amount to show the QR.</Text>
                             ) : (
                                 <>
                                     <View style={styles.upiQrFrame}>
                                         <QRCode value={upiPayUri} size={200} color="#0f172a" backgroundColor="#FFFFFF" />
                                     </View>
                                     <View style={styles.upiQrMeta}>
-                                        <Text style={styles.upiQrMetaLine}>
-                                            <Text style={styles.upiQrMetaLab}>UPI ID </Text>
-                                            {schoolUpiId}
-                                        </Text>
-                                        <Text style={styles.upiQrMetaLine}>
-                                            <Text style={styles.upiQrMetaLab}>Amount </Text>₹{inrAmountStr}
-                                        </Text>
-                                        {remarks.trim() ? (
-                                            <Text style={styles.upiQrMetaLine} numberOfLines={2}>
-                                                <Text style={styles.upiQrMetaLab}>Note </Text>
-                                                {remarks.trim()}
-                                            </Text>
-                                        ) : null}
+                                        <View style={styles.upiMetaRow}>
+                                            <Ionicons name="at" size={14} color={isDark ? '#FCD34D' : '#B45309'} />
+                                            <Text style={styles.upiQrMetaLine}>{schoolUpiId}</Text>
+                                        </View>
+                                        <View style={styles.upiMetaRow}>
+                                            <Ionicons name="cash" size={14} color="#059669" />
+                                            <Text style={styles.upiQrMetaLine}>₹{inrAmountStr}</Text>
+                                        </View>
                                     </View>
                                     <TouchableOpacity
                                         style={styles.upiShareBtn}
                                         onPress={() => Share.share({ message: upiPayUri, title: 'UPI payment' }).catch(() => { })}
                                     >
-                                        <Text style={styles.upiShareBtnText}>Share UPI link</Text>
+                                        <Ionicons name="share-social" size={15} color="#4F46E5" />
+                                        <Text style={styles.upiShareBtnText}>Share link</Text>
                                     </TouchableOpacity>
-                                    <Text style={styles.upiLedgerHint}>
-                                        After payment appears in the school UPI account, tap the green button below to record it in the fee ledger.
-                                    </Text>
+                                    <View style={styles.upiHintRow}>
+                                        <Ionicons name="checkmark-circle" size={14} color="#059669" />
+                                        <Text style={styles.upiLedgerHint}>Money in? Tap the green button.</Text>
+                                    </View>
                                 </>
                             )}
                         </View>
@@ -883,6 +869,7 @@ export default function CollectFeesScreen() {
 
                     {paymentError ? (
                         <View style={[styles.errorBanner, { borderColor: isDark ? 'rgba(248,113,113,0.5)' : '#FECACA', backgroundColor: isDark ? 'rgba(239,68,68,0.12)' : '#FEF2F2' }]}>
+                            <Ionicons name="alert-circle" size={16} color={isDark ? '#FECACA' : '#991B1B'} />
                             <Text style={[styles.errorBannerText, { color: isDark ? '#FECACA' : '#991B1B' }]}>{paymentError}</Text>
                         </View>
                     ) : null}
@@ -891,6 +878,7 @@ export default function CollectFeesScreen() {
                         <TouchableOpacity
                             style={[
                                 styles.payBtn,
+                                isPartialPayment && isReady && styles.payBtnPartial,
                                 (!isReady || loading || (mode === 'UPI' && !upiQrReady)) && styles.payBtnDisabled,
                                 webCursor,
                             ]}
@@ -902,30 +890,110 @@ export default function CollectFeesScreen() {
                                 <LogoLoader color="#fff" />
                             ) : (
                                 <View style={styles.payBtnInner}>
-                                    <Text style={styles.payBtnText}>
+                                    <Ionicons
+                                        name={!isReady ? 'wallet-outline' : mode === 'UPI' ? 'qr-code' : 'checkmark-circle'}
+                                        size={18}
+                                        color={(!isReady || (mode === 'UPI' && !upiQrReady)) ? (isDark ? '#94A3B8' : '#64748B') : '#FFFFFF'}
+                                    />
+                                    <Text style={[
+                                        styles.payBtnText,
+                                        (!isReady || (mode === 'UPI' && !upiQrReady)) && styles.payBtnTextDisabled,
+                                    ]}>
                                         {!isReady
-                                            ? 'Enter amount to continue'
-                                            : mode === 'UPI'
-                                                ? `Record ${formatInr(amountNum)} to ledger`
-                                                : `Collect ${formatInr(amountNum)}`}
+                                            ? 'Enter amount'
+                                            : `Collect ${formatInr(amountNum)}`}
                                     </Text>
-                                    {isReady && (mode !== 'UPI' || upiQrReady) ? (
-                                        <Ionicons name="arrow-forward" size={18} color="rgba(255,255,255,0.85)" />
-                                    ) : null}
                                 </View>
                             )}
                         </TouchableOpacity>
                     ) : null}
                 </Animated.View>
 
+                {!arrearsLoading && !arrearsError && arrears.length === 0 ? (
+                    <View style={arrearsStyles.clearChip}>
+                        <Ionicons name="checkmark-circle" size={16} color="#059669" />
+                        <Text style={arrearsStyles.clearText}>No old dues</Text>
+                    </View>
+                ) : (
+                    <View style={arrearsStyles.section}>
+                        <View style={arrearsStyles.headerRow}>
+                            <Ionicons name="time" size={16} color={isDark ? '#FCD34D' : '#B45309'} />
+                            <Text style={arrearsStyles.headerTitle}>Old dues</Text>
+                        </View>
+
+                        {arrearsLoading ? (
+                            <>
+                                <View style={arrearsStyles.skeletonRow} />
+                                <View style={arrearsStyles.skeletonRow} />
+                            </>
+                        ) : arrearsError ? (
+                            <TouchableOpacity style={arrearsStyles.errorRow} onPress={loadArrears} activeOpacity={0.7}>
+                                <Ionicons name="refresh" size={16} color={isDark ? '#FECACA' : '#991B1B'} />
+                                <Text style={arrearsStyles.errorText}>Could not load. Tap to retry.</Text>
+                            </TouchableOpacity>
+                        ) : (
+                            arrears.map((due) => {
+                                const isPartial = due.status === 'partially_paid';
+                                const balanceColor = isPartial ? '#D97706' : '#DC2626';
+                                return (
+                                    <View key={due.id} style={arrearsStyles.dueRow}>
+                                        <View style={arrearsStyles.dueTopRow}>
+                                            <View style={arrearsStyles.yearBadge}>
+                                                <Ionicons name="calendar" size={13} color="#B45309" />
+                                                <Text style={arrearsStyles.yearBadgeText}>{due.due_academic_year}</Text>
+                                            </View>
+                                            <View style={[
+                                                arrearsStyles.statusBadge,
+                                                { backgroundColor: isPartial ? '#FEF3C7' : '#FEE2E2' },
+                                            ]}>
+                                                <Ionicons
+                                                    name={isPartial ? 'pie-chart' : 'alert-circle'}
+                                                    size={12}
+                                                    color={balanceColor}
+                                                />
+                                                <Text style={[arrearsStyles.statusBadgeText, { color: balanceColor }]}>
+                                                    {isPartial ? 'Part' : 'Unpaid'}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                        <Text style={[arrearsStyles.balanceHero, { color: balanceColor }]}>
+                                            {formatInr(due.balance)}
+                                        </Text>
+                                        <Text style={arrearsStyles.balanceCaption}>
+                                            of {formatInr(due.original_amount)} · paid {formatInr(due.paid_amount)}
+                                        </Text>
+                                        <TouchableOpacity
+                                            style={arrearsStyles.collectBtn}
+                                            onPress={() => openArrearsCollect(due)}
+                                            activeOpacity={0.85}
+                                        >
+                                            <Ionicons name="cash" size={16} color="#FFFFFF" />
+                                            <Text style={arrearsStyles.collectBtnText}>
+                                                Take {formatInr(due.balance)}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                );
+                            })
+                        )}
+                    </View>
+                )}
+
                 <View style={{ height: wide ? 128 : 28 }} />
             </KeyboardAwareScreen>
 
             {wide ? (
                 <View style={styles.stickyBar}>
+                    <View style={styles.stickyMode}>
+                        <Ionicons
+                            name={(PAYMENT_MODES.find((item) => item.id === mode) || PAYMENT_MODES[0]).icon}
+                            size={18}
+                            color={(PAYMENT_MODES.find((item) => item.id === mode) || PAYMENT_MODES[0]).color}
+                        />
+                    </View>
                     <View style={{ flex: 1, minWidth: 0 }}>
                         <Text style={styles.stickyLabel}>
-                            {mode} · {remaining <= 0 && isReady ? 'Clears this fee' : `${formatInr(remaining)} remaining`}
+                            {remaining <= 0 && isReady ? 'Clears this fee' : isReady ? `${formatInr(remaining)} left` : mode}
                         </Text>
                         <Text style={styles.stickyAmount} numberOfLines={1}>
                             {isReady ? formatInr(amountNum) : 'Enter an amount'}
@@ -935,6 +1003,7 @@ export default function CollectFeesScreen() {
                         style={[
                             styles.payBtn,
                             styles.stickyPayBtn,
+                            isPartialPayment && isReady && styles.payBtnPartial,
                             (!isReady || loading || (mode === 'UPI' && !upiQrReady)) && styles.payBtnDisabled,
                             webCursor,
                         ]}
@@ -946,16 +1015,17 @@ export default function CollectFeesScreen() {
                             <LogoLoader color="#fff" />
                         ) : (
                             <View style={styles.payBtnInner}>
-                                <Text style={styles.payBtnText}>
-                                    {!isReady
-                                        ? 'Enter amount'
-                                        : mode === 'UPI'
-                                            ? `Record ${formatInr(amountNum)}`
-                                            : `Collect ${formatInr(amountNum)}`}
+                                <Ionicons
+                                    name={!isReady ? 'wallet-outline' : 'checkmark-circle'}
+                                    size={18}
+                                    color={(!isReady || (mode === 'UPI' && !upiQrReady)) ? '#94A3B8' : '#FFFFFF'}
+                                />
+                                <Text style={[
+                                    styles.payBtnText,
+                                    (!isReady || (mode === 'UPI' && !upiQrReady)) && styles.payBtnTextDisabled,
+                                ]}>
+                                    {!isReady ? 'Enter amount' : `Collect ${formatInr(amountNum)}`}
                                 </Text>
-                                {isReady && (mode !== 'UPI' || upiQrReady) ? (
-                                    <Ionicons name="arrow-forward" size={18} color="rgba(255,255,255,0.85)" />
-                                ) : null}
                             </View>
                         )}
                     </TouchableOpacity>
@@ -976,15 +1046,33 @@ export default function CollectFeesScreen() {
                 >
                     <Pressable style={arrearsStyles.modalSheet} onPress={(e) => e.stopPropagation()}>
                         <View style={arrearsStyles.modalHandle} />
-                        <Text style={arrearsStyles.modalTitle}>Collect Arrears</Text>
+                        <View style={arrearsStyles.modalTitleRow}>
+                            <Ionicons name="time" size={18} color="#B45309" />
+                            <Text style={arrearsStyles.modalTitle}>Old dues</Text>
+                        </View>
                         {selectedArrear ? (
-                            <Text style={arrearsStyles.modalSubtitle}>
-                                {studentName || 'Student'} · {selectedArrear.due_academic_year} · Balance ₹
-                                {arrearsBalance.toLocaleString('en-IN')}
-                            </Text>
+                            <View style={arrearsStyles.modalChipRow}>
+                                <View style={arrearsStyles.modalChip}>
+                                    <Ionicons name="person" size={12} color="#4F46E5" />
+                                    <Text style={arrearsStyles.modalChipText}>{studentName || 'Student'}</Text>
+                                </View>
+                                <View style={arrearsStyles.modalChip}>
+                                    <Ionicons name="calendar" size={12} color="#B45309" />
+                                    <Text style={arrearsStyles.modalChipText}>{selectedArrear.due_academic_year}</Text>
+                                </View>
+                                <View style={[arrearsStyles.modalChip, arrearsStyles.modalChipDue]}>
+                                    <Ionicons name="alert-circle" size={12} color="#DC2626" />
+                                    <Text style={[arrearsStyles.modalChipText, { color: '#BE123C' }]}>
+                                        {formatInr(arrearsBalance)}
+                                    </Text>
+                                </View>
+                            </View>
                         ) : null}
 
-                        <Text style={arrearsStyles.modalLabel}>Amount (max ₹{arrearsBalance.toLocaleString('en-IN')})</Text>
+                        <View style={arrearsStyles.modalLabelRow}>
+                            <Ionicons name="wallet" size={14} color="#B45309" />
+                            <Text style={arrearsStyles.modalLabel}>Amount · max {formatInr(arrearsBalance)}</Text>
+                        </View>
                         <View style={[arrearsStyles.modalAmountBox, arrearsOverpay && arrearsStyles.modalAmountBoxError]}>
                             <Text style={arrearsStyles.modalRupee}>₹</Text>
                             <AppTextInput
@@ -996,12 +1084,18 @@ export default function CollectFeesScreen() {
                             />
                         </View>
                         {arrearsOverpay ? (
-                            <Text style={arrearsStyles.modalErrorHint}>
-                                ⚠ Exceeds balance by ₹{(arrearsAmountNum - arrearsBalance).toLocaleString('en-IN')}
-                            </Text>
+                            <View style={arrearsStyles.modalErrorHintRow}>
+                                <Ionicons name="alert-circle" size={13} color="#DC2626" />
+                                <Text style={arrearsStyles.modalErrorHint}>
+                                    Over by {formatInr(arrearsAmountNum - arrearsBalance)}
+                                </Text>
+                            </View>
                         ) : null}
 
-                        <Text style={arrearsStyles.modalLabel}>Payment Mode</Text>
+                        <View style={arrearsStyles.modalLabelRow}>
+                            <Ionicons name="card" size={14} color="#4F46E5" />
+                            <Text style={arrearsStyles.modalLabel}>How they pay</Text>
+                        </View>
                         <View style={arrearsStyles.modalModeRow}>
                             {PAYMENT_MODES.map((m) => (
                                 <ModeButton
@@ -1015,7 +1109,10 @@ export default function CollectFeesScreen() {
                             ))}
                         </View>
 
-                        <Text style={arrearsStyles.modalLabel}>Remarks (optional)</Text>
+                        <View style={arrearsStyles.modalLabelRow}>
+                            <Ionicons name="create-outline" size={14} color="#64748B" />
+                            <Text style={arrearsStyles.modalLabel}>Note</Text>
+                        </View>
                         <AppTextInput
                             style={arrearsStyles.modalRemarks}
                             multiline
@@ -1042,7 +1139,14 @@ export default function CollectFeesScreen() {
                             {arrearsSubmitting ? (
                                 <ActivityIndicator color="#fff" />
                             ) : (
-                                <Text style={arrearsStyles.modalSubmitText}>Collect & generate receipt</Text>
+                                <View style={arrearsStyles.modalSubmitInner}>
+                                    <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
+                                    <Text style={arrearsStyles.modalSubmitText}>
+                                        {arrearsAmountNum > 0 && !arrearsOverpay
+                                            ? `Take ${formatInr(arrearsAmountNum)}`
+                                            : 'Enter amount'}
+                                    </Text>
+                                </View>
                             )}
                         </TouchableOpacity>
                     </Pressable>
@@ -1051,26 +1155,6 @@ export default function CollectFeesScreen() {
         </View>
     );
 }
-
-// ─── Summary Row Helper ───────────────────────────────────────────────────────
-function SummaryRow({ label, value, highlight, isDark }: { label: string; value: string; highlight?: boolean; isDark?: boolean }) {
-    return (
-        <View style={summaryStyles.row}>
-            <Text style={[summaryStyles.label, { color: isDark ? 'rgba(255,255,255,0.45)' : '#64748B' }]}>{label}</Text>
-            <Text style={[
-                summaryStyles.value,
-                { color: isDark ? '#E2E8F0' : '#0F172A' },
-                highlight && summaryStyles.highlight,
-            ]}>{value}</Text>
-        </View>
-    );
-}
-const summaryStyles = StyleSheet.create({
-    row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 7 },
-    label: { fontSize: 13, color: '#6B7280', fontWeight: '500' },
-    value: { fontSize: 13, color: '#374151', fontWeight: '600' },
-    highlight: { color: '#10B981', fontSize: 15, fontWeight: '700' },
-});
 
 // ─── Previous Year Pending Fees Styles ────────────────────────────────────────
 const createArrearsStyles = (isDark: boolean) => {
@@ -1089,6 +1173,19 @@ const createArrearsStyles = (isDark: boolean) => {
             borderColor: border,
             padding: 16,
         },
+        clearChip: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            alignSelf: 'flex-start',
+            gap: 8,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            borderRadius: 999,
+            backgroundColor: isDark ? 'rgba(16,185,129,0.12)' : '#ECFDF5',
+            borderWidth: 1,
+            borderColor: isDark ? 'rgba(16,185,129,0.28)' : '#A7F3D0',
+        },
+        clearText: { fontSize: 13, fontWeight: '800', color: isDark ? '#6EE7B7' : '#047857' },
         headerRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
         headerTitle: { fontSize: 15, fontWeight: '800', color: isDark ? '#FCD34D' : '#B45309', letterSpacing: 0.2 },
         skeletonRow: {
@@ -1101,6 +1198,10 @@ const createArrearsStyles = (isDark: boolean) => {
         emptyCheck: { fontSize: 14, color: isDark ? 'rgba(255,255,255,0.4)' : '#9CA3AF', fontWeight: '700' },
         emptyText: { fontSize: 13, color: isDark ? 'rgba(255,255,255,0.4)' : '#9CA3AF' },
         errorRow: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
             paddingVertical: 14,
             paddingHorizontal: 12,
             borderRadius: 12,
@@ -1119,22 +1220,37 @@ const createArrearsStyles = (isDark: boolean) => {
         },
         dueTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
         yearBadge: {
-            backgroundColor: isDark ? 'rgba(59,130,246,0.18)' : '#EFF6FF',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 5,
+            backgroundColor: isDark ? 'rgba(245,158,11,0.16)' : '#FFFBEB',
             paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8,
         },
-        yearBadgeText: { fontSize: 13, fontWeight: '800', color: '#3B82F6' },
-        statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-        statusBadgeText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
+        yearBadgeText: { fontSize: 13, fontWeight: '800', color: isDark ? '#FCD34D' : '#B45309' },
+        statusBadge: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 4,
+            paddingHorizontal: 10,
+            paddingVertical: 4,
+            borderRadius: 999,
+        },
+        statusBadgeText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.3 },
+        balanceHero: { fontSize: 22, fontWeight: '800', letterSpacing: -0.4 },
+        balanceCaption: { fontSize: 12, fontWeight: '600', color: labelColor, marginTop: 2, marginBottom: 12 },
         amountGrid: { flexDirection: 'row', marginBottom: 12 },
         amountCell: { flex: 1 },
         amountLabel: { fontSize: 11, color: labelColor, marginBottom: 2, fontWeight: '500' },
         amountValue: { fontSize: 14, color: valueColor, fontWeight: '700' },
         balanceValue: { fontSize: 14, fontWeight: '800' },
         collectBtn: {
-            backgroundColor: '#F59E0B',
-            borderRadius: 10,
-            paddingVertical: 11,
+            flexDirection: 'row',
             alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            backgroundColor: '#D97706',
+            borderRadius: 12,
+            paddingVertical: 12,
         },
         collectBtnText: { color: '#FFFFFF', fontWeight: '800', fontSize: 13, letterSpacing: 0.3 },
         // Modal
@@ -1150,9 +1266,29 @@ const createArrearsStyles = (isDark: boolean) => {
             width: 40, height: 4, borderRadius: 2, alignSelf: 'center',
             backgroundColor: isDark ? 'rgba(255,255,255,0.2)' : '#E5E7EB', marginBottom: 14,
         },
+        modalTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
         modalTitle: { fontSize: 18, fontWeight: '800', color: isDark ? '#FFFFFF' : '#0F172A' },
-        modalSubtitle: { fontSize: 13, color: labelColor, marginTop: 4, marginBottom: 8 },
-        modalLabel: { fontSize: 13, fontWeight: '600', color: valueColor, marginTop: 14, marginBottom: 6 },
+        modalChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
+        modalChip: {
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 4,
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            borderRadius: 999,
+            backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#F8FAFC',
+            borderWidth: 1,
+            borderColor: isDark ? 'rgba(255,255,255,0.08)' : '#E2E8F0',
+        },
+        modalChipDue: {
+            backgroundColor: isDark ? 'rgba(220,38,38,0.14)' : '#FFF1F2',
+            borderColor: isDark ? 'rgba(220,38,38,0.35)' : '#FECDD3',
+        },
+        modalChipText: { fontSize: 12, fontWeight: '700', color: isDark ? '#E2E8F0' : '#334155', flexShrink: 1 },
+        modalLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14, marginBottom: 6 },
+        modalLabel: { fontSize: 13, fontWeight: '700', color: valueColor },
+        modalErrorHintRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
+        modalSubmitInner: { flexDirection: 'row', alignItems: 'center', gap: 8 },
         modalAmountBox: {
             flexDirection: 'row', alignItems: 'center',
             borderWidth: 1.5, borderColor: isDark ? 'rgba(255,255,255,0.12)' : '#E5E7EB',
@@ -1161,7 +1297,7 @@ const createArrearsStyles = (isDark: boolean) => {
         modalAmountBoxError: { borderColor: '#DC2626' },
         modalRupee: { fontSize: 18, fontWeight: '700', color: labelColor, marginRight: 6 },
         modalAmountInput: { flex: 1, fontSize: 18, fontWeight: '700', paddingVertical: 12, color: valueColor },
-        modalErrorHint: { fontSize: 12, color: '#DC2626', marginTop: 6, fontWeight: '600' },
+        modalErrorHint: { fontSize: 12, color: '#DC2626', fontWeight: '700' },
         modalModeRow: { flexDirection: 'row', gap: 10 },
         modalRemarks: {
             borderWidth: 1.5, borderColor: isDark ? 'rgba(255,255,255,0.12)' : '#E5E7EB',
@@ -1261,10 +1397,26 @@ const createStyles = (theme: any, isDark: boolean, wide = false) => StyleSheet.c
         marginBottom: 4,
         letterSpacing: -0.3,
     },
-    studentMeta: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: 'rgba(255,255,255,0.62)',
+    metaRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 6,
+    },
+    metaPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        maxWidth: '100%',
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 999,
+        backgroundColor: 'rgba(255,255,255,0.12)',
+    },
+    metaPillText: {
+        flexShrink: 1,
+        fontSize: 11,
+        fontWeight: '700',
+        color: '#F3E8FF',
     },
     feeTypeChip: {
         alignSelf: 'flex-start',
@@ -1312,12 +1464,17 @@ const createStyles = (theme: any, isDark: boolean, wide = false) => StyleSheet.c
         backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.07)',
         marginHorizontal: 12,
     },
+    dueLabelRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginBottom: 6,
+    },
     dueLabel: {
         fontSize: 11,
-        fontWeight: '700',
+        fontWeight: '800',
         letterSpacing: 0.4,
-        color: isDark ? 'rgba(255,255,255,0.42)' : '#64748B',
-        marginBottom: 6,
+        color: isDark ? 'rgba(255,255,255,0.5)' : '#64748B',
         textTransform: 'uppercase',
     },
     dueValue: {
@@ -1342,10 +1499,14 @@ const createStyles = (theme: any, isDark: boolean, wide = false) => StyleSheet.c
         borderRadius: 99,
         backgroundColor: '#059669',
     },
-    dueProgressText: {
+    dueStatusRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    dueStatusText: {
         fontSize: 12,
-        fontWeight: '600',
-        color: isDark ? 'rgba(255,255,255,0.45)' : '#64748B',
+        fontWeight: '800',
     },
 
     // ── Form ──
@@ -1369,13 +1530,25 @@ const createStyles = (theme: any, isDark: boolean, wide = false) => StyleSheet.c
     formWide: {
         flex: 1.12,
     },
-    formHeader: { marginBottom: 14 },
+    formHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 14,
+    },
+    formHeaderIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: isDark ? 'rgba(16,185,129,0.16)' : '#ECFDF5',
+    },
     sectionTitle: {
         fontSize: 18,
         fontWeight: '800',
         color: isDark ? '#F8FAFC' : '#0F172A',
         letterSpacing: -0.3,
-        marginBottom: 4,
     },
     sectionHint: {
         fontSize: 13,
@@ -1383,13 +1556,22 @@ const createStyles = (theme: any, isDark: boolean, wide = false) => StyleSheet.c
         color: isDark ? 'rgba(255,255,255,0.45)' : '#64748B',
         lineHeight: 18,
     },
+    labelRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: 8,
+    },
     inputLabel: {
         fontSize: 12,
-        fontWeight: '700',
-        letterSpacing: 0.8,
-        color: isDark ? 'rgba(255,255,255,0.4)' : '#6B7280',
+        fontWeight: '800',
+        letterSpacing: 0.6,
+        color: isDark ? 'rgba(255,255,255,0.5)' : '#64748B',
         marginBottom: 8,
         textTransform: 'uppercase',
+    },
+    inputLabelInline: {
+        marginBottom: 0,
     },
 
     // ── Amount Input ──
@@ -1425,6 +1607,9 @@ const createStyles = (theme: any, isDark: boolean, wide = false) => StyleSheet.c
         paddingVertical: 14,
     },
     fullPayBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
         backgroundColor: '#059669',
         paddingHorizontal: 10,
         paddingVertical: 5,
@@ -1455,31 +1640,48 @@ const createStyles = (theme: any, isDark: boolean, wide = false) => StyleSheet.c
     },
     chip: {
         flex: 1,
-        paddingVertical: 10,
-        paddingHorizontal: 6,
-        borderRadius: 14,
+        paddingVertical: 12,
+        paddingHorizontal: 8,
+        borderRadius: 16,
         alignItems: 'center',
         backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#F8FAFC',
         borderWidth: 1.5,
         borderColor: isDark ? 'rgba(255,255,255,0.08)' : '#E2E8F0',
         gap: 2,
     },
+    chipHalf: {
+        borderColor: isDark ? 'rgba(217,119,6,0.35)' : '#FDE68A',
+        backgroundColor: isDark ? 'rgba(217,119,6,0.08)' : '#FFFDF5',
+    },
+    chipFull: {
+        borderColor: isDark ? 'rgba(5,150,105,0.4)' : '#A7F3D0',
+        backgroundColor: isDark ? 'rgba(5,150,105,0.1)' : '#F0FDF4',
+    },
     chipActive: {
-        backgroundColor: isDark ? 'rgba(5,150,105,0.16)' : '#ECFDF5',
+        backgroundColor: isDark ? 'rgba(5,150,105,0.2)' : '#ECFDF5',
         borderColor: '#059669',
+        borderWidth: 2,
+    },
+    chipActivePartial: {
+        backgroundColor: isDark ? 'rgba(217,119,6,0.18)' : '#FFFBEB',
+        borderColor: '#D97706',
+        borderWidth: 2,
     },
     chipText: {
-        fontSize: 11,
+        fontSize: 13,
         fontWeight: '800',
-        color: isDark ? 'rgba(255,255,255,0.42)' : '#64748B',
+        color: isDark ? 'rgba(255,255,255,0.7)' : '#334155',
     },
     chipAmount: {
-        fontSize: 11,
+        fontSize: 12,
         fontWeight: '700',
-        color: isDark ? 'rgba(255,255,255,0.55)' : '#334155',
+        color: isDark ? 'rgba(255,255,255,0.55)' : '#64748B',
     },
     chipTextActive: {
         color: '#059669',
+    },
+    chipTextPartial: {
+        color: '#D97706',
     },
 
     // ── Mode Row ──
@@ -1545,10 +1747,16 @@ const createStyles = (theme: any, isDark: boolean, wide = false) => StyleSheet.c
         paddingHorizontal: 22,
         minWidth: 220,
     },
+    payBtnPartial: {
+        backgroundColor: '#D97706',
+    },
     payBtnDisabled: {
         backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#E5E7EB',
         shadowOpacity: 0,
         elevation: 0,
+    },
+    payBtnTextDisabled: {
+        color: isDark ? '#94A3B8' : '#64748B',
     },
     payBtnInner: {
         flexDirection: 'row',
@@ -1591,6 +1799,14 @@ const createStyles = (theme: any, isDark: boolean, wide = false) => StyleSheet.c
             android: { elevation: 10 },
         }),
     },
+    stickyMode: {
+        width: 36,
+        height: 36,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(255,255,255,0.08)',
+    },
     stickyLabel: {
         fontSize: 12,
         fontWeight: '600',
@@ -1604,12 +1820,16 @@ const createStyles = (theme: any, isDark: boolean, wide = false) => StyleSheet.c
         letterSpacing: -0.4,
     },
     errorBanner: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 8,
         marginBottom: 12,
         padding: 14,
         borderRadius: 14,
         borderWidth: 1,
     },
     errorBannerText: {
+        flex: 1,
         fontSize: 14,
         lineHeight: 20,
         fontWeight: '600',
@@ -1620,23 +1840,37 @@ const createStyles = (theme: any, isDark: boolean, wide = false) => StyleSheet.c
         borderRadius: 18,
         backgroundColor: isDark ? '#1C1F2A' : '#FFFFFF',
         borderWidth: 1,
-        borderColor: isDark ? 'rgba(245,158,11,0.25)' : '#FDE68A',
+        borderColor: isDark ? 'rgba(79,70,229,0.35)' : '#C7D2FE',
+    },
+    upiQrHead: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        marginBottom: 14,
+    },
+    upiQrIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: isDark ? 'rgba(79,70,229,0.2)' : '#EEF2FF',
     },
     upiQrTitle: {
         fontSize: 16,
         fontWeight: '800',
-        color: isDark ? '#FBBF24' : '#B45309',
-        marginBottom: 6,
+        color: isDark ? '#C7D2FE' : '#3730A3',
     },
     upiQrSub: {
-        fontSize: 13,
-        lineHeight: 19,
-        color: isDark ? 'rgba(255,255,255,0.55)' : '#6B7280',
-        marginBottom: 16,
+        fontSize: 12,
+        lineHeight: 16,
+        marginTop: 2,
+        color: isDark ? 'rgba(255,255,255,0.55)' : '#64748B',
+        fontWeight: '600',
     },
     upiQrCenter: { alignItems: 'center', paddingVertical: 24, gap: 10 },
     upiQrMuted: { fontSize: 13, color: isDark ? 'rgba(255,255,255,0.45)' : '#6B7280' },
-    upiQrWarn: { paddingVertical: 8 },
+    upiQrWarn: { paddingVertical: 8, gap: 6 },
     upiQrWarnText: { fontSize: 13, lineHeight: 20, color: '#F87171', fontWeight: '600' },
     upiQrLink: { marginTop: 10, fontSize: 13, fontWeight: '700', color: '#3B82F6' },
     upiQrFrame: {
@@ -1651,22 +1885,28 @@ const createStyles = (theme: any, isDark: boolean, wide = false) => StyleSheet.c
             default: {},
         }),
     },
-    upiQrMeta: { marginBottom: 12, gap: 6 },
-    upiQrMetaLine: { fontSize: 13, color: isDark ? '#E5E7EB' : '#374151', fontWeight: '600' },
+    upiQrMeta: { marginBottom: 12, gap: 8 },
+    upiMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    upiQrMetaLine: { flex: 1, fontSize: 13, color: isDark ? '#E5E7EB' : '#374151', fontWeight: '700' },
     upiQrMetaLab: { fontWeight: '700', color: isDark ? 'rgba(251,191,36,0.9)' : '#B45309' },
     upiShareBtn: {
         alignSelf: 'flex-start',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
         paddingVertical: 10,
         paddingHorizontal: 14,
         borderRadius: 10,
-        backgroundColor: isDark ? 'rgba(59,130,246,0.2)' : '#EFF6FF',
+        backgroundColor: isDark ? 'rgba(79,70,229,0.2)' : '#EEF2FF',
         marginBottom: 12,
     },
-    upiShareBtnText: { fontSize: 13, fontWeight: '800', color: '#3B82F6' },
+    upiShareBtnText: { fontSize: 13, fontWeight: '800', color: '#4F46E5' },
+    upiHintRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     upiLedgerHint: {
+        flex: 1,
         fontSize: 12,
         lineHeight: 18,
-        color: isDark ? 'rgba(255,255,255,0.5)' : '#6B7280',
-        fontStyle: 'italic' as const,
+        color: isDark ? '#6EE7B7' : '#047857',
+        fontWeight: '700',
     },
 });

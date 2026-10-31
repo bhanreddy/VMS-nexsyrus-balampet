@@ -8,7 +8,7 @@
       "ios",
       "web"
     ],
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/images/icon-v2.png",
     "scheme": "schoolims",
     "userInterfaceStyle": "light",
@@ -48,6 +48,9 @@
         "POST_NOTIFICATIONS",
         "WAKE_LOCK",
         "RECEIVE_BOOT_COMPLETED"
+      ],
+      "blockedPermissions": [
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
       ]
     },
     "web": {
@@ -70,8 +73,9 @@
             ]
           },
           "android": {
-            "enableMinifyInReleaseBuilds": false,
-            "enableShrinkResourcesInReleaseBuilds": false
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "extraProguardRules": "# Expo Record options (including SecureStore) use this annotation at runtime.\n# Backport of expo/expo#51206 for Expo Modules Core 3.0.30.\n-keep @interface expo.modules.kotlin.records.Field { *; }"
           }
         }
       ],
@@ -96,6 +100,7 @@
             "./assets/sounds/emergency.wav",
             "./assets/sounds/fee_reminder.wav",
             "./assets/sounds/voice_alert.wav",
+            "./assets/sounds/diary_alert.wav",
             "./assets/sounds/bus_present.wav",
             "./assets/sounds/busconfirmation.wav"
           ]
@@ -106,7 +111,16 @@
       "@react-native-community/datetimepicker",
       "@maplibre/maplibre-react-native",
       "./plugins/withManifestMerger.js",
-      "./plugins/withAndroidSounds.js"
+      "./plugins/withAndroidSounds.js",
+      "./plugins/withAndroidWindowCompatibility.js",
+      "./plugins/withAndroidReleaseOptimization.js",
+      "./plugins/withAndroidForegroundAudioOnly.js",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow $(PRODUCT_NAME) to verify staff attendance with Face ID."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

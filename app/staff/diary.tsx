@@ -74,6 +74,8 @@ import {
 } from '../../src/utils/smartDiary/compose';
 import { isDiaryUuid, newDiaryId } from '../../src/utils/smartDiary/ids';
 import { isPhotoFallbackContent, normalizeDiaryAttachments } from '../../src/utils/smartDiary/attachments';
+import DiaryPhotoEditor from '../../src/components/diary/DiaryPhotoEditor';
+import DiaryPhotoViewer from '../../src/components/diary/DiaryPhotoViewer';
 
 function clay(isDark: boolean, raised: 'sm' | 'md' | 'lg' = 'md'): any {
   const spread = raised === 'lg' ? 20 : raised === 'sm' ? 10 : 14;
@@ -208,6 +210,13 @@ const QUICK_TAGS = [
   { label: '⏰ Tomorrow', text: 'Due tomorrow. ' },
 ];
 
+const PHOTO_PAGE_LIMIT = 4;
+const DUE_SHORTCUTS = [
+  { label: 'Tomorrow', days: 1 },
+  { label: 'In 2 Days', days: 2 },
+  { label: 'Next Week', days: 7 },
+];
+
 export default function StaffDiary() {
   const { user } = useAuth();
   const params = useLocalSearchParams<{ academicPlanItemId?: string }>();
@@ -244,9 +253,33 @@ export default function StaffDiary() {
   const [pickerVisible, setPickerVisible] = useState(false);
 
   const [photoUris, setPhotoUris] = useState<string[]>([]);
+  const [photoIndex, setPhotoIndex] = useState(0);
   const [photoMode, setPhotoMode] = useState<'idle' | 'review'>('idle');
   const [photoConfirmOpen, setPhotoConfirmOpen] = useState(false);
+  const [photoSourceOpen, setPhotoSourceOpen] = useState(false);
   const [photoNote, setPhotoNote] = useState('');
+  const [photoTitle, setPhotoTitle] = useState('');
+  const [photoDue, setPhotoDue] = useState('');
+  const [photoTargets, setPhotoTargets] = useState<string[]>([]);
+  const [photoEditor, setPhotoEditor] = useState<{
+    uris: string[]; index: number; edited: string[]; complete: (uris: string[]) => void;
+  } | null>(null);
+  const [photoViewer, setPhotoViewer] = useState<{ photos: string[]; index: number } | null>(null);
+  const openPhotoViewer = (photos: string[], index = 0) => setPhotoViewer({ photos, index });
+  const editPickedPages = (uris: string[], complete: (pages: string[]) => void) => {
+    if (uris.length) setPhotoEditor({ uris, index: 0, edited: [], complete });
+  };
+  const saveEditedPage = (uri: string) => {
+    if (!photoEditor) return;
+    const edited = [...photoEditor.edited, uri];
+    if (photoEditor.index + 1 < photoEditor.uris.length) {
+      setPhotoEditor({ ...photoEditor, edited, index: photoEditor.index + 1 });
+    } else {
+      setPhotoEditor(null);
+      photoEditor.complete(edited);
+    }
+  };
+  const [busyLabel, setBusyLabel] = useState('Working…');
   const [extraction, setExtraction] = useState<DiaryExtraction | null>(null);
   const [previewContent, setPreviewContent] = useState('');
   const [ocrMessage, setOcrMessage] = useState<string | null>(null);
@@ -291,6 +324,7 @@ export default function StaffDiary() {
   const [classTeacherSections, setClassTeacherSections] = useState<ClassTeacherSection[]>([]);
   const [classDiaryClass, setClassDiaryClass] = useState<ClassTeacherSection | null>(null);
   const [classDiaryPickerOpen, setClassDiaryPickerOpen] = useState(false);
+  const [classDiarySourceOpen, setClassDiarySourceOpen] = useState(false);
   const [classDiaryReviewOpen, setClassDiaryReviewOpen] = useState(false);
   const [classDiaryFailedOpen, setClassDiaryFailedOpen] = useState(false);
   const [classDiaryEntries, setClassDiaryEntries] = useState<ClassDiaryEntry[]>([]);
@@ -447,8 +481,8 @@ export default function StaffDiary() {
       entry_date: todayYmd,
       title: input.title || `${current?.subject_name || 'Diary'} Homework`,
       content: input.content,
-      homework_due_date: input.due || input.extraction?.dueDate || null,
-      attachments: input.attachments || [],
+      homework_due_date: input.due !== undefined ? (input.due || null) : (input.extraction?.dueDate || null),
+      attachments: input.localUris?.length ? [] : (input.attachments || []),
       extraction: input.extraction || undefined,
       entry_source: input.entrySource,
       template_id: input.templateId,
@@ -461,6 +495,7 @@ export default function StaffDiary() {
       input_language: 'auto',
       academic_plan_item_id: linkedPlanItemId || undefined,
     };
+    setBusyLabel(input.localUris?.length ? 'Uploading diary…' : 'Posting homework…');
     setBusy(true);
     try {
       await enqueueDiary(teacherId, payload, input.localUris || []);
@@ -486,9 +521,16 @@ export default function StaffDiary() {
 
   const resetFlows = () => {
     setPhotoUris([]);
+    setPhotoIndex(0);
     setPhotoMode('idle');
     setPhotoConfirmOpen(false);
+    setPhotoSourceOpen(false);
+    setPhotoEditor(null);
+    setPhotoViewer(null);
     setPhotoNote('');
+    setPhotoTitle('');
+    setPhotoDue('');
+    setPhotoTargets([]);
     setExtraction(null);
     setPreviewContent('');
     setOcrMessage(null);
@@ -505,8 +547,9 @@ export default function StaffDiary() {
     setViewEntry(null);
   };
 
-  const pickDiaryImages = async (fromLibrary = false): Promise<string[]> => {
-    if (fromLibrary || Platform.OS === 'web') {
+  const pickDiaryImages = async (fromLibrary = false, limit = PHOTO_PAGE_LIMIT): Promise<string[]> => {
+    const pageLimit = Math.max(1, Math.min(PHOTO_PAGE_LIMIT, limit));
+    const pickFromLibrary = async () => {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
         alertCompat('Photos', 'Please allow photo library access to attach a diary page.');
@@ -515,60 +558,153 @@ export default function StaffDiary() {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         quality: 0.92,
-        allowsMultipleSelection: true,
-        selectionLimit: 4,
+        allowsMultipleSelection: pageLimit > 1,
+        selectionLimit: pageLimit,
       });
       if (result.canceled || !result.assets?.length) return [];
-      return result.assets.map((a) => a.uri);
+      return result.assets.map((a) => a.uri).slice(0, pageLimit);
+    };
+    if (fromLibrary) return pickFromLibrary();
+    try {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        alertCompat('Camera', 'Please allow camera access to take a photo of the diary.');
+        return [];
+      }
+      const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.92 });
+      if (result.canceled || !result.assets?.[0]) return [];
+      return [result.assets[0].uri];
+    } catch (error) {
+      if (Platform.OS !== 'web') throw error;
+      toast('Camera is not available in this browser. Choose a photo from your files.', 'info');
+      return pickFromLibrary();
     }
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) {
-      alertCompat('Camera', 'Please allow camera access to take a photo of the diary.');
-      return [];
-    }
-    const result = await ImagePicker.launchCameraAsync({ quality: 0.92 });
-    if (result.canceled || !result.assets?.[0]) return [];
-    return [result.assets[0].uri];
+  };
+
+  const openPhotoUpload = (uris: string[]) => {
+    const pages = uris.filter(Boolean).slice(0, PHOTO_PAGE_LIMIT);
+    if (!pages.length) return;
+    setPhotoUris(pages);
+    setPhotoIndex(0);
+    setPhotoNote('');
+    setPhotoTitle('');
+    setPhotoDue('');
+    setPhotoTargets([]);
+    setPhotoMode('idle');
+    setExtraction(null);
+    setPreviewContent('');
+    setOcrMessage(null);
+    setPhotoConfirmOpen(true);
+  };
+
+  const openPhotoSource = () => {
+    if (!canWrite || busy || !requireClass()) return;
+    setPhotoSourceOpen(true);
+  };
+
+  const choosePhotoSource = (fromLibrary: boolean) => {
+    setPhotoSourceOpen(false);
+    void capturePhoto(fromLibrary);
   };
 
   const capturePhoto = async (fromLibrary = false) => {
     if (!canWrite || !requireClass()) return;
     try {
-      const uris = await pickDiaryImages(fromLibrary);
+      const uris = await pickDiaryImages(fromLibrary, PHOTO_PAGE_LIMIT);
       if (!uris.length) return;
-      setPhotoUris(uris);
-      setPhotoNote('');
-      setPhotoConfirmOpen(true);
+      editPickedPages(uris, openPhotoUpload);
     } catch {
       toast('Could not open photos. You can still type homework.', 'error');
     }
   };
 
-  const sendConfirmedPhoto = async () => {
+  const addPhotoPages = async (fromLibrary = false) => {
+    const room = PHOTO_PAGE_LIMIT - photoUris.length;
+    if (room <= 0) {
+      toast(`You can attach up to ${PHOTO_PAGE_LIMIT} pages.`, 'info');
+      return;
+    }
+    try {
+      const uris = await pickDiaryImages(fromLibrary, room);
+      if (!uris.length) return;
+      editPickedPages(uris, (edited) => {
+        const next = [...photoUris, ...edited].slice(0, PHOTO_PAGE_LIMIT);
+        setPhotoUris(next);
+        setPhotoIndex(Math.max(0, next.length - 1));
+      });
+    } catch {
+      toast('Could not add that photo.', 'error');
+    }
+  };
+
+  const replacePhotoPage = async (fromLibrary = false) => {
     if (!photoUris.length) return;
+    try {
+      const uris = await pickDiaryImages(fromLibrary, 1);
+      const uri = uris[0];
+      if (!uri) return;
+      const index = Math.min(photoIndex, photoUris.length - 1);
+      editPickedPages([uri], ([edited]) => {
+        setPhotoUris((prev) => prev.map((item, itemIndex) => (itemIndex === index ? edited : item)));
+        setExtraction(null); setOcrMessage(null);
+      });
+    } catch {
+      toast('Could not replace that photo.', 'error');
+    }
+  };
+
+  const removePhotoPage = (index: number) => {
+    Haptics.selectionAsync();
+    const next = photoUris.filter((_, itemIndex) => itemIndex !== index);
+    setPhotoUris(next);
+    if (!next.length) {
+      setPhotoConfirmOpen(false);
+      setPhotoNote('');
+      setPhotoTitle('');
+      setPhotoDue('');
+      setPhotoTargets([]);
+    }
+    setPhotoIndex((current) => {
+      if (current > index) return current - 1;
+      if (current === index) return Math.max(0, index - 1);
+      return current;
+    });
+  };
+
+  const sendConfirmedPhoto = async () => {
+    if (!photoUris.length || !current) return;
     const note = photoNote.trim();
     const content = note || 'Please view the attached diary photo.';
+    const classSectionIds = [current.class_section_id, ...photoTargets.filter((id) => id !== current.class_section_id)];
     await publishNow({
       content,
-      title: `${current?.subject_name || 'Diary'} Homework`,
+      title: photoTitle.trim() || `${current.subject_name || 'Diary'} Homework`,
+      due: photoDue || null,
       entrySource: 'PHOTO',
       attachments: photoUris,
       localUris: photoUris,
+      classSectionIds: classSectionIds.length > 1 ? classSectionIds : undefined,
     });
   };
 
   const closePhotoConfirm = () => {
     if (busy) return;
     setPhotoConfirmOpen(false);
+    if (photoMode === 'review') return;
     setPhotoUris([]);
+    setPhotoIndex(0);
     setPhotoNote('');
+    setPhotoTitle('');
+    setPhotoDue('');
+    setPhotoTargets([]);
   };
 
   const extractPhoto = async (uris = photoUris) => {
     if (!uris.length) return;
+    setBusyLabel('Reading the photo…');
     setBusy(true);
     try {
-      const result = await SmartDiaryService.extractPhotos([uris[0]], {
+      const result = await SmartDiaryService.extractPhotos(uris, {
         class_name: current?.class_name,
         section_name: current?.section_name,
         subject_name: current?.subject_name,
@@ -576,7 +712,10 @@ export default function StaffDiary() {
       setExtraction(result.extraction);
       const text = result.preview?.content || composeDiaryContent(result.extraction);
       setPreviewContent(text);
+      setPhotoTitle((currentTitle) => currentTitle || result.preview?.title || result.extraction?.title || '');
+      if (result.extraction?.dueDate) setPhotoDue(result.extraction.dueDate);
       setOcrMessage(result.message || null);
+      setPhotoConfirmOpen(false);
       setPhotoMode('review');
     } catch {
       toast("Couldn't read text cleanly. You can still send the photo or type.", 'info');
@@ -586,20 +725,25 @@ export default function StaffDiary() {
     }
   };
 
-  const sendExtractedHomework = async () => {
+  const sendExtractedHomework = async (includePhoto = false) => {
     const content = previewContent || composeDiaryContent(extraction || {}, {});
     if (!String(content || '').trim()) {
       alertCompat('No homework text', 'Edit the extracted text, or send the original photo instead.');
       return;
     }
+    const classSectionIds = current
+      ? [current.class_section_id, ...photoTargets.filter((id) => id !== current.class_section_id)]
+      : undefined;
     await publishNow({
       content,
-      title: extraction?.title || `${current?.subject_name || 'Diary'} Homework`,
+      title: photoTitle.trim() || extraction?.title || `${current?.subject_name || 'Diary'} Homework`,
+      due: photoDue || null,
       extraction,
-      attachments: [],
-      localUris: [],
-      entrySource: 'MANUAL',
+      attachments: includePhoto ? photoUris : [],
+      localUris: includePhoto ? photoUris : [],
+      entrySource: includePhoto ? 'PHOTO' : 'MANUAL',
       extractAsync: false,
+      classSectionIds: classSectionIds && classSectionIds.length > 1 ? classSectionIds : undefined,
     });
   };
 
@@ -782,6 +926,22 @@ export default function StaffDiary() {
     ]);
   };
 
+  const beginClassDiaryUpload = () => {
+    if (!canWrite) return;
+    if (classTeacherSections.length === 1) {
+      setClassDiaryClass(classTeacherSections[0]);
+      setClassDiarySourceOpen(true);
+      return;
+    }
+    setClassDiaryPickerOpen(true);
+  };
+
+  const startClassDiaryCapture = (section: ClassTeacherSection, fromLibrary = false) => {
+    setClassDiaryPickerOpen(false);
+    setClassDiarySourceOpen(false);
+    void captureClassDiary(section, fromLibrary);
+  };
+
   const captureClassDiary = async (section: ClassTeacherSection, fromLibrary = false) => {
     if (!canWrite) return;
     try {
@@ -797,14 +957,7 @@ export default function StaffDiary() {
         : await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.92 });
       if (result.canceled || !result.assets?.[0]) return;
       const uri = result.assets[0].uri;
-      alertCompat(
-        'Upload this class diary?',
-        'Parents can receive this photo. We keep diary photos for 1 month, then delete them.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Continue', onPress: () => void processClassDiaryCapture(section, uri) },
-        ],
-      );
+      editPickedPages([uri], ([edited]) => void processClassDiaryCapture(section, edited));
     } catch {
       toast('Could not open the camera. You can still type the diary.', 'error');
     }
@@ -817,6 +970,7 @@ export default function StaffDiary() {
     setClassDiaryImage(uri);
     setClassDiarySubmissionId(submissionId);
     setClassDiaryEntries([]);
+    setBusyLabel('Reading the class diary…');
     setBusy(true);
     try {
       const extracted = await SmartDiaryService.extractClassDiary(uri, {
@@ -921,6 +1075,9 @@ export default function StaffDiary() {
   };
 
   const pageBg = isDark ? Surfaces.dark.base : '#E9EDF6';
+  const activePhotoUri = photoUris[Math.min(photoIndex, Math.max(photoUris.length - 1, 0))] || '';
+  const selectedClassDiaryCount = classDiaryEntries.filter((item) => item.selected !== false && !item.unknown).length;
+  const uploadSheetOpen = manualOpen || photoConfirmOpen || photoMode === 'review' || voiceMode === 'review' || !!templatePrompt || classDiaryReviewOpen || classDiaryFailedOpen || saveTemplateOpen || editClassIndex != null;
   const quickTemplates = templates.filter((item) => QUICK_TEMPLATE_IDS.includes(item.id as any) || QUICK_TEMPLATE_IDS.some((id) => item.name === SYSTEM_TEMPLATES.find((sys) => sys.id === id)?.name)).slice(0, 7);
 
   if (loading && !current && assignments.length === 0) {
@@ -1104,6 +1261,7 @@ export default function StaffDiary() {
             {/* Enhanced Hero Action Bento Grid */}
             <TourTarget id="staff.diary.compose" native><Animated.View entering={FadeInDown.delay(140).duration(280)} style={styles.heroGrid}>
               <PressScale
+                fill
                 style={styles.heroGridItem}
                 onPress={() => {
                   setReuseSource(null);
@@ -1133,32 +1291,44 @@ export default function StaffDiary() {
                 </View>
               </PressScale>
 
-              <View style={[styles.heroGridItem, styles.photoCtaCard]}>
-                <LinearGradient colors={['#312E81', '#4F46E5']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-                <LinearGradient colors={['rgba(255,255,255,0.22)', 'rgba(255,255,255,0)']} start={{ x: 0, y: 0 }} end={{ x: 0.4, y: 1 }} style={StyleSheet.absoluteFill} pointerEvents="none" />
-                <View style={styles.photoIconWrap}>
-                  <Ionicons name="camera-outline" size={22} color="#FFFFFF" />
+              <PressScale fill style={styles.heroGridItem} onPress={openPhotoSource} disabled={!canWrite || busy}>
+                <View style={styles.photoCtaCard}>
+                  <LinearGradient colors={['#312E81', '#4F46E5']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+                  <LinearGradient colors={['rgba(255,255,255,0.22)', 'rgba(255,255,255,0)']} start={{ x: 0, y: 0 }} end={{ x: 0.4, y: 1 }} style={StyleSheet.absoluteFill} pointerEvents="none" />
+                  <View style={styles.photoIconWrap}>
+                    <Ionicons name="camera-outline" size={22} color="#FFFFFF" />
+                  </View>
+                  <View>
+                    <Text style={styles.photoCtaTitle}>Photo Diary</Text>
+                    <Text style={styles.photoCtaHint}>Up to 4 pages</Text>
+                  </View>
+                  <View style={styles.photoCardPill}>
+                    <Text style={styles.photoActionText}>Add a photo</Text>
+                    <Ionicons name="arrow-forward" size={12} color="#FFFFFF" />
+                  </View>
                 </View>
-                <View>
-                  <Text style={styles.photoCtaTitle}>Photo Diary</Text>
-                  <Text style={styles.photoCtaHint}>Board or notebook</Text>
-                </View>
-                <View style={styles.photoActions}>
-                  <PressScale fill onPress={() => void capturePhoto(false)} disabled={!canWrite || busy}>
-                    <View style={styles.photoAction}>
-                      <Ionicons name="camera" size={13} color="#FFFFFF" />
-                      <Text style={styles.photoActionText}>Camera</Text>
-                    </View>
-                  </PressScale>
-                  <PressScale fill onPress={() => void capturePhoto(true)} disabled={!canWrite || busy}>
-                    <View style={styles.photoAction}>
-                      <Ionicons name="images-outline" size={13} color="#FFFFFF" />
-                      <Text style={styles.photoActionText}>Gallery</Text>
-                    </View>
-                  </PressScale>
-                </View>
-              </View>
+              </PressScale>
             </Animated.View></TourTarget>
+
+            {classTeacherSections.length > 0 ? (
+              <PressScale onPress={beginClassDiaryUpload} disabled={!canWrite || busy}>
+                <View style={[styles.classDiaryCta, clayCard(isDark, 'sm')]}>
+                  <ClaySheen isDark={isDark} radius={Radii.xl} />
+                  <View style={[styles.secondaryIcon, { backgroundColor: isDark ? 'rgba(2,132,199,0.18)' : '#E0F2FE' }]}>
+                    <Ionicons name="scan-outline" size={20} color="#0284C7" />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={[styles.secondaryTitle, { color: theme.colors.textStrong }]}>Upload class diary</Text>
+                    <Text style={[styles.heroCardHint, { color: theme.colors.textTertiary }]} numberOfLines={2}>
+                      {classTeacherSections.length === 1
+                        ? `${classLabel(classTeacherSections[0])} · one photo covers every subject`
+                        : `${classTeacherSections.length} homeroom classes · one photo covers every subject`}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={theme.colors.textTertiary} />
+                </View>
+              </PressScale>
+            ) : null}
 
             {/* Today&apos;s Posted Homework Feed */}
             <View style={styles.sectionBlock}>
@@ -1215,7 +1385,14 @@ export default function StaffDiary() {
                         </Text>
 
                         {photos[0] ? (
-                          <Image source={{ uri: photos[0] }} style={styles.todayPhotoThumb} />
+                          <Pressable onPress={() => openPhotoViewer(photos)} style={styles.photoFrame}>
+                            <Image source={{ uri: photos[0] }} style={[styles.todayPhotoThumb, { marginVertical: 0 }]} />
+                            {photos.length > 1 ? (
+                              <View style={styles.photoCountBadge}>
+                                <Text style={styles.photoCountText}>{photos.length} pages</Text>
+                              </View>
+                            ) : null}
+                          </Pressable>
                         ) : null}
 
                         {photoOnly ? null : (
@@ -1315,7 +1492,11 @@ export default function StaffDiary() {
                   <Text style={[styles.recentMeta, { color: theme.colors.textTertiary }]}>
                     {relativeDayLabel(toDateKey(item.entry_date))} · {item.class_name}{item.section_name} {item.subject_name}
                   </Text>
-                  {photos[0] ? <Image source={{ uri: photos[0] }} style={styles.recentPhoto} /> : null}
+                  {photos[0] ? (
+                    <Pressable onPress={() => openPhotoViewer(photos)}>
+                      <Image source={{ uri: photos[0] }} style={styles.recentPhoto} />
+                    </Pressable>
+                  ) : null}
                   {photoOnly ? null : (
                     <Text style={[styles.recentBody, { color: theme.colors.textStrong }]} numberOfLines={2}>
                       {composeHomeworkLine({ homework: item.content }) || item.content || item.title}
@@ -1361,6 +1542,7 @@ export default function StaffDiary() {
                 setActiveTab('today');
               }}
               onDelete={handleDelete}
+              onOpenPhoto={openPhotoViewer}
               labels={TE}
             />
           </>
@@ -1532,16 +1714,12 @@ export default function StaffDiary() {
         </PressScale>
       </Sheet>
 
-      {/* ========================================================================= */}
-      {/* 2. PHOTO CONFIRMATION MODAL                                              */}
-      {/* ========================================================================= */}
       <Sheet
-        visible={photoConfirmOpen}
-        onClose={closePhotoConfirm}
+        visible={photoSourceOpen}
+        onClose={() => setPhotoSourceOpen(false)}
         isDark={isDark}
-        closeDisabled={busy}
-        title="Send Photo Diary"
-        subtitle="Confirm photo and optional note"
+        title="Photo Diary"
+        subtitle="Take a photo or choose one from the gallery"
         badge={current ? {
           text: `${classLabel(current)} • ${current.subject_name || 'Diary'}`,
           color: ss.color,
@@ -1549,32 +1727,221 @@ export default function StaffDiary() {
           icon: ss.icon,
         } : undefined}
       >
-        {photoUris.length > 1 ? (
-          <TourScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.confirmThumbs}>
-            {photoUris.map((uri) => (
-              <Image key={uri} source={{ uri }} style={styles.confirmThumb} />
-            ))}
-          </TourScrollView>
-        ) : photoUris[0] ? (
-          <Image source={{ uri: photoUris[0] }} style={styles.previewImage} />
+        <View style={styles.sheetActions}>
+          <PressScale onPress={() => choosePhotoSource(false)} disabled={busy}>
+            <View style={styles.primaryBtn}>
+              <LinearGradient colors={['#4F46E5', '#4338CA']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+              <Text style={styles.primaryBtnText}>Camera</Text>
+            </View>
+          </PressScale>
+          <PressScale onPress={() => choosePhotoSource(true)} disabled={busy}>
+            <View style={styles.ghostBtn}>
+              <Text style={[styles.ghostBtnText, { color: theme.colors.primary }]}>Gallery</Text>
+            </View>
+          </PressScale>
+        </View>
+      </Sheet>
+
+      {/* ========================================================================= */}
+      {/* 2. PHOTO CONFIRMATION MODAL                                              */}
+      {/* ========================================================================= */}
+      <Sheet
+        visible={photoConfirmOpen && !photoEditor && !photoViewer}
+        onClose={closePhotoConfirm}
+        isDark={isDark}
+        closeDisabled={busy}
+        title="Upload Photo Diary"
+        subtitle={photoUris.length > 1 ? `${photoUris.length} pages ready to send` : 'Check the page, then send or read the text'}
+        badge={current ? {
+          text: `${classLabel(current)} • ${current.subject_name || 'Diary'}`,
+          color: ss.color,
+          bg: isDark ? ss.softDark : ss.soft,
+          icon: ss.icon,
+        } : undefined}
+      >
+        {activePhotoUri ? (
+          <Pressable onPress={() => openPhotoViewer(photoUris, Math.min(photoIndex, photoUris.length - 1))} style={styles.photoFrame}>
+            <Image source={{ uri: activePhotoUri }} style={styles.uploadPreview} resizeMode="cover" />
+            <View style={styles.photoCountBadge}>
+              <Text style={styles.photoCountText}>
+                Page {Math.min(photoIndex, photoUris.length - 1) + 1} of {photoUris.length}
+              </Text>
+            </View>
+          </Pressable>
         ) : null}
+
+        {photoUris.length > 0 ? (
+          <TourScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbStrip}>
+            {photoUris.map((uri, index) => {
+              const selected = index === Math.min(photoIndex, photoUris.length - 1);
+              return (
+                <View key={`${uri}-${index}`} style={styles.thumbSlot}>
+                  <Pressable onPress={() => setPhotoIndex(index)}>
+                    <Image
+                      source={{ uri }}
+                      style={[
+                        styles.confirmThumb,
+                        styles.uploadThumb,
+                        { borderColor: selected ? theme.colors.primary : 'transparent', borderWidth: 2 },
+                      ]}
+                    />
+                  </Pressable>
+                  <Pressable
+                    onPress={() => removePhotoPage(index)}
+                    disabled={busy}
+                    style={[styles.thumbRemove, { backgroundColor: isDark ? '#0F172A' : '#FFFFFF' }]}
+                  >
+                    <Ionicons name="close" size={12} color={isDark ? '#F8FAFC' : '#0F172A'} />
+                  </Pressable>
+                </View>
+              );
+            })}
+          </TourScrollView>
+        ) : null}
+
+        <PressScale onPress={() => {
+          if (!activePhotoUri) return;
+          const index = Math.min(photoIndex, photoUris.length - 1);
+          editPickedPages([activePhotoUri], ([edited]) => {
+            setPhotoUris((pages) => pages.map((page, pageIndex) => pageIndex === index ? edited : page));
+            setExtraction(null); setOcrMessage(null);
+          });
+        }} disabled={busy || !activePhotoUri}>
+          <View style={[styles.ghostBtn, { flexDirection: 'row', gap: 8, marginBottom: 10 }]}>
+            <Ionicons name="crop-outline" size={18} color={theme.colors.primary} />
+            <Text style={[styles.ghostBtnText, { color: theme.colors.primary }]}>Crop, rotate & enhance</Text>
+          </View>
+        </PressScale>
+
+        <View style={styles.uploadToolRow}>
+          <PressScale fill onPress={() => void addPhotoPages(false)} disabled={busy || photoUris.length >= PHOTO_PAGE_LIMIT}>
+            <View style={styles.uploadTool}>
+              <Ionicons name="camera-outline" size={15} color={theme.colors.primary} />
+              <Text style={[styles.uploadToolText, { color: theme.colors.primary }]}>Add</Text>
+            </View>
+          </PressScale>
+          <PressScale fill onPress={() => void addPhotoPages(true)} disabled={busy || photoUris.length >= PHOTO_PAGE_LIMIT}>
+            <View style={styles.uploadTool}>
+              <Ionicons name="images-outline" size={15} color={theme.colors.primary} />
+              <Text style={[styles.uploadToolText, { color: theme.colors.primary }]}>Gallery</Text>
+            </View>
+          </PressScale>
+          <PressScale fill onPress={() => void replacePhotoPage(false)} disabled={busy || !photoUris.length}>
+            <View style={styles.uploadTool}>
+              <Ionicons name="refresh-outline" size={15} color={theme.colors.primary} />
+              <Text style={[styles.uploadToolText, { color: theme.colors.primary }]}>Retake</Text>
+            </View>
+          </PressScale>
+        </View>
+
+        <PressScale onPress={() => void extractPhoto()} disabled={busy || !photoUris.length}>
+          <View style={[styles.ghostBtn, { flexDirection: 'row', gap: 6 }]}>
+            <Ionicons name="sparkles-outline" size={16} color={theme.colors.primary} />
+            <Text style={[styles.ghostBtnText, { color: theme.colors.primary }]}>
+              {busy ? busyLabel : 'Read text from photo'}
+            </Text>
+          </View>
+        </PressScale>
 
         <View style={[styles.retentionNote, clayCard(isDark, 'sm')]}>
           <ClaySheen isDark={isDark} radius={Radii.xl} />
           <Ionicons name="time-outline" size={18} color={theme.colors.primary} />
           <Text style={[styles.retentionText, { color: theme.colors.textSecondary }]}>
-            Parents can view this photo. Alerts go out daily at 5:30 PM IST. Photos are kept for 1 month.
+            Parents can view these pages. Alerts go out at 5:30 PM IST. Photos are kept for 1 month.
           </Text>
         </View>
 
-        <Text style={[styles.reviewLabel, { color: theme.colors.textTertiary }]}>Optional Note for Parents</Text>
+        {!editingEntryId && siblingSections.length > 0 ? (
+          <View style={styles.multiTargetWrap}>
+            <Text style={[styles.multiTargetLabel, { color: theme.colors.textSecondary }]}>Also send to</Text>
+            <TourScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+              {siblingSections.map((sec) => {
+                const isSelected = photoTargets.includes(sec.class_section_id);
+                return (
+                  <TouchableOpacity
+                    key={`photo-${sec.class_section_id}`}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setPhotoTargets((prev) => (
+                        isSelected ? prev.filter((id) => id !== sec.class_section_id) : [...prev, sec.class_section_id]
+                      ));
+                    }}
+                    style={[
+                      styles.targetChip,
+                      {
+                        backgroundColor: isSelected ? (isDark ? 'rgba(79,70,229,0.22)' : '#EEF2FF') : (isDark ? '#1F293D' : '#F1F5F9'),
+                        borderColor: isSelected ? theme.colors.primary : 'transparent',
+                      },
+                    ]}
+                  >
+                    <Ionicons name={isSelected ? 'checkbox' : 'square-outline'} size={15} color={isSelected ? theme.colors.primary : theme.colors.textTertiary} />
+                    <Text style={[styles.targetChipText, { color: isSelected ? theme.colors.primary : theme.colors.textSecondary }]}>
+                      {sec.class_name}-{sec.section_name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </TourScrollView>
+          </View>
+        ) : null}
+
+        <Text style={[styles.reviewLabel, { color: theme.colors.textTertiary }]}>Title</Text>
         <AppTextInput
-          value={photoNote}
-          onChangeText={setPhotoNote}
-          placeholder="e.g. Complete the exercises written on the blackboard"
+          value={photoTitle}
+          onChangeText={setPhotoTitle}
+          placeholder={`${current?.subject_name || 'Diary'} Homework`}
           editable={!busy}
           style={[styles.inputBox, { backgroundColor: isDark ? '#1C2638' : '#FFFFFF', color: theme.colors.textStrong }]}
         />
+
+        <View style={styles.quickTagsHeader}>
+          <Text style={[styles.reviewLabel, { color: theme.colors.textTertiary, marginBottom: 0 }]}>Note for parents</Text>
+          <Text style={[styles.charCountText, { color: theme.colors.textTertiary }]}>{photoNote.trim().length} chars</Text>
+        </View>
+        <AppTextInput
+          value={photoNote}
+          onChangeText={setPhotoNote}
+          placeholder="Optional. Leave blank to send the photo on its own."
+          editable={!busy}
+          multiline
+          style={[styles.inputBox, styles.noteInput, { backgroundColor: isDark ? '#1C2638' : '#FFFFFF', color: theme.colors.textStrong }]}
+        />
+
+        <Text style={[styles.reviewLabel, { color: theme.colors.textTertiary, marginTop: 12 }]}>Due date</Text>
+        <View style={styles.dueShortcutsRow}>
+          <TouchableOpacity
+            onPress={() => setPhotoDue('')}
+            style={[
+              styles.dueShortcutChip,
+              {
+                backgroundColor: !photoDue ? (isDark ? 'rgba(79,70,229,0.22)' : '#EEF2FF') : (isDark ? '#1E293B' : '#F1F5F9'),
+                borderColor: !photoDue ? theme.colors.primary : 'transparent',
+              },
+            ]}
+          >
+            <Text style={[styles.dueShortcutText, { color: !photoDue ? theme.colors.primary : theme.colors.textSecondary }]}>None</Text>
+          </TouchableOpacity>
+          {DUE_SHORTCUTS.map((shortcut) => {
+            const shortcutYmd = toYmd(new Date(Date.now() + shortcut.days * 86400000));
+            const isSelected = photoDue === shortcutYmd;
+            return (
+              <TouchableOpacity
+                key={shortcut.label}
+                onPress={() => setPhotoDue(shortcutYmd)}
+                style={[
+                  styles.dueShortcutChip,
+                  {
+                    backgroundColor: isSelected ? (isDark ? 'rgba(79,70,229,0.22)' : '#EEF2FF') : (isDark ? '#1E293B' : '#F1F5F9'),
+                    borderColor: isSelected ? theme.colors.primary : 'transparent',
+                  },
+                ]}
+              >
+                <Text style={[styles.dueShortcutText, { color: isSelected ? theme.colors.primary : theme.colors.textSecondary }]}>{shortcut.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <AppDatePicker label="Specific date" value={photoDue} onChange={setPhotoDue} isDark={isDark} />
 
         <View style={styles.sheetActions}>
           <PressScale onPress={closePhotoConfirm} disabled={busy}>
@@ -1584,7 +1951,10 @@ export default function StaffDiary() {
           </PressScale>
           <PressScale onPress={() => void sendConfirmedPhoto()} disabled={busy || !photoUris.length}>
             <View style={styles.primaryBtn}>
-              <Text style={styles.primaryBtnText}>{busy ? 'Uploading…' : 'Send Photo Diary'}</Text>
+              <LinearGradient colors={['#4F46E5', '#4338CA']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+              <Text style={styles.primaryBtnText}>
+                {busy ? busyLabel : photoTargets.length > 0 ? `Send to ${photoTargets.length + 1} classes` : 'Send Photo Diary'}
+              </Text>
             </View>
           </PressScale>
         </View>
@@ -1594,12 +1964,12 @@ export default function StaffDiary() {
       {/* 3. OCR REVIEW & EDIT MODAL (Keyboard-Aware)                              */}
       {/* ========================================================================= */}
       <Sheet
-        visible={photoMode === 'review' && !photoConfirmOpen}
+        visible={photoMode === 'review' && !photoConfirmOpen && !photoEditor && !photoViewer}
         onClose={resetFlows}
         isDark={isDark}
         closeDisabled={busy}
         title="Review Extracted Homework"
-        subtitle="AI read this from the board. Review or edit before sending."
+        subtitle="Check the reading, then send the text, the photo, or both."
         badge={current ? {
           text: `${classLabel(current)} • ${current.subject_name || 'Diary'}`,
           color: ss.color,
@@ -1607,7 +1977,24 @@ export default function StaffDiary() {
           icon: ss.icon,
         } : undefined}
       >
-        {photoUris[0] ? <Image source={{ uri: photoUris[0] }} style={styles.previewImage} /> : null}
+        {activePhotoUri ? (
+          <Pressable onPress={() => openPhotoViewer(photoUris, Math.min(photoIndex, photoUris.length - 1))} style={styles.photoFrame}>
+            <Image source={{ uri: activePhotoUri }} style={styles.uploadPreview} resizeMode="cover" />
+            {photoUris.length > 1 ? (
+              <View style={styles.photoCountBadge}>
+                <Text style={styles.photoCountText}>{photoUris.length} pages</Text>
+              </View>
+            ) : null}
+          </Pressable>
+        ) : null}
+
+        <Text style={[styles.reviewLabel, { color: theme.colors.textTertiary }]}>Title</Text>
+        <AppTextInput
+          value={photoTitle}
+          onChangeText={setPhotoTitle}
+          placeholder="Homework title"
+          style={[styles.inputBox, { backgroundColor: isDark ? '#1C2638' : '#FFFFFF', color: theme.colors.textStrong }]}
+        />
 
         <View style={styles.quickTagsHeader}>
           <Text style={[styles.reviewLabel, { color: theme.colors.textTertiary, marginBottom: 0 }]}>
@@ -1630,26 +2017,61 @@ export default function StaffDiary() {
           ]}
         />
 
-        {extraction?.dueDate ? (
-          <View style={{ marginTop: 8, marginBottom: 8 }}>
-            <Text style={[styles.reviewLabel, { color: theme.colors.textTertiary }]}>Detected Due Date</Text>
-            <Text style={[styles.reviewBody, { color: theme.colors.textStrong }]}>
-              {extraction.dueDate}{uncertainFields(extraction).includes('dueDate') ? '  (Please verify)' : ''}
-            </Text>
-          </View>
-        ) : null}
+        <Text style={[styles.reviewLabel, { color: theme.colors.textTertiary, marginTop: 12 }]}>
+          Due date{extraction && uncertainFields(extraction).includes('dueDate') ? ' · please verify' : ''}
+        </Text>
+        <View style={styles.dueShortcutsRow}>
+          <TouchableOpacity
+            onPress={() => setPhotoDue('')}
+            style={[
+              styles.dueShortcutChip,
+              {
+                backgroundColor: !photoDue ? (isDark ? 'rgba(79,70,229,0.22)' : '#EEF2FF') : (isDark ? '#1E293B' : '#F1F5F9'),
+                borderColor: !photoDue ? theme.colors.primary : 'transparent',
+              },
+            ]}
+          >
+            <Text style={[styles.dueShortcutText, { color: !photoDue ? theme.colors.primary : theme.colors.textSecondary }]}>None</Text>
+          </TouchableOpacity>
+          {DUE_SHORTCUTS.map((shortcut) => {
+            const shortcutYmd = toYmd(new Date(Date.now() + shortcut.days * 86400000));
+            const isSelected = photoDue === shortcutYmd;
+            return (
+              <TouchableOpacity
+                key={`review-${shortcut.label}`}
+                onPress={() => setPhotoDue(shortcutYmd)}
+                style={[
+                  styles.dueShortcutChip,
+                  {
+                    backgroundColor: isSelected ? (isDark ? 'rgba(79,70,229,0.22)' : '#EEF2FF') : (isDark ? '#1E293B' : '#F1F5F9'),
+                    borderColor: isSelected ? theme.colors.primary : 'transparent',
+                  },
+                ]}
+              >
+                <Text style={[styles.dueShortcutText, { color: isSelected ? theme.colors.primary : theme.colors.textSecondary }]}>{shortcut.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <AppDatePicker label="Specific date" value={photoDue} onChange={setPhotoDue} isDark={isDark} />
 
         {ocrMessage ? <Text style={[styles.warnText, { color: theme.colors.textSecondary }]}>{ocrMessage}</Text> : null}
 
         <View style={styles.sheetActions}>
-          <PressScale onPress={() => setPhotoConfirmOpen(true)} disabled={busy}>
-            <View style={styles.ghostBtn}>
-              <Text style={[styles.ghostBtnText, { color: theme.colors.primary }]}>Send Original Photo Instead</Text>
+          <PressScale onPress={() => void sendExtractedHomework(true)} disabled={busy || !photoUris.length}>
+            <View style={styles.primaryBtn}>
+              <LinearGradient colors={['#4F46E5', '#4338CA']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+              <Text style={styles.primaryBtnText}>{busy ? 'Sending…' : 'Send text and photo'}</Text>
             </View>
           </PressScale>
-          <PressScale onPress={() => void sendExtractedHomework()} disabled={busy}>
-            <View style={styles.primaryBtn}>
-              <Text style={styles.primaryBtnText}>{busy ? 'Sending…' : 'Send Homework Text'}</Text>
+          <PressScale onPress={() => void sendExtractedHomework(false)} disabled={busy}>
+            <View style={styles.ghostBtn}>
+              <Text style={[styles.ghostBtnText, { color: theme.colors.primary }]}>Send text only</Text>
+            </View>
+          </PressScale>
+          <PressScale onPress={() => setPhotoConfirmOpen(true)} disabled={busy}>
+            <View style={styles.ghostBtn}>
+              <Text style={[styles.ghostBtnText, { color: theme.colors.primary }]}>Send original photo instead</Text>
             </View>
           </PressScale>
         </View>
@@ -1888,51 +2310,174 @@ export default function StaffDiary() {
       {/* ========================================================================= */}
       {/* 12. HOMEROOM CLASS DIARY SHEETS                                           */}
       {/* ========================================================================= */}
-      <Sheet visible={classDiaryPickerOpen} onClose={() => setClassDiaryPickerOpen(false)} isDark={isDark} title="Upload Class Diary" subtitle="Choose homeroom class">
-        {classTeacherSections.map((item) => (
-          <PressScale key={item.class_section_id} onPress={() => { setClassDiaryPickerOpen(false); void captureClassDiary(item); }}>
-            <View style={styles.pickerRow}><Text style={[styles.reviewBody, { color: theme.colors.textStrong }]}>{classLabel(item)}</Text></View>
+      <Sheet visible={classDiaryPickerOpen} onClose={() => setClassDiaryPickerOpen(false)} isDark={isDark} title="Upload class diary" subtitle="Choose the homeroom, then take or pick a photo">
+        {classTeacherSections.length === 0 ? (
+          <Text style={[styles.reviewBody, { color: theme.colors.textSecondary }]}>No homeroom class is assigned to this login.</Text>
+        ) : classTeacherSections.map((item) => (
+          <PressScale key={item.class_section_id} onPress={() => {
+            setClassDiaryClass(item);
+            setClassDiaryPickerOpen(false);
+            setClassDiarySourceOpen(true);
+          }}>
+            <View style={styles.pickerRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.reviewBody, { color: theme.colors.textStrong, marginBottom: 0 }]}>{classLabel(item)}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={theme.colors.textTertiary} />
+            </View>
           </PressScale>
         ))}
       </Sheet>
 
-      <Sheet visible={classDiaryReviewOpen} onClose={() => setClassDiaryReviewOpen(false)} isDark={isDark} title={`Class Diary: ${classLabel(classDiaryClass)}`} subtitle="Detected subjects from blackboard">
-        {classDiaryImage ? <Image source={{ uri: classDiaryImage }} style={styles.previewImage} /> : null}
-        {classDiaryEntries.map((item, index) => (
-          <PressScale key={`${item.subject}-${index}`} onPress={() => {
-            setClassDiaryEntries((prev) => prev.map((row, rowIndex) => (rowIndex === index ? { ...row, selected: row.selected === false } : row)));
-          }}>
-            <View style={[styles.classEntryRow, item.selected === false && { opacity: 0.45 }]}>
-              <Text style={[styles.reviewLabel, { color: theme.colors.textTertiary }]}>{(item.unknown ? 'Unknown Subject' : item.subject).toUpperCase()}</Text>
-              <Text style={[styles.reviewBody, { color: theme.colors.textStrong }]}>{item.homework || item.classwork || 'No text detected'}</Text>
-              <Text style={[styles.currentMeta, { color: theme.colors.textSecondary }]}>{item.selected === false ? 'Not selected' : (item.confidence_label || 'Looks good')}</Text>
+      <Sheet
+        visible={classDiarySourceOpen}
+        onClose={() => setClassDiarySourceOpen(false)}
+        isDark={isDark}
+        title="Upload class diary"
+        subtitle={classDiaryClass ? `${classLabel(classDiaryClass)} · every subject on the board` : 'Photograph the board'}
+      >
+        <View style={[styles.retentionNote, clayCard(isDark, 'sm')]}>
+          <ClaySheen isDark={isDark} radius={Radii.xl} />
+          <Ionicons name="information-circle-outline" size={18} color={theme.colors.primary} />
+          <Text style={[styles.retentionText, { color: theme.colors.textSecondary }]}>
+            We read each subject from the photo. You can edit the list before parents see it. Photos are kept for 1 month. Alerts go out at 5:30 PM IST.
+          </Text>
+        </View>
+        <View style={styles.sheetActions}>
+          {Platform.OS === 'web' ? (
+            <PressScale onPress={() => classDiaryClass && startClassDiaryCapture(classDiaryClass, true)} disabled={!classDiaryClass || busy}>
+              <View style={styles.primaryBtn}>
+                <LinearGradient colors={['#4F46E5', '#4338CA']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+                <Text style={styles.primaryBtnText}>Choose photo</Text>
+              </View>
+            </PressScale>
+          ) : (
+            <>
+              <PressScale onPress={() => classDiaryClass && startClassDiaryCapture(classDiaryClass, false)} disabled={!classDiaryClass || busy}>
+                <View style={styles.primaryBtn}>
+                  <LinearGradient colors={['#4F46E5', '#4338CA']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+                  <Text style={styles.primaryBtnText}>Take photo</Text>
+                </View>
+              </PressScale>
+              <PressScale onPress={() => classDiaryClass && startClassDiaryCapture(classDiaryClass, true)} disabled={!classDiaryClass || busy}>
+                <View style={styles.ghostBtn}>
+                  <Text style={[styles.ghostBtnText, { color: theme.colors.primary }]}>Choose from gallery</Text>
+                </View>
+              </PressScale>
+            </>
+          )}
+        </View>
+      </Sheet>
+
+      <Sheet
+        visible={classDiaryReviewOpen && !photoEditor && !photoViewer}
+        onClose={() => setClassDiaryReviewOpen(false)}
+        isDark={isDark}
+        closeDisabled={busy}
+        title={`Class diary · ${classLabel(classDiaryClass)}`}
+        subtitle={classDiaryEntries.length
+          ? `${selectedClassDiaryCount} of ${classDiaryEntries.length} subjects selected`
+          : 'Detected subjects from the board'}
+      >
+        {classDiaryImage ? (
+          <Pressable onPress={() => openPhotoViewer([classDiaryImage])} style={styles.photoFrame}>
+            <Image source={{ uri: classDiaryImage }} style={styles.uploadPreview} resizeMode="cover" />
+            <View style={styles.photoCountBadge}>
+              <Text style={styles.photoCountText}>Tap to enlarge</Text>
+            </View>
+          </Pressable>
+        ) : null}
+        {classDiaryMessage ? <Text style={[styles.warnText, { color: theme.colors.textSecondary }]}>{classDiaryMessage}</Text> : null}
+        {classDiaryEntries.map((item, index) => {
+          const included = item.selected !== false;
+          const entryStyle = getSubjectStyle(item.subject);
+          return (
+            <View key={`${item.subject}-${index}`} style={[styles.classEntryCard, !included && { opacity: 0.5 }, { borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(148,163,184,0.28)', backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#F8FAFC' }]}>
+              <View style={styles.classEntryHead}>
+                <PressScale onPress={() => {
+                  setClassDiaryEntries((prev) => prev.map((row, rowIndex) => (rowIndex === index ? { ...row, selected: row.selected === false } : row)));
+                }}>
+                  <Ionicons name={included ? 'checkbox' : 'square-outline'} size={22} color={included ? entryStyle.color : theme.colors.textTertiary} />
+                </PressScale>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={[styles.reviewLabel, { color: entryStyle.color, marginBottom: 0 }]}>
+                    {(item.unknown ? 'Unknown subject' : item.subject).toUpperCase()}
+                  </Text>
+                  <Text style={[styles.currentMeta, { color: theme.colors.textSecondary }]}>
+                    {included ? (item.confidence_label || 'Looks good') : 'Left out'}
+                  </Text>
+                </View>
+                {item.unknown ? null : (
+                  <PressScale onPress={() => setEditClassIndex(index)}>
+                    <Text style={[styles.linkBtn, { color: theme.colors.primary }]}>Edit</Text>
+                  </PressScale>
+                )}
+              </View>
+              <Text style={[styles.reviewBody, { color: theme.colors.textStrong, marginBottom: 0 }]}>
+                {item.homework || item.classwork || 'No text detected'}
+              </Text>
+              {item.homework && item.classwork ? (
+                <Text style={[styles.currentMeta, { color: theme.colors.textSecondary }]}>Classwork: {item.classwork}</Text>
+              ) : null}
               {item.unknown ? (
                 <View style={styles.chipWrap}>
                   {classDiarySubjects.map((subject) => (
                     <PressScale key={subject.id} onPress={() => {
                       setClassDiaryEntries((prev) => prev.map((row, rowIndex) => (rowIndex === index ? { ...row, subject: subject.name, subject_id: subject.id, unknown: false, selected: true } : row)));
                     }}>
-                      <View style={styles.templateChip}><Text style={styles.templateChipText}>{subject.name}</Text></View>
+                      <View style={[styles.templateChip, { backgroundColor: isDark ? '#161E2E' : '#FFFFFF', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(148,163,184,0.22)' }]}>
+                        <Text style={[styles.templateChipText, { color: theme.colors.textStrong }]}>{subject.name}</Text>
+                      </View>
                     </PressScale>
                   ))}
                 </View>
-              ) : (
-                <PressScale onPress={() => setEditClassIndex(index)}>
-                  <Text style={[styles.linkBtn, { color: theme.colors.primary }]}>Edit</Text>
-                </PressScale>
-              )}
+              ) : null}
             </View>
-          </PressScale>
-        ))}
-        <PressScale onPress={() => void publishClassDiaryNow(false)}><View style={styles.primaryBtn}><Text style={styles.primaryBtnText}>{busy ? 'Publishing…' : 'Publish All'}</Text></View></PressScale>
-        <PressScale onPress={confirmSendOriginalClassDiary}><View style={[styles.ghostBtn, { marginTop: 8 }]}><Text style={[styles.ghostBtnText, { color: theme.colors.primary }]}>Send Original Image</Text></View></PressScale>
+          );
+        })}
+        <PressScale onPress={() => void publishClassDiaryNow(false)} disabled={busy || selectedClassDiaryCount === 0}>
+          <View style={styles.primaryBtn}>
+            <LinearGradient colors={['#4F46E5', '#4338CA']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+            <Text style={styles.primaryBtnText}>
+              {busy ? 'Publishing…' : `Publish ${selectedClassDiaryCount} subject${selectedClassDiaryCount === 1 ? '' : 's'}`}
+            </Text>
+          </View>
+        </PressScale>
+        <PressScale onPress={confirmSendOriginalClassDiary} disabled={busy}>
+          <View style={[styles.ghostBtn, { marginTop: 8 }]}>
+            <Text style={[styles.ghostBtnText, { color: theme.colors.primary }]}>Send original photo</Text>
+          </View>
+        </PressScale>
       </Sheet>
 
-      <Sheet visible={classDiaryFailedOpen} onClose={() => setClassDiaryFailedOpen(false)} isDark={isDark} title="Could not read automatically" subtitle={classDiaryMessage || 'You can still send the blackboard image'}>
-        {classDiaryImage ? <Image source={{ uri: classDiaryImage }} style={styles.previewImage} /> : null}
-        <PressScale onPress={() => classDiaryClass && void captureClassDiary(classDiaryClass)}><View style={styles.ghostBtn}><Text style={[styles.ghostBtnText, { color: theme.colors.primary }]}>Try Again</Text></View></PressScale>
-        <PressScale onPress={confirmSendOriginalClassDiary}><View style={[styles.primaryBtn, { marginVertical: 8 }]}><Text style={styles.primaryBtnText}>Send Original Photo</Text></View></PressScale>
-        <PressScale onPress={() => { setClassDiaryFailedOpen(false); setManualOpen(true); }}><View style={styles.ghostBtn}><Text style={[styles.ghostBtnText, { color: theme.colors.primary }]}>Enter Manually</Text></View></PressScale>
+      <Sheet visible={classDiaryFailedOpen && !photoEditor && !photoViewer} onClose={() => setClassDiaryFailedOpen(false)} isDark={isDark} title="Could not read the board" subtitle={classDiaryMessage || 'Send the photo as it is, or type the homework'}>
+        {classDiaryImage ? (
+          <Pressable onPress={() => openPhotoViewer([classDiaryImage])}>
+            <Image source={{ uri: classDiaryImage }} style={styles.uploadPreview} resizeMode="cover" />
+          </Pressable>
+        ) : null}
+        <View style={styles.sheetActions}>
+          <PressScale onPress={confirmSendOriginalClassDiary} disabled={busy}>
+            <View style={styles.primaryBtn}>
+              <Text style={styles.primaryBtnText}>Send original photo</Text>
+            </View>
+          </PressScale>
+          <PressScale onPress={() => classDiaryClass && void captureClassDiary(classDiaryClass, false)} disabled={busy}>
+            <View style={styles.ghostBtn}>
+              <Text style={[styles.ghostBtnText, { color: theme.colors.primary }]}>Take another photo</Text>
+            </View>
+          </PressScale>
+          <PressScale onPress={() => classDiaryClass && void captureClassDiary(classDiaryClass, true)} disabled={busy}>
+            <View style={styles.ghostBtn}>
+              <Text style={[styles.ghostBtnText, { color: theme.colors.primary }]}>Choose a different photo</Text>
+            </View>
+          </PressScale>
+          <PressScale onPress={() => { setClassDiaryFailedOpen(false); setManualOpen(true); }}>
+            <View style={styles.ghostBtn}>
+              <Text style={[styles.ghostBtnText, { color: theme.colors.primary }]}>Type it instead</Text>
+            </View>
+          </PressScale>
+        </View>
       </Sheet>
 
       <Sheet visible={editClassIndex != null} onClose={() => setEditClassIndex(null)} isDark={isDark} title={editClassIndex != null ? `Edit ${classDiaryEntries[editClassIndex]?.subject}` : 'Edit'}>
@@ -1951,12 +2496,39 @@ export default function StaffDiary() {
               onChangeText={(text) => setClassDiaryEntries((prev) => prev.map((row, index) => index === editClassIndex ? { ...row, classwork: text } : row))}
               style={[styles.inputBox, { backgroundColor: isDark ? '#1C2638' : '#FFFFFF', color: theme.colors.textStrong }]}
             />
+            <Text style={[styles.reviewLabel, { color: theme.colors.textTertiary, marginTop: 10 }]}>Chapter</Text>
+            <AppTextInput
+              value={classDiaryEntries[editClassIndex]?.chapter || ''}
+              onChangeText={(text) => setClassDiaryEntries((prev) => prev.map((row, index) => index === editClassIndex ? { ...row, chapter: text } : row))}
+              style={[styles.inputBox, { backgroundColor: isDark ? '#1C2638' : '#FFFFFF', color: theme.colors.textStrong }]}
+            />
             <PressScale onPress={() => setEditClassIndex(null)}>
               <View style={[styles.primaryBtn, { marginTop: 12 }]}><Text style={styles.primaryBtnText}>Done</Text></View>
             </PressScale>
           </>
         ) : null}
       </Sheet>
+
+      {busy && !uploadSheetOpen ? (
+        <View style={styles.busyOverlay}>
+          <View style={[styles.busyCard, clayCard(isDark, 'lg')]}>
+            <LogoLoader size={48} color={theme.colors.primary} />
+            <Text style={[styles.busyTitle, { color: isDark ? '#F8FAFC' : '#0F172A' }]}>{busyLabel}</Text>
+            <Text style={[styles.busyHint, { color: theme.colors.textSecondary }]}>
+              Keep this screen open. It will finish on its own.
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
+      {photoEditor ? <DiaryPhotoEditor
+        key={`${photoEditor.index}:${photoEditor.uris[photoEditor.index]}`}
+        uri={photoEditor.uris[photoEditor.index]}
+        pageLabel={`Page ${photoEditor.index + 1} of ${photoEditor.uris.length} · adjust corners before uploading`}
+        onSave={saveEditedPage}
+        onCancel={() => setPhotoEditor(null)}
+      /> : null}
+      {photoViewer ? <DiaryPhotoViewer photos={photoViewer.photos} initialIndex={photoViewer.index} onClose={() => setPhotoViewer(null)} /> : null}
     </View>
   );
 }
@@ -2142,11 +2714,12 @@ function Sheet({
 }
 
 function HomeworkDayList({
-  theme, isDark, styles, diaryEntries, displayYmd, onEdit, onDelete, labels,
+  theme, isDark, styles, diaryEntries, displayYmd, onEdit, onDelete, onOpenPhoto, labels,
 }: {
   theme: Theme; isDark: boolean; styles: ReturnType<typeof getStyles>;
   diaryEntries: DiaryEntry[]; displayYmd: string;
   onEdit: (entry: DiaryEntry) => void; onDelete: (entry: DiaryEntry) => void;
+  onOpenPhoto: (photos: string[]) => void;
   labels: Record<string, string>;
 }) {
   const items = diaryEntries.filter((e) => e.entry_date === displayYmd);
@@ -2173,7 +2746,9 @@ function HomeworkDayList({
               <Text style={[styles.postClass, { color: ss.color }]}>{item.class_name}-{item.section_name} • {item.subject_name}</Text>
               <Text style={[styles.postTitle, { color: theme.colors.textStrong }]}>{diaryDisplayTitle(item)}</Text>
               {normalizeDiaryAttachments(item.attachments)[0] ? (
-                <Image source={{ uri: normalizeDiaryAttachments(item.attachments)[0] }} style={styles.recentPhoto} />
+                <Pressable onPress={() => onOpenPhoto(normalizeDiaryAttachments(item.attachments))}>
+                  <Image source={{ uri: normalizeDiaryAttachments(item.attachments)[0] }} style={styles.recentPhoto} />
+                </Pressable>
               ) : null}
               {isPhotoFallbackContent(diaryDisplayContent(item)) && normalizeDiaryAttachments(item.attachments).length > 0 ? null : (
                 <Text style={[styles.postContent, { color: theme.colors.textSecondary }]} numberOfLines={3}>{diaryDisplayContent(item)}</Text>
@@ -2419,9 +2994,9 @@ const getStyles = (theme: Theme, isDark: boolean, isWide: boolean) => StyleSheet
     minWidth: 0,
   },
   typeCtaCard: {
+    flex: 1,
     padding: Spacing.md,
-    minHeight: 176,
-    height: 176,
+    minHeight: 168,
     justifyContent: 'space-between',
     borderRadius: Radii.xxl,
   },
@@ -2458,9 +3033,9 @@ const getStyles = (theme: Theme, isDark: boolean, isWide: boolean) => StyleSheet
   },
 
   photoCtaCard: {
+    flex: 1,
     padding: Spacing.md,
-    minHeight: 176,
-    height: 176,
+    minHeight: 168,
     justifyContent: 'space-between',
     borderRadius: Radii.xxl,
     overflow: 'hidden',
@@ -2475,6 +3050,16 @@ const getStyles = (theme: Theme, isDark: boolean, isWide: boolean) => StyleSheet
   },
   photoCtaTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: '800', letterSpacing: -0.3 },
   photoCtaHint: { color: 'rgba(255,255,255,0.82)', fontSize: 12, fontWeight: '600', marginTop: 2 },
+  photoCardPill: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: Radii.pill,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
   photoActions: { flexDirection: 'row', gap: 8 },
   photoAction: {
     flexDirection: 'row',
@@ -2520,7 +3105,7 @@ const getStyles = (theme: Theme, isDark: boolean, isWide: boolean) => StyleSheet
     marginTop: 1,
   },
 
-  classDiaryCta: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, marginBottom: Spacing.md, minHeight: 68 },
+  classDiaryCta: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, marginBottom: Spacing.md, minHeight: 76 },
   secondaryIcon: { width: 40, height: 40, borderRadius: Radii.md, alignItems: 'center', justifyContent: 'center' },
   secondaryTitle: { fontSize: 14, fontWeight: '800', letterSpacing: -0.2 },
   classEntryRow: { paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(148,163,184,0.25)' },
@@ -2678,6 +3263,7 @@ const getStyles = (theme: Theme, isDark: boolean, isWide: boolean) => StyleSheet
   },
   dueShortcutsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     marginBottom: 8,
   },
@@ -2714,5 +3300,137 @@ const getStyles = (theme: Theme, isDark: boolean, isWide: boolean) => StyleSheet
   targetChipText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  uploadPreview: {
+    width: '100%',
+    height: isWide ? 240 : 210,
+    borderRadius: Radii.lg,
+    backgroundColor: 'rgba(15,23,42,0.06)',
+  },
+  photoFrame: {
+    borderRadius: Radii.lg,
+    overflow: 'hidden',
+    marginBottom: Spacing.sm,
+  },
+  photoCountBadge: {
+    position: 'absolute',
+    right: 8,
+    bottom: 8,
+    backgroundColor: 'rgba(15,23,42,0.72)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radii.pill,
+  },
+  photoCountText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  thumbStrip: {
+    gap: 10,
+    paddingTop: 8,
+    paddingRight: 4,
+    marginBottom: Spacing.sm,
+  },
+  thumbSlot: {
+    position: 'relative',
+  },
+  uploadThumb: {
+    width: 72,
+    height: 72,
+    marginRight: 0,
+    marginBottom: 0,
+  },
+  thumbRemove: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.35)',
+  },
+  uploadToolRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+  },
+  uploadTool: {
+    minHeight: 40,
+    borderRadius: Radii.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 4,
+    backgroundColor: isDark ? 'rgba(79,70,229,0.12)' : '#EEF2FF',
+    paddingHorizontal: 8,
+  },
+  uploadToolText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  noteInput: {
+    minHeight: 72,
+    textAlignVertical: 'top',
+  },
+  classEntryCard: {
+    padding: 12,
+    borderRadius: Radii.lg,
+    borderWidth: 1,
+    marginBottom: 10,
+    gap: 6,
+  },
+  classEntryHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  busyOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(11,16,32,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    zIndex: 30,
+  },
+  busyCard: {
+    width: '100%',
+    maxWidth: 320,
+    alignItems: 'center',
+    paddingVertical: 28,
+    paddingHorizontal: 22,
+    gap: 8,
+  },
+  busyTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  busyHint: {
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  viewerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(11,16,32,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  viewerImage: {
+    width: '100%',
+    height: '78%',
+  },
+  viewerHint: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 12,
   },
 });

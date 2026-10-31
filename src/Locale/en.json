@@ -450,7 +450,28 @@
     "retry": "Retry",
     "retryPhoto": "Retry loading diary photo",
     "openPhoto": "Open diary photo",
-    "classDiary": "Today's Class Diary"
+    "classDiary": "Today's Class Diary",
+    "gemini": {
+      "button": "Ask Gemini · Telugu",
+      "title": "Ask Gemini",
+      "subtitle": "Homework explained in Telugu",
+      "notice": "This opens Google Gemini with the diary photo you choose. Review the photo and question before sending them in Gemini.",
+      "mobileSteps": "Open Gemini with this photo. If a share menu appears, choose Gemini. If the question is not filled in, paste the copied Telugu question and tap Send.",
+      "webSteps": "Copy the Telugu question and save this photo. Open Gemini, attach the saved photo, paste the question and tap Send.",
+      "question": "Question — you can edit it",
+      "close": "Back to diary photo",
+      "copy": "Copy Telugu question",
+      "save": "Save photo",
+      "open": "Open Gemini with photo",
+      "website": "Open Gemini website",
+      "install": "Get Gemini app",
+      "copied": "Telugu question copied.",
+      "opened": "Gemini opened with the photo. If the question is blank, paste the copied Telugu question, then tap Send.",
+      "shared": "Choose Gemini in the share menu. Paste the copied Telugu question and tap Send. If Gemini is not listed, save the photo and attach it on the Gemini website.",
+      "manual": "Save the photo, open the Gemini website, attach the photo and paste the copied Telugu question.",
+      "preparing": "Preparing…",
+      "failed": "Could not complete this step. Check your connection and try again. You can also copy the question and attach the saved photo on the Gemini website."
+    }
   },
   "studentHome": {
     "todaysSnapshot": "Today's Snapshot",

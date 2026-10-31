@@ -93,7 +93,7 @@ it('starts school validation while live session setup is still pending, then wai
   await Promise.all([setupStarted.promise, validationStarted.promise]);
   expect(completed).toBe(false);
   expect(isInternalSessionSwap()).toBe(true);
-  expect(api.post).toHaveBeenCalledWith('/auth/validate-school-user', {}, expect.objectContaining({
+  expect(api.post).toHaveBeenCalledWith('/auth/validate-school-user', { includePortalContexts: false }, expect.objectContaining({
     headers: { Authorization: 'Bearer b-access' }, omitAuth: true,
   }));
   validation.resolve(accounts[1].validatedUser);
@@ -166,7 +166,7 @@ it('revalidates the recovered session when the SDK rejects the initial session s
   (supabase.auth.signInWithPassword as jest.Mock).mockResolvedValue({ data: { session: recovered }, error: null });
   expect((await AuthService.switchAccount('b')).session?.supabaseSession.refresh_token).toBe('b-recovered-refresh');
   expect(api.post).toHaveBeenCalledTimes(2);
-  expect(api.post).toHaveBeenLastCalledWith('/auth/validate-school-user', {}, expect.objectContaining({
+  expect(api.post).toHaveBeenLastCalledWith('/auth/validate-school-user', { includePortalContexts: false }, expect.objectContaining({
     headers: { Authorization: 'Bearer b-recovered-access' },
   }));
 });
@@ -176,7 +176,7 @@ it('validates the new token if the SDK rotates it while establishing the session
   (supabase.auth.setSession as jest.Mock).mockResolvedValueOnce({ data: { session: rotated }, error: null });
   (api.post as jest.Mock).mockRejectedValueOnce(new Error('old token expired'));
   expect((await AuthService.switchAccount('b')).session?.supabaseSession.refresh_token).toBe('b-sdk-refresh');
-  expect(api.post).toHaveBeenLastCalledWith('/auth/validate-school-user', {}, expect.objectContaining({
+  expect(api.post).toHaveBeenLastCalledWith('/auth/validate-school-user', { includePortalContexts: false }, expect.objectContaining({
     headers: { Authorization: 'Bearer b-sdk-access' },
   }));
 });

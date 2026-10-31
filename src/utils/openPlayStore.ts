@@ -8,13 +8,13 @@ const PLAY_STORE_URL_TEMPLATE =
   'https://play.google.com/store/apps/details?id={packageName}';
 
 /**
- * Android applicationId from Expo config (app.json), with runtime fallback.
+ * Installed binary's applicationId, with Expo config fallback for web.
  * Per-school builds swap package via app.template.json → app.json.
  */
 export function getAndroidPackageName(): string {
   return (
+    (Platform.OS === 'android' ? Application.applicationId : null) ||
     Constants.expoConfig?.android?.package ||
-    Application.applicationId ||
     ''
   );
 }
@@ -27,25 +27,21 @@ export function getPlayStoreUrl(packageName = getAndroidPackageName()): string {
 export async function openPlayStore(): Promise<void> {
   const packageName = getAndroidPackageName();
   if (!packageName) {
-    console.warn('[openPlayStore] No Android package name in app.json / Application');
-    return;
+    throw new Error('No Android application ID is available');
   }
 
   const httpsUrl = getPlayStoreUrl(packageName);
   const marketUrl = `market://details?id=${packageName}`;
 
-  try {
-    if (Platform.OS === 'android') {
-      const canOpenMarket = await Linking.canOpenURL(marketUrl);
-      if (canOpenMarket) {
-        await Linking.openURL(marketUrl);
-        return;
-      }
-    }
-    await Linking.openURL(httpsUrl);
-  } catch {
-    await Linking.openURL(httpsUrl);
+  if (Platform.OS === 'android') {
+    try {
+      // Attempt directly: Android package-visibility restrictions can make
+      // canOpenURL return false even when the Play Store can handle the link.
+      await Linking.openURL(marketUrl);
+      return;
+    } catch { /* no market handler: use the browser */ }
   }
+  await Linking.openURL(httpsUrl);
 }
 
 /**

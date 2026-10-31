@@ -18,7 +18,7 @@ import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
 import { notificationInboxService } from '../services/notificationInboxService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { schoolColorWithAlpha } from '../constants/schoolConfig';
+import { SCHOOL_CONFIG, schoolColorWithAlpha } from '../constants/schoolConfig';
 
 /** Brand violet used to tint every clay puck's shadow across the app. */
 const CLAY_ACCENT = '#7C6BB8';
@@ -32,11 +32,20 @@ interface StudentHeaderProps {
     style?: ViewStyle;
     /** Override title text style */
     titleStyle?: TextStyle;
+    /**
+     * Home masthead. Drops the rounded bottom, hairline, and shadow so the
+     * page background cannot show through as a white seam above the hero.
+     */
+    continuous?: boolean;
 }
 
 const isWeb = Platform.OS === 'web';
 
-const StudentHeader: React.FC<StudentHeaderProps & { showBackButton?: boolean, title?: string, showSettingsButton?: boolean, rightAction?: { icon: keyof typeof Ionicons.glyphMap; onPress: () => void } }> = ({ onMenuPress, showBackButton = false, title, showSettingsButton = true, rightAction, scrollY, menuUserType = 'student', style: containerStyleOverride, titleStyle: titleStyleOverride }) => {
+const INK = SCHOOL_CONFIG.theme.ribbonGradient[0];
+const GOLD = SCHOOL_CONFIG.theme.accent;
+const GOLD_MIST = SCHOOL_CONFIG.theme.ribbonTagline;
+
+const StudentHeader: React.FC<StudentHeaderProps & { showBackButton?: boolean, title?: string, showSettingsButton?: boolean, rightAction?: { icon: keyof typeof Ionicons.glyphMap; onPress: () => void } }> = ({ onMenuPress, showBackButton = false, title, showSettingsButton = true, rightAction, scrollY, menuUserType = 'student', continuous = false, style: containerStyleOverride, titleStyle: titleStyleOverride }) => {
     const router = useRouter();
     const { isDark } = useTheme();
     const { i18n } = useTranslation();
@@ -83,8 +92,8 @@ const StudentHeader: React.FC<StudentHeaderProps & { showBackButton?: boolean, t
 
     const animatedStyle = useAnimatedStyle(() => {
         if (!scrollY) {
-            /* The cosmic gradient (below) always paints over this — only the lifted shadow matters here. */
-            return { backgroundColor: 'transparent', borderBottomColor: 'transparent', shadowOpacity: 0.35 };
+            /* The gradient below paints the fill. A shadow here draws a pale seam on the light page. */
+            return { backgroundColor: 'transparent', borderBottomColor: 'transparent', shadowOpacity: continuous ? 0 : 0.35 };
         }
 
         const bgEnd = isDark ? 'rgba(15,23,42,0.97)' : 'rgba(255,255,255,0.95)';
@@ -111,7 +120,7 @@ const StudentHeader: React.FC<StudentHeaderProps & { showBackButton?: boolean, t
             borderBottomColor: borderColor,
             shadowOpacity,
         };
-    }, [isDark]);
+    }, [isDark, continuous]);
 
     const isAbsolute = !!scrollY;
     /** Students use the bottom dock — never show a header back affordance. */
@@ -140,17 +149,24 @@ const StudentHeader: React.FC<StudentHeaderProps & { showBackButton?: boolean, t
 
     // Solid fills (no LinearGradient / elevation) — Android otherwise paints a
     // white rectangle over the inactive segment.
+    const iconColor = continuous ? GOLD_MIST : '#F4F0FB';
+    const clayAccent = continuous ? GOLD : CLAY_ACCENT;
+    const clayFill = continuous ? schoolColorWithAlpha(GOLD, 0.16) : undefined;
+    const clayGradient = continuous
+        ? `linear-gradient(165deg, ${schoolColorWithAlpha(GOLD, 0.42)} 0%, ${schoolColorWithAlpha(INK, 0.55)} 100%)`
+        : undefined;
+
     const langSwitch = (
         <LanguageToggle
             compact={isCompact || !!scrollY}
             language={isTeluguLang ? 'te' : 'en'}
             onLanguageChange={setLanguage}
             darkBackground={languageOnDarkSurface}
-            trackColor={languageOnDarkSurface ? 'rgba(116,101,184,0.24)' : 'rgba(124,107,184,0.12)'}
-            borderColor={languageOnDarkSurface ? 'rgba(222,216,255,0.30)' : 'rgba(124,107,184,0.22)'}
-            activeBackgroundColor={languageOnDarkSurface ? '#7568CF' : '#6B5CC4'}
-            activeLabelColor="#FFFFFF"
-            inactiveLabelColor={languageOnDarkSurface ? '#E9E5FF' : 'rgba(55,48,107,0.72)'}
+            trackColor={continuous ? schoolColorWithAlpha(GOLD, 0.16) : languageOnDarkSurface ? 'rgba(116,101,184,0.24)' : 'rgba(124,107,184,0.12)'}
+            borderColor={continuous ? schoolColorWithAlpha(GOLD, 0.42) : languageOnDarkSurface ? 'rgba(222,216,255,0.30)' : 'rgba(124,107,184,0.22)'}
+            activeBackgroundColor={continuous ? GOLD : languageOnDarkSurface ? '#7568CF' : '#6B5CC4'}
+            activeLabelColor={continuous ? INK : '#FFFFFF'}
+            inactiveLabelColor={continuous ? GOLD_MIST : languageOnDarkSurface ? '#E9E5FF' : 'rgba(55,48,107,0.72)'}
         />
     );
 
@@ -165,17 +181,28 @@ const StudentHeader: React.FC<StudentHeaderProps & { showBackButton?: boolean, t
             // under the school ribbon. The global stackShell already applies the real
             // safe-area offset, so a small fixed floor is all that's needed to clear
             // the ribbon's wave without re-introducing a large gap.
-            { paddingTop: isWeb ? 12 : Math.max(insets.top, 16), shadowColor: CLAY_ACCENT },
+            { paddingTop: isWeb ? 12 : Math.max(insets.top, 16), shadowColor: continuous ? 'transparent' : CLAY_ACCENT },
             isAbsolute && styles.absoluteHeader,
             animatedStyle,
             containerStyleOverride,
+            continuous && styles.continuous,
+            continuous && Platform.OS === 'web' ? { boxShadow: 'none' } as object : null,
         ]}>
             {!scrollY && (
                 <LinearGradient
-                    colors={['#05050A', '#13132B']}
+                    colors={continuous ? [INK, INK] : ['#05050A', '#13132B']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 0, y: 1 }}
                     style={StyleSheet.absoluteFill}
+                />
+            )}
+            {continuous && !scrollY && (
+                <LinearGradient
+                    colors={[schoolColorWithAlpha(GOLD, 0), schoolColorWithAlpha(GOLD, 0.2)]}
+                    start={{ x: 0, y: 1 }}
+                    end={{ x: 1, y: 0 }}
+                    style={StyleSheet.absoluteFill}
+                    pointerEvents="none"
                 />
             )}
 
@@ -183,13 +210,19 @@ const StudentHeader: React.FC<StudentHeaderProps & { showBackButton?: boolean, t
             <View style={[styles.sideRegion, styles.leftRegion]}>
                 {langSwitch}
                 {showNavBack ? (
-                    <ClayIconButton onPress={handleBack} isDark accent={CLAY_ACCENT} round size={ICON_SIZE}>
-                        <Ionicons name="arrow-back" size={18} color="#F4F0FB" />
+                    <ClayIconButton onPress={handleBack} isDark accent={clayAccent}
+                    fill={clayFill}
+                    webGradient={clayGradient}
+                    style={continuous ? styles.puck : undefined} round size={ICON_SIZE}>
+                        <Ionicons name="arrow-back" size={18} color={iconColor} />
                     </ClayIconButton>
                 ) : null}
                 {showNavMenu ? (
-                    <ClayIconButton onPress={handleMenuPress} isDark accent={CLAY_ACCENT} round size={ICON_SIZE}>
-                        <Ionicons name="menu" size={18} color="#F4F0FB" />
+                    <ClayIconButton onPress={handleMenuPress} isDark accent={clayAccent}
+                    fill={clayFill}
+                    webGradient={clayGradient}
+                    style={continuous ? styles.puck : undefined} round size={ICON_SIZE}>
+                        <Ionicons name="menu" size={18} color={iconColor} />
                     </ClayIconButton>
                 ) : null}
                 {/* Spacer keeps left/right visual weight closer when sides differ. */}
@@ -206,7 +239,7 @@ const StudentHeader: React.FC<StudentHeaderProps & { showBackButton?: boolean, t
             </View>
 
             <View style={[styles.sideRegion, styles.rightRegion]}>
-                <AppTourHeaderButton color="#F4F0FB" />
+                <AppTourHeaderButton color={iconColor} />
                 {rightCount < leftCount ? <View style={styles.sideBalance} /> : null}
 
                 <ClayIconButton
@@ -216,11 +249,14 @@ const StudentHeader: React.FC<StudentHeaderProps & { showBackButton?: boolean, t
                         router.push('/notifications' as any);
                     }}
                     isDark
-                    accent={CLAY_ACCENT}
+                    accent={clayAccent}
+                    fill={clayFill}
+                    webGradient={clayGradient}
+                    style={continuous ? styles.puck : undefined}
                     round
                     size={ICON_SIZE}
                 >
-                    <Ionicons name="notifications-outline" size={17} color="#F4F0FB" />
+                    <Ionicons name="notifications-outline" size={17} color={iconColor} />
                 </ClayIconButton>
 
                 {rightAction && (
@@ -230,11 +266,14 @@ const StudentHeader: React.FC<StudentHeaderProps & { showBackButton?: boolean, t
                             rightAction.onPress();
                         }}
                         isDark
-                        accent={CLAY_ACCENT}
+                        accent={clayAccent}
+                    fill={clayFill}
+                    webGradient={clayGradient}
+                    style={continuous ? styles.puck : undefined}
                         round
                         size={ICON_SIZE}
                     >
-                        <Ionicons name={rightAction.icon} size={17} color="#F4F0FB" />
+                        <Ionicons name={rightAction.icon} size={17} color={iconColor} />
                     </ClayIconButton>
                 )}
 
@@ -245,11 +284,14 @@ const StudentHeader: React.FC<StudentHeaderProps & { showBackButton?: boolean, t
                             router.push('/Screen/settings' as any);
                         }}
                         isDark
-                        accent={CLAY_ACCENT}
+                        accent={clayAccent}
+                    fill={clayFill}
+                    webGradient={clayGradient}
+                    style={continuous ? styles.puck : undefined}
                         round
                         size={ICON_SIZE}
                     >
-                        <Ionicons name="settings-outline" size={16} color="#F4F0FB" />
+                        <Ionicons name="settings-outline" size={16} color={iconColor} />
                     </ClayIconButton>
                 )}
             </View>
@@ -319,6 +361,20 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         zIndex: 100,
+    },
+    continuous: {
+        backgroundColor: INK,
+        borderBottomWidth: 0,
+        borderBottomLeftRadius: 0,
+        borderBottomRightRadius: 0,
+        paddingBottom: 2,
+        shadowOpacity: 0,
+        shadowRadius: 0,
+        elevation: 0,
+    },
+    puck: {
+        borderWidth: 1,
+        borderColor: schoolColorWithAlpha(GOLD, 0.45),
     },
 });
 

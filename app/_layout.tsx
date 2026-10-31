@@ -44,6 +44,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import ForceUpdateScreen from '../src/components/ForceUpdateScreen';
 import { useVersionCheck } from '../src/hooks/useVersionCheck';
+import { usePlayStoreUpdate, type PlayStoreUpdateController } from '../src/hooks/usePlayStoreUpdate';
+import AppUpdateBanner from '../src/components/AppUpdateBanner';
 import FestivalPosterGate from '../src/components/FestivalPosterGate';
 import PopupQueueProvider from '../src/features/popups/components/PopupQueueProvider';
 import { TourProvider, TourOverlayHost } from '../src/features/app-tour';
@@ -60,6 +62,7 @@ export default function Layout() {
   const [appReady, setAppReady] = useState(false);
   const [buildConfigError, setBuildConfigError] = useState<string | null>(null);
   const { updateRequired } = useVersionCheck();
+  const playUpdate = usePlayStoreUpdate(updateRequired);
 
   // Inject portal root for web (must happen before any alert can fire)
   useEffect(() => {
@@ -125,7 +128,7 @@ export default function Layout() {
   }
 
   if (updateRequired) {
-    return <ForceUpdateScreen />;
+    return <ForceUpdateScreen update={playUpdate} />;
   }
 
   if (buildConfigError && __DEV__) {
@@ -151,7 +154,7 @@ export default function Layout() {
       <ThemeProvider>
         <KeyboardProvider>
           <CustomAlertProvider>
-            <TourProvider><ThemeSyncWrapper /></TourProvider>
+            <TourProvider><ThemeSyncWrapper playUpdate={playUpdate} /></TourProvider>
           </CustomAlertProvider>
         </KeyboardProvider>
       </ThemeProvider>
@@ -159,7 +162,7 @@ export default function Layout() {
 
 }
 
-function ThemeSyncWrapper() {
+function ThemeSyncWrapper({ playUpdate }: { playUpdate: PlayStoreUpdateController }) {
   const { theme, isDark } = useContext(ThemeContext);
   const getSchoolHeader = useSchoolHeader();
   const insets = useSafeAreaInsets();
@@ -208,6 +211,7 @@ function ThemeSyncWrapper() {
               { backgroundColor: theme.colors.background },
             ]}
           >
+            <AppUpdateBanner update={playUpdate} />
             <AuthGate>
               <Stack
                 screenOptions={{

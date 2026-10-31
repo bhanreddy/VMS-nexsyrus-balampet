@@ -16,17 +16,14 @@ import { styles as ds } from '@/src/theme/styles';
 import { alertCompat } from '../../../src/utils/crossPlatformAlert';
 import { Ionicons } from '@expo/vector-icons';
 import AdminHeader from '../../../src/components/AdminHeader';
-import { ADMIN_THEME } from '../../../src/constants/adminTheme';
 import { StudentService } from '../../../src/services/studentService';
 import { FeeService } from '../../../src/services/feeService';
 import { useTheme } from '../../../src/hooks/useTheme';
-import { Theme } from '../../../src/theme/themes';
 import LogoLoader from '../../../src/components/LogoLoader';
 import PremiumButton from '../../../src/components/PremiumButton';
 import { StudentFee, Student, FeeAdjustmentType, FeeResponse, TransportDue } from '../../../src/types/models';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { clayCard } from '../../../src/theme/clayStyles';
 
 interface AdjustmentLog {
   id: string;
@@ -46,6 +43,8 @@ interface AdjustmentLog {
 type HistoryFilter = 'all' | 'waive' | 'add';
 type TransportHint = 'none' | 'no_assignment' | 'fee_not_set';
 
+const accentColor = (isDark: boolean) => isDark ? '#C4B5FD' : '#4F46E5';
+
 const fmtINR = (n: number) => `₹${n.toLocaleString('en-IN')}`;
 
 function feeRemaining(fee: Pick<StudentFee, 'amount_due' | 'discount' | 'amount_paid'>): number {
@@ -63,6 +62,87 @@ function feeSettlementLabel(fee: StudentFee): string {
   if (waived > 0 && paid <= 0) return 'Fully waived';
   if (paid > 0 && waived > 0) return 'Settled';
   return 'Fully paid';
+}
+
+type FeeStatusKind = 'due' | 'paid' | 'waived' | 'settled';
+type IonName = React.ComponentProps<typeof Ionicons>['name'];
+
+function feeStatusKind(fee: StudentFee): FeeStatusKind {
+  const remaining = feeRemaining(fee);
+  if (remaining > 0) return 'due';
+  const waived = Number(fee.discount || 0);
+  const paid = Number(fee.amount_paid || 0);
+  if (waived > 0 && paid <= 0) return 'waived';
+  if (paid > 0 && waived > 0) return 'settled';
+  return 'paid';
+}
+
+function feeKindIcon(fee: Pick<StudentFee, 'fee_type' | 'is_transport'>): IonName {
+  if (fee.is_transport) return 'bus';
+  const label = (fee.fee_type || '').toLowerCase();
+  if (/transport|bus/.test(label)) return 'bus';
+  if (/book/.test(label)) return 'book';
+  if (/tuition|academic/.test(label)) return 'school';
+  if (/term|installment|instalment/.test(label)) return 'calendar';
+  if (/exam|test/.test(label)) return 'document-text';
+  if (/uniform|dress/.test(label)) return 'shirt';
+  if (/lab|science/.test(label)) return 'flask';
+  if (/hostel|boarding|dorm/.test(label)) return 'bed';
+  if (/sport|game/.test(label)) return 'football';
+  if (/library/.test(label)) return 'library';
+  if (/computer|digital/.test(label)) return 'desktop-outline';
+  if (/activity|annual|event/.test(label)) return 'sparkles';
+  if (/admission|registration/.test(label)) return 'id-card';
+  return 'receipt';
+}
+
+function feeStatusTheme(kind: FeeStatusKind, isDark: boolean) {
+  if (kind === 'due') {
+    return {
+      label: 'Due',
+      pillIcon: 'alert-circle' as IonName,
+      accent: '#F43F5E',
+      pillBg: isDark ? 'rgba(244,63,94,0.22)' : '#FFE4E6',
+      pillText: isDark ? '#FECDD3' : '#9F1239',
+      amount: isDark ? '#FDA4AF' : '#BE123C',
+      cardBg: isDark ? 'rgba(244,63,94,0.10)' : '#FFF5F6',
+      cardBorder: isDark ? 'rgba(244,63,94,0.42)' : '#FECDD3',
+    };
+  }
+  if (kind === 'waived') {
+    return {
+      label: 'Waived',
+      pillIcon: 'gift' as IonName,
+      accent: '#8B5CF6',
+      pillBg: isDark ? 'rgba(139,92,246,0.22)' : '#EDE9FE',
+      pillText: isDark ? '#DDD6FE' : '#6D28D9',
+      amount: isDark ? '#DDD6FE' : '#6D28D9',
+      cardBg: isDark ? 'rgba(139,92,246,0.12)' : '#F5F3FF',
+      cardBorder: isDark ? 'rgba(139,92,246,0.4)' : '#DDD6FE',
+    };
+  }
+  if (kind === 'settled') {
+    return {
+      label: 'Settled',
+      pillIcon: 'checkmark-done' as IonName,
+      accent: '#14B8A6',
+      pillBg: isDark ? 'rgba(20,184,166,0.2)' : '#CCFBF1',
+      pillText: isDark ? '#99F6E4' : '#0F766E',
+      amount: isDark ? '#99F6E4' : '#0F766E',
+      cardBg: isDark ? 'rgba(20,184,166,0.1)' : '#F0FDFA',
+      cardBorder: isDark ? 'rgba(20,184,166,0.4)' : '#99F6E4',
+    };
+  }
+  return {
+    label: 'Paid',
+    pillIcon: 'checkmark-circle' as IonName,
+    accent: '#10B981',
+    pillBg: isDark ? 'rgba(16,185,129,0.2)' : '#D1FAE5',
+    pillText: isDark ? '#A7F3D0' : '#047857',
+    amount: isDark ? '#A7F3D0' : '#047857',
+    cardBg: isDark ? 'rgba(16,185,129,0.1)' : '#F0FDF4',
+    cardBorder: isDark ? 'rgba(16,185,129,0.4)' : '#A7F3D0',
+  };
 }
 
 function studentClassSectionLabel(student: Student): string | null {
@@ -259,11 +339,13 @@ const HistoryRow = React.memo(function HistoryRow({
 });
 
 export default function FeeAdjustmentsScreen() {
-  const { theme, isDark } = useTheme();
-  const styles = useMemo(() => getStyles(theme, isDark), [theme, isDark]);
+  const { isDark } = useTheme();
+  const styles = useMemo(() => getStyles(isDark), [isDark]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
+  const [amountFocused, setAmountFocused] = useState(false);
+  const [reasonFocused, setReasonFocused] = useState(false);
   const [searchResults, setSearchResults] = useState<Student[]>([]);
   const [searching, setSearching] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -376,7 +458,7 @@ export default function FeeAdjustmentsScreen() {
     }
 
     const parsedAmount = Number(adjustAmount);
-    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       if (adjustmentType === 'add') {
         alertCompat('Error', 'Amount must be greater than zero');
       } else {
@@ -466,10 +548,23 @@ export default function FeeAdjustmentsScreen() {
     ? studentClassSectionLabel(selectedStudent)
     : null;
 
+  const enteredAmount = Number(adjustAmount);
+  const amountError = !adjustAmount.trim()
+    ? null
+    : !Number.isFinite(enteredAmount) || enteredAmount <= 0
+      ? 'Enter an amount greater than zero.'
+      : adjustmentType === 'waive' && enteredAmount > remainingBalance
+        ? `You can waive up to ${fmtINR(remainingBalance)}.`
+        : null;
+  const balanceAfterAdjustment = adjustmentType === 'add'
+    ? remainingBalance + enteredAmount
+    : remainingBalance - enteredAmount;
+
   const canSubmit =
     !!selectedStudent &&
     !!selectedFee &&
     !!adjustAmount.trim() &&
+    !amountError &&
     !!reason.trim() &&
     !submitting &&
     (adjustmentType === 'add' || remainingBalance > 0);
@@ -497,7 +592,7 @@ export default function FeeAdjustmentsScreen() {
         {/* Intro */}
         <Animated.View entering={FadeInDown.duration(320)} style={styles.introCard}>
           <LinearGradient
-            colors={isDark ? ['#1E1B4B', '#312E81'] : ['#EEF2FF', '#E0E7FF']}
+            colors={isDark ? ['#242044', '#312E5B'] : ['#EDE9FE', '#E0E7FF']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={StyleSheet.absoluteFill}
@@ -505,12 +600,12 @@ export default function FeeAdjustmentsScreen() {
           <View style={styles.introOrb} />
           <View style={styles.introRow}>
             <View style={styles.introIconWrap}>
-              <Ionicons name="swap-horizontal" size={22} color={ADMIN_THEME.colors.primary} />
+              <Ionicons name="swap-horizontal" size={22} color={accentColor(isDark)} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.introTitle}>Waive or correct fees</Text>
+              <Text style={styles.introTitle}>Fee waivers & adjustments</Text>
               <Text style={styles.introDesc}>
-                Search a student, choose waive or add, then pick any fee head — including fully paid or waived ones.
+                Reduce a fee or add a correction. Choose a student and fee, then review the amount before applying.
               </Text>
             </View>
           </View>
@@ -541,339 +636,418 @@ export default function FeeAdjustmentsScreen() {
         {/* Keep controlled inputs out of entering-animation wrappers.
             Reanimated can recreate/reconfigure the web wrapper during state
             updates, which interrupts focus while the user is typing. */}
-        <View style={[styles.card, clayCard(isDark, 'md')]}>
+        <View style={styles.card}>
           <View style={styles.cardHeader}>
             <View style={styles.cardIconBadge}>
-              <Ionicons name="create-outline" size={16} color={ADMIN_THEME.colors.primary} />
+              <Ionicons name="create-outline" size={16} color={accentColor(isDark)} />
             </View>
-            <View>
-              <Text style={styles.cardTitle}>Apply Adjustment</Text>
-              <Text style={styles.cardSubtitle}>Step through student → type → fee → amount</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardTitle}>New adjustment</Text>
+              <Text style={styles.cardSubtitle}>Complete the steps below. Fields marked * are required.</Text>
             </View>
           </View>
 
           {/* Step 1: Search */}
-          <TourTarget id="screen.admin-fees-adjustments.workspace" native><View style={styles.stepRow}>
-            <View style={styles.stepBadge}>
-              <Text style={styles.stepBadgeText}>1</Text>
-            </View>
-            <Text style={styles.stepLabel}>Find student</Text>
-          </View></TourTarget>
-
-          {!selectedStudent ? (
-            <>
-              <View
-                style={[
-                  styles.searchContainer,
-                  searchFocused && styles.searchContainerFocused,
-                ]}
-              >
-                <Ionicons
-                  name="search-outline"
-                  size={18}
-                  color={searchFocused ? ADMIN_THEME.colors.primary : '#94A3B8'}
-                  style={styles.searchIcon}
-                />
-                <AppTextInput
-                  value={searchQuery}
-                  onChangeText={handleSearch}
-                  placeholder="Name or admission number…"
-                  placeholderTextColor="#94A3B8"
-                  style={[ds.inputInChrome, styles.searchInput]}
-                  onFocus={() => setSearchFocused(true)}
-                  onBlur={() => setSearchFocused(false)}
-                />
-                {searching ? (
-                  <LogoLoader size={18} color={ADMIN_THEME.colors.primary} />
-                ) : searchQuery.length > 0 ? (
-                  <Pressable
-                    onPress={clearSearch}
-                    style={({ pressed }) => [
-                      styles.clearSearchBtn,
-                      pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] },
-                    ]}
-                    hitSlop={8}
-                  >
-                    <Ionicons name="close" size={12} color="#fff" />
-                  </Pressable>
-                ) : null}
+          <View style={styles.section}>
+            <TourTarget id="screen.admin-fees-adjustments.workspace" native><View style={styles.stepRow}>
+              <View style={[styles.stepBadge, selectedStudent && styles.stepBadgeDone]}>
+                {selectedStudent ? (
+                  <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.stepBadgeText}>1</Text>
+                )}
               </View>
-
-              {searchQuery.trim().length === 1 && (
-                <Text style={styles.hintText}>Type at least 2 characters to search</Text>
-              )}
-
-              {searchResults.length > 0 && (
-                <View style={styles.dropdown}>
-                  {searchResults.map((student, idx) => {
-                    const classSection = studentClassSectionLabel(student);
-                    return (
-                      <Pressable
-                        key={student.id}
-                        style={({ pressed }) => [
-                          styles.dropdownItem,
-                          idx === searchResults.length - 1 && styles.dropdownItemLast,
-                          pressed && styles.dropdownItemPressed,
-                        ]}
-                        onPress={() => handleSelectStudent(student)}
-                      >
-                        <View style={styles.dropdownAvatar}>
-                          <Text style={styles.dropdownAvatarText}>
-                            {(student.display_name || 'S').charAt(0).toUpperCase()}
-                          </Text>
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.dropdownName}>{student.display_name}</Text>
-                          <Text style={styles.dropdownMeta}>
-                            #{student.admission_no}{classSection ? ` · ${classSection}` : ''}
-                          </Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              )}
-
-              {searchQuery.trim().length >= 2 && !searching && searchResults.length === 0 && (
-                <View style={styles.inlineEmpty}>
-                  <Ionicons name="person-outline" size={20} color="#94A3B8" />
-                  <Text style={styles.inlineEmptyText}>No students matched that search</Text>
-                </View>
-              )}
-            </>
-          ) : (
-            <View style={styles.studentBanner}>
-              <LinearGradient
-                colors={['rgba(102,89,144,0.12)', 'rgba(102,89,144,0.04)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
+              <Ionicons
+                name="person"
+                size={15}
+                color={selectedStudent ? '#059669' : accentColor(isDark)}
               />
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
-                  {(selectedStudent.display_name || 'S').charAt(0).toUpperCase()}
-                </Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.studentName}>{selectedStudent.display_name}</Text>
-                <Text style={styles.studentDetails}>
-                  Admission · {selectedStudent.admission_no}
-                  {selectedStudentClassSection ? ` · ${selectedStudentClassSection}` : ''}
-                </Text>
-              </View>
-              <Pressable
-                onPress={clearStudent}
-                style={({ pressed }) => [
-                  styles.clearStudentBtn,
-                  pressed && { opacity: 0.85, transform: [{ scale: 0.96 }] },
-                ]}
-                hitSlop={8}
-                accessibilityLabel="Change student"
-              >
-                <Ionicons name="close" size={16} color="#64748B" />
-              </Pressable>
-            </View>
-          )}
+              <Text style={styles.stepLabel}>Find student</Text>
+            </View></TourTarget>
 
-          {/* Step 2: Fee component */}
-          {selectedStudent && (
-            <>
-              <View style={[styles.stepRow, { marginTop: 22 }]}>
-                <View style={styles.stepBadge}>
-                  <Text style={styles.stepBadgeText}>2</Text>
-                </View>
-                <Text style={styles.stepLabel}>Adjustment type</Text>
-              </View>
-
-              <View style={styles.typeSelector}>
-                <Pressable
-                  disabled={selectedFeeSettled}
-                  style={({ pressed }) => [
-                    styles.typeOption,
-                    adjustmentType === 'waive' && styles.typeOptionActive,
-                    selectedFeeSettled && styles.typeOptionDisabled,
-                    pressed && !selectedFeeSettled && { transform: [{ scale: 0.98 }] },
+            {!selectedStudent ? (
+              <>
+                <View
+                  style={[
+                    styles.searchContainer,
+                    searchFocused && styles.searchContainerFocused,
                   ]}
-                  onPress={() => setAdjustmentType('waive')}
                 >
-                  <View
-                    style={[
-                      styles.typeIconWrap,
-                      adjustmentType === 'waive' && styles.typeIconWrapActive,
-                    ]}
-                  >
-                    <Ionicons
-                      name="arrow-down-circle"
-                      size={18}
-                      color={adjustmentType === 'waive' ? '#059669' : '#94A3B8'}
-                    />
-                  </View>
-                  <Text
-                    style={[
-                      styles.typeOptionTitle,
-                      adjustmentType === 'waive' && styles.typeOptionTitleActive,
-                    ]}
-                  >
-                    Waive
-                  </Text>
-                  <Text style={styles.typeOptionDesc}>
-                    {selectedFeeSettled ? 'Nothing left to waive' : 'Reduce what they owe'}
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.typeOption,
-                    adjustmentType === 'add' && styles.typeOptionActiveAdd,
-                    pressed && { transform: [{ scale: 0.98 }] },
-                  ]}
-                  onPress={() => setAdjustmentType('add')}
-                >
-                  <View
-                    style={[
-                      styles.typeIconWrap,
-                      adjustmentType === 'add' && styles.typeIconWrapActiveAdd,
-                    ]}
-                  >
-                    <Ionicons
-                      name="arrow-up-circle"
-                      size={18}
-                      color={adjustmentType === 'add' ? '#D97706' : '#94A3B8'}
-                    />
-                  </View>
-                  <Text
-                    style={[
-                      styles.typeOptionTitle,
-                      adjustmentType === 'add' && styles.typeOptionTitleActiveAdd,
-                    ]}
-                  >
-                    Add
-                  </Text>
-                  <Text style={styles.typeOptionDesc}>Increase what they owe</Text>
-                </Pressable>
-              </View>
-
-              <View style={[styles.stepRow, { marginTop: 8 }]}>
-                <View style={styles.stepBadge}>
-                  <Text style={styles.stepBadgeText}>3</Text>
+                  <Ionicons
+                    name="search-outline"
+                    size={18}
+                    color={searchFocused ? accentColor(isDark) : '#94A3B8'}
+                    style={styles.searchIcon}
+                  />
+                  <AppTextInput
+                    accessibilityLabel="Search student by name or admission number"
+                    value={searchQuery}
+                    onChangeText={handleSearch}
+                    placeholder="Name or admission number…"
+                    placeholderTextColor={isDark ? '#94A3B8' : '#64748B'}
+                    style={[ds.inputInChrome, styles.searchInput]}
+                    onFocus={() => setSearchFocused(true)}
+                    onBlur={() => setSearchFocused(false)}
+                  />
+                  {searching ? (
+                    <LogoLoader size={18} color={accentColor(isDark)} />
+                  ) : searchQuery.length > 0 ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Clear student search"
+                      onPress={clearSearch}
+                      style={({ pressed }) => [
+                        styles.clearSearchBtn,
+                        pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] },
+                      ]}
+                      hitSlop={8}
+                    >
+                      <Ionicons name="close" size={12} color="#fff" />
+                    </Pressable>
+                  ) : null}
                 </View>
-                <Text style={styles.stepLabel}>Select fee component</Text>
-              </View>
 
-              {loadingFees ? (
-                <View style={styles.inlineLoader}>
-                  <LogoLoader size={28} color={ADMIN_THEME.colors.primary} />
-                  <Text style={styles.hintText}>Loading fee heads…</Text>
-                </View>
-              ) : studentFees.length === 0 ? (
-                <View style={styles.inlineEmpty}>
-                  <Ionicons name="document-outline" size={20} color="#94A3B8" />
-                  <Text style={styles.inlineEmptyText}>
-                    No fee structures assigned to this student
-                  </Text>
-                </View>
-              ) : (
-                <>
-                  <View style={styles.chipGrid}>
-                    {studentFees.map((fee) => {
-                      const remaining = feeRemaining(fee);
-                      const isSelected = selectedFee?.id === fee.id;
-                      const isSettled = remaining <= 0;
-                      const waived = Number(fee.discount || 0);
+                {searchQuery.trim().length === 1 && (
+                  <Text style={styles.hintText}>Type at least 2 characters to search</Text>
+                )}
 
+                {searchResults.length > 0 && (
+                  <View style={styles.dropdown}>
+                    {searchResults.map((student, idx) => {
+                      const classSection = studentClassSectionLabel(student);
                       return (
                         <Pressable
-                          key={fee.id}
+                          key={student.id}
                           style={({ pressed }) => [
-                            styles.feeChip,
-                            isSelected && styles.feeChipActive,
-                            fee.is_transport && !isSelected && styles.feeChipTransport,
-                            pressed && { transform: [{ scale: 0.98 }], opacity: 0.92 },
+                            styles.dropdownItem,
+                            idx === searchResults.length - 1 && styles.dropdownItemLast,
+                            pressed && styles.dropdownItemPressed,
                           ]}
-                          onPress={() => handleSelectFee(fee)}
+                          onPress={() => handleSelectStudent(student)}
                         >
-                          {isSelected && (
-                            <View style={styles.feeChipCheck}>
-                              <Ionicons name="checkmark" size={10} color="#fff" />
-                            </View>
-                          )}
-                          {fee.is_transport ? (
-                            <Ionicons
-                              name="bus-outline"
-                              size={14}
-                              color={isSelected ? ADMIN_THEME.colors.primary : '#0E7490'}
-                              style={{ marginBottom: 4 }}
-                            />
-                          ) : null}
-                          <Text
-                            style={[
-                              styles.feeChipText,
-                              isSelected && styles.feeChipTextActive,
-                            ]}
-                            numberOfLines={2}
-                          >
-                            {fee.fee_type}
-                          </Text>
-                          <Text
-                            style={[
-                              styles.feeChipBalance,
-                              isSelected && styles.feeChipBalanceActive,
-                              isSettled && !isSelected && (waived > 0 ? styles.feeChipWaived : styles.feeChipPaid),
-                            ]}
-                          >
-                            {feeSettlementLabel(fee)}
-                          </Text>
+                          <View style={styles.dropdownAvatar}>
+                            <Text style={styles.dropdownAvatarText}>
+                              {(student.display_name || 'S').charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.dropdownName}>{student.display_name}</Text>
+                            <Text style={styles.dropdownMeta}>
+                              #{student.admission_no}{classSection ? ` · ${classSection}` : ''}
+                            </Text>
+                          </View>
+                          <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
                         </Pressable>
                       );
                     })}
                   </View>
-                  <Text style={styles.hintText}>
-                    Paid and waived heads stay selectable — use Add to post an extra charge.
-                  </Text>
-                </>
-              )}
+                )}
 
-              {!loadingFees && selectedStudent && transportHint !== 'none' ? (
-                <View style={styles.transportHint}>
-                  <Ionicons name="bus-outline" size={16} color="#0E7490" />
-                  <Text style={styles.transportHintText}>
-                    {transportHint === 'fee_not_set'
-                      ? 'This student is on a bus route, but Accounts has not set a stop fee yet. Set it under Accounts → Transport Fees, then refresh.'
-                      : 'Transport fee appears only after this student is assigned to a bus route/stop. Stop fees set in Accounts apply to assigned students — assign the route under Transport, then reopen this student.'}
+                {searchQuery.trim().length >= 2 && !searching && searchResults.length === 0 && (
+                  <View style={styles.inlineEmpty}>
+                    <Ionicons name="person-outline" size={20} color="#94A3B8" />
+                    <Text style={styles.inlineEmptyText}>No students matched that search</Text>
+                  </View>
+                )}
+              </>
+            ) : (
+              <View style={styles.studentBanner}>
+                <LinearGradient
+                  colors={['rgba(102,89,144,0.12)', 'rgba(102,89,144,0.04)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={StyleSheet.absoluteFill}
+                />
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>
+                    {(selectedStudent.display_name || 'S').charAt(0).toUpperCase()}
                   </Text>
                 </View>
-              ) : null}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.studentName}>{selectedStudent.display_name}</Text>
+                  <View style={styles.studentMetaRow}>
+                    <View style={styles.studentMetaPill}>
+                      <Ionicons name="id-card" size={12} color={isDark ? '#C4B5FD' : '#4F46E5'} />
+                      <Text style={styles.studentMetaText}>{selectedStudent.admission_no}</Text>
+                    </View>
+                    {selectedStudentClassSection ? (
+                      <View style={[styles.studentMetaPill, styles.studentMetaPillClass]}>
+                        <Ionicons name="school" size={12} color={isDark ? '#A5B4FC' : '#4338CA'} />
+                        <Text style={[styles.studentMetaText, styles.studentMetaClassText]}>
+                          {selectedStudentClassSection}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+                <Pressable
+                  onPress={clearStudent}
+                  style={({ pressed }) => [
+                    styles.clearStudentBtn,
+                    pressed && { opacity: 0.85, transform: [{ scale: 0.96 }] },
+                  ]}
+                  hitSlop={8}
+                  accessibilityLabel="Change student"
+                >
+                  <Ionicons name="search" size={16} color={isDark ? '#C4B5FD' : '#4F46E5'} />
+                </Pressable>
+              </View>
+            )}
+          </View>
+
+          {/* Steps 2–3: Adjustment type and fee component */}
+          {selectedStudent && (
+            <>
+              <View style={styles.section}>
+                <View style={styles.stepRow}>
+                  <View style={styles.stepBadge}>
+                    <Text style={styles.stepBadgeText}>2</Text>
+                  </View>
+                  <Ionicons
+                    name={adjustmentType === 'add' ? 'trending-up' : 'trending-down'}
+                    size={15}
+                    color={adjustmentType === 'add' ? '#D97706' : '#059669'}
+                  />
+                  <Text style={styles.stepLabel}>Adjustment type</Text>
+                </View>
+
+                <View style={styles.typeSelector} accessibilityRole="radiogroup" accessibilityLabel="Adjustment type">
+                  <Pressable
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: adjustmentType === 'waive', disabled: selectedFeeSettled }}
+                    disabled={selectedFeeSettled}
+                    style={({ pressed }) => [
+                      styles.typeOption,
+                      styles.typeOptionWaive,
+                      adjustmentType === 'waive' && styles.typeOptionActive,
+                      selectedFeeSettled && styles.typeOptionDisabled,
+                      pressed && !selectedFeeSettled && { transform: [{ scale: 0.98 }] },
+                    ]}
+                    onPress={() => setAdjustmentType('waive')}
+                  >
+                    {adjustmentType === 'waive' && (
+                      <View style={[styles.feeChipCheck, styles.feeChipCheckWaive]}>
+                        <Ionicons name="checkmark" size={10} color="#FFFFFF" />
+                      </View>
+                    )}
+                    <View style={[styles.typeIconWrap, styles.typeIconWrapActive]}>
+                      <Ionicons name="trending-down" size={22} color="#059669" />
+                    </View>
+                    <Text style={[styles.typeOutcome, selectedFeeSettled && styles.typeOutcomeMuted]}>
+                      Pay less
+                    </Text>
+                    <Text style={styles.typeOptionTitle}>Waive fee</Text>
+                    {selectedFeeSettled ? (
+                      <View style={styles.typeLockRow}>
+                        <Ionicons name="lock-closed" size={11} color="#94A3B8" />
+                        <Text style={styles.typeLockText}>Closed</Text>
+                      </View>
+                    ) : null}
+                  </Pressable>
+
+                  <Pressable
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: adjustmentType === 'add' }}
+                    style={({ pressed }) => [
+                      styles.typeOption,
+                      styles.typeOptionAddBase,
+                      adjustmentType === 'add' && styles.typeOptionActiveAdd,
+                      pressed && { transform: [{ scale: 0.98 }] },
+                    ]}
+                    onPress={() => setAdjustmentType('add')}
+                  >
+                    {adjustmentType === 'add' && (
+                      <View style={[styles.feeChipCheck, styles.feeChipCheckAdd]}>
+                        <Ionicons name="checkmark" size={10} color="#FFFFFF" />
+                      </View>
+                    )}
+                    <View style={[styles.typeIconWrap, styles.typeIconWrapActiveAdd]}>
+                      <Ionicons name="trending-up" size={22} color="#D97706" />
+                    </View>
+                    <Text style={styles.typeOutcomeAdd}>Pay more</Text>
+                    <Text style={styles.typeOptionTitle}>Add charge</Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              <View style={styles.section}>
+                <View style={styles.stepRow}>
+                  <View style={[styles.stepBadge, selectedFee && styles.stepBadgeDone]}>
+                    {selectedFee ? (
+                      <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.stepBadgeText}>3</Text>
+                    )}
+                  </View>
+                  <Ionicons
+                    name="wallet"
+                    size={15}
+                    color={selectedFee ? '#059669' : accentColor(isDark)}
+                  />
+                  <Text style={styles.stepLabel}>Select fee component</Text>
+                </View>
+
+                {loadingFees ? (
+                  <View style={styles.inlineLoader}>
+                    <LogoLoader size={28} color={accentColor(isDark)} />
+                    <Text style={styles.hintText}>Loading fee heads…</Text>
+                  </View>
+                ) : studentFees.length === 0 ? (
+                  <View style={styles.inlineEmpty}>
+                    <Ionicons name="document-outline" size={20} color="#94A3B8" />
+                    <Text style={styles.inlineEmptyText}>
+                      No fee structures assigned to this student
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    <View style={styles.chipGrid} accessibilityRole="radiogroup" accessibilityLabel="Fee component">
+                      {studentFees.map((fee) => {
+                        const remaining = feeRemaining(fee);
+                        const isSelected = selectedFee?.id === fee.id;
+                        const status = feeStatusKind(fee);
+                        const theme = feeStatusTheme(status, isDark);
+                        const kindIcon = feeKindIcon(fee);
+                        const kindColor = fee.is_transport
+                          ? (isDark ? '#67E8F9' : '#0E7490')
+                          : (isDark ? '#E2E8F0' : '#334155');
+
+                        return (
+                          <Pressable
+                            key={fee.id}
+                            accessibilityRole="radio"
+                            accessibilityState={{ checked: isSelected }}
+                            accessibilityLabel={`${fee.fee_type}, ${feeSettlementLabel(fee)}`}
+                            style={({ pressed }) => [
+                              styles.feeChip,
+                              {
+                                backgroundColor: theme.cardBg,
+                                borderColor: isSelected ? accentColor(isDark) : theme.cardBorder,
+                              },
+                              isSelected && styles.feeChipSelected,
+                              pressed && { transform: [{ scale: 0.98 }], opacity: 0.92 },
+                            ]}
+                            onPress={() => handleSelectFee(fee)}
+                          >
+                            <View style={[styles.feeAccent, { backgroundColor: theme.accent }]} />
+                            <View style={styles.feeChipTop}>
+                              <View style={styles.feeKindIconWrap}>
+                                <View
+                                  style={[
+                                    styles.feeKindIcon,
+                                    fee.is_transport && styles.feeKindIconTransport,
+                                  ]}
+                                >
+                                  <Ionicons name={kindIcon} size={16} color={kindColor} />
+                                </View>
+                                {isSelected ? (
+                                  <View style={styles.feeIconCheck}>
+                                    <Ionicons name="checkmark" size={9} color="#FFFFFF" />
+                                  </View>
+                                ) : null}
+                              </View>
+                              <View style={[styles.statusPill, { backgroundColor: theme.pillBg }]}>
+                                <Ionicons name={theme.pillIcon} size={12} color={theme.pillText} />
+                                <Text style={[styles.statusPillText, { color: theme.pillText }]}>
+                                  {theme.label}
+                                </Text>
+                              </View>
+                            </View>
+                            <Text style={styles.feeChipText} numberOfLines={2}>
+                              {fee.fee_type}
+                            </Text>
+                            {status === 'due' ? (
+                              <Text style={[styles.feeDueAmount, { color: theme.amount }]}>
+                                {fmtINR(remaining)}
+                              </Text>
+                            ) : (
+                              <Ionicons
+                                name={theme.pillIcon}
+                                size={16}
+                                color={theme.amount}
+                                style={styles.feeClosedIcon}
+                              />
+                            )}
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                    <View style={styles.statusLegend}>
+                      <View style={styles.legendItem}>
+                        <View style={[styles.legendSwatch, { backgroundColor: '#F43F5E' }]} />
+                        <Text style={styles.legendText}>Due</Text>
+                      </View>
+                      <View style={styles.legendItem}>
+                        <Ionicons name="checkmark-circle" size={13} color="#059669" />
+                        <Text style={styles.legendText}>Paid</Text>
+                      </View>
+                      <View style={styles.legendItem}>
+                        <Ionicons name="gift" size={13} color="#7C3AED" />
+                        <Text style={styles.legendText}>Waived</Text>
+                      </View>
+                      <View style={styles.legendItem}>
+                        <Ionicons name="checkmark-done" size={13} color="#0F766E" />
+                        <Text style={styles.legendText}>Settled</Text>
+                      </View>
+                    </View>
+                  </>
+                )}
+
+                {!loadingFees && selectedStudent && transportHint !== 'none' ? (
+                  <View style={styles.transportHint}>
+                    <Ionicons name="bus-outline" size={16} color="#0E7490" />
+                    <Text style={styles.transportHintText}>
+                      {transportHint === 'fee_not_set'
+                        ? 'This student is on a bus route, but Accounts has not set a stop fee yet. Set it under Accounts → Transport Fees, then refresh.'
+                        : 'Transport fee appears only after this student is assigned to a bus route/stop. Stop fees set in Accounts apply to assigned students — assign the route under Transport, then reopen this student.'}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
             </>
           )}
 
-          {/* Step 3: Form */}
+          {/* Step 4: Form */}
           {selectedFee && (
             <View style={styles.formContainer}>
               <View style={[styles.stepRow, { marginTop: 4 }]}>
                 <View style={styles.stepBadge}>
                   <Text style={styles.stepBadgeText}>4</Text>
                 </View>
+                <Ionicons
+                  name="cash"
+                  size={15}
+                  color={adjustmentType === 'add' ? '#D97706' : '#059669'}
+                />
                 <Text style={styles.stepLabel}>Amount & reason</Text>
               </View>
 
               {/* Balance mini grid */}
               <View style={styles.balanceGrid}>
                 <View style={styles.balanceCell}>
-                  <Text style={styles.balanceCellLabel}>Assigned</Text>
+                  <View style={styles.balanceLabelRow}>
+                    <Ionicons name="document-text" size={12} color={isDark ? '#94A3B8' : '#64748B'} />
+                    <Text style={styles.balanceCellLabel}>Assigned</Text>
+                  </View>
                   <Text style={styles.balanceCellVal}>
                     {fmtINR(selectedFee.amount_due)}
                   </Text>
                 </View>
                 <View style={styles.balanceCell}>
-                  <Text style={styles.balanceCellLabel}>Paid</Text>
-                  <Text style={[styles.balanceCellVal, { color: '#059669' }]}>
+                  <View style={styles.balanceLabelRow}>
+                    <Ionicons name="checkmark-circle" size={12} color={isDark ? '#6EE7B7' : '#047857'} />
+                    <Text style={styles.balanceCellLabel}>Paid</Text>
+                  </View>
+                  <Text style={[styles.balanceCellVal, { color: isDark ? '#6EE7B7' : '#047857' }]}>
                     {fmtINR(selectedFee.amount_paid)}
                   </Text>
                 </View>
                 <View style={styles.balanceCell}>
-                  <Text style={styles.balanceCellLabel}>Waiver</Text>
-                  <Text style={[styles.balanceCellVal, { color: ADMIN_THEME.colors.primary }]}>
+                  <View style={styles.balanceLabelRow}>
+                    <Ionicons name="gift" size={12} color={isDark ? '#C4B5FD' : '#7C3AED'} />
+                    <Text style={styles.balanceCellLabel}>Waiver</Text>
+                  </View>
+                  <Text style={[styles.balanceCellVal, { color: isDark ? '#C4B5FD' : '#7C3AED' }]}>
                     {fmtINR(selectedFee.discount)}
                   </Text>
                 </View>
@@ -883,11 +1057,18 @@ export default function FeeAdjustmentsScreen() {
                     remainingBalance > 0 ? styles.balanceCellHighlight : styles.balanceCellSettled,
                   ]}
                 >
-                  <Text style={styles.balanceCellLabel}>Remaining</Text>
+                  <View style={styles.balanceLabelRow}>
+                    <Ionicons
+                      name={remainingBalance > 0 ? 'alert-circle' : 'checkmark-circle'}
+                      size={12}
+                      color={remainingBalance > 0 ? (isDark ? '#FCA5A5' : '#B91C1C') : (isDark ? '#6EE7B7' : '#047857')}
+                    />
+                    <Text style={styles.balanceCellLabel}>Remaining</Text>
+                  </View>
                   <Text
                     style={[
                       styles.balanceCellVal,
-                      { color: remainingBalance > 0 ? '#DC2626' : '#059669' },
+                      { color: remainingBalance > 0 ? (isDark ? '#FCA5A5' : '#B91C1C') : (isDark ? '#6EE7B7' : '#047857') },
                     ]}
                   >
                     {fmtINR(remainingBalance)}
@@ -897,29 +1078,46 @@ export default function FeeAdjustmentsScreen() {
 
               {selectedFeeSettled ? (
                 <View style={styles.settledBanner}>
-                  <Ionicons name="checkmark-circle" size={16} color="#059669" />
+                  <Ionicons name="trending-up" size={16} color="#D97706" />
                   <Text style={styles.settledBannerText}>
-                    This head is {feeSettlementLabel(selectedFee).toLowerCase()}. Add an extra amount to reopen a due.
+                    Nothing left to reduce. Pay more is selected.
                   </Text>
                 </View>
               ) : null}
 
-              <Text style={styles.fieldLabel}>
-                {adjustmentType === 'add' ? 'Amount to add' : 'Amount to waive'}
-                <Text style={styles.req}> *</Text>
-              </Text>
-              <View style={styles.amountInputWrap}>
+              <View style={styles.fieldLabelRow}>
+                <Ionicons
+                  name={adjustmentType === 'add' ? 'trending-up' : 'trending-down'}
+                  size={14}
+                  color={adjustmentType === 'add' ? '#D97706' : '#059669'}
+                />
+                <Text style={styles.fieldLabelInline}>
+                  {adjustmentType === 'add' ? 'Amount to add' : 'Amount to waive'}
+                  <Text style={styles.req}> *</Text>
+                </Text>
+              </View>
+              <View style={[
+                styles.amountInputWrap,
+                adjustmentType === 'add' ? styles.amountInputAdd : styles.amountInputWaive,
+                amountFocused && styles.inputFocused,
+                !!amountError && styles.inputError,
+              ]}>
                 <Text style={styles.currencyPrefix}>₹</Text>
                 <AppTextInput
+                  accessibilityLabel={adjustmentType === 'add' ? 'Amount to add in rupees, required' : 'Amount to waive in rupees, required'}
+                  onFocus={() => setAmountFocused(true)}
+                  onBlur={() => setAmountFocused(false)}
                   value={adjustAmount}
                   onChangeText={setAdjustAmount}
                   placeholder="0"
                   keyboardType="numeric"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={isDark ? '#94A3B8' : '#64748B'}
                   style={[ds.inputInChrome, styles.amountInput]}
                 />
                 {adjustmentType === 'waive' && remainingBalance > 0 && (
                   <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Waive full remaining balance of ${fmtINR(remainingBalance)}`}
                     onPress={() => setAdjustAmount(String(remainingBalance))}
                     style={({ pressed }) => [
                       styles.maxBtn,
@@ -927,53 +1125,88 @@ export default function FeeAdjustmentsScreen() {
                     ]}
                     hitSlop={6}
                   >
-                    <Text style={styles.maxBtnText}>MAX</Text>
+                    <Text style={styles.maxBtnText}>Full amount</Text>
                   </Pressable>
                 )}
               </View>
+
+              <Text style={[styles.fieldHint, !!amountError && styles.errorText]} accessibilityLiveRegion="polite">
+                {amountError || (adjustmentType === 'waive'
+                  ? `Available to waive: ${fmtINR(remainingBalance)}`
+                  : 'This amount will be added to the remaining fee balance.')}
+              </Text>
 
               <Text style={styles.fieldLabel}>
                 Reason<Text style={styles.req}> *</Text>
               </Text>
               <AppTextInput
+                accessibilityLabel="Reason for adjustment, required"
+                onFocus={() => setReasonFocused(true)}
+                onBlur={() => setReasonFocused(false)}
                 value={reason}
                 onChangeText={setReason}
                 placeholder="e.g. Sibling concession, fee correction…"
-                placeholderTextColor="#94A3B8"
-                style={styles.formInput}
+                placeholderTextColor={isDark ? '#94A3B8' : '#64748B'}
+                style={[styles.formInput, reasonFocused && styles.inputFocused]}
                 multiline
               />
 
-              <View style={styles.notifyRow}>
-                <View
-                  style={[
-                    styles.notifyIconWrap,
-                    sendNotification ? styles.notifyIconWrapOn : styles.notifyIconWrapOff,
-                  ]}
-                >
-                  <Ionicons
-                    name={sendNotification ? 'notifications' : 'notifications-off-outline'}
-                    size={18}
-                    color={sendNotification ? '#4F46E5' : '#94A3B8'}
+              <View style={[styles.notifyPanel, sendNotification && styles.notifyPanelOn]}>
+                <View style={styles.notifyRow}>
+                  <View style={styles.notifyTitleRow}>
+                    <Ionicons
+                      name={sendNotification ? 'notifications' : 'notifications-off'}
+                      size={16}
+                      color={sendNotification ? (isDark ? '#C4B5FD' : '#4F46E5') : '#94A3B8'}
+                    />
+                    <Text style={styles.notifyTitle}>Notify student & parents</Text>
+                  </View>
+                  <Switch
+                    value={sendNotification}
+                    onValueChange={setSendNotification}
+                    trackColor={{ false: isDark ? '#374151' : '#CBD5E1', true: '#A5B4FC' }}
+                    thumbColor={sendNotification ? '#4F46E5' : isDark ? '#9CA3AF' : '#F8FAFC'}
+                    ios_backgroundColor={isDark ? '#374151' : '#CBD5E1'}
+                    accessibilityLabel="Send notification to student and parents"
                   />
                 </View>
-                <View style={styles.notifyBody}>
-                  <Text style={styles.notifyTitle}>Notify student & parents</Text>
-                  <Text style={styles.notifyDesc}>
-                    {sendNotification
-                      ? 'They will get a fee-adjusted alert after you apply this.'
-                      : 'No notification will be sent. The adjustment still posts as usual.'}
+                <Text style={styles.notifyDesc}>
+                  {sendNotification
+                    ? 'An alert will be sent after you apply this adjustment.'
+                    : 'No alert will be sent. This adjustment will still be recorded.'}
+                </Text>
+              </View>
+
+              {!!adjustAmount.trim() && !amountError && (
+                <View
+                  style={[
+                    styles.reviewRow,
+                    adjustmentType === 'add' ? styles.reviewRowAdd : styles.reviewRowWaive,
+                  ]}
+                  accessibilityLiveRegion="polite"
+                >
+                  <Ionicons
+                    name={adjustmentType === 'add' ? 'trending-up' : 'trending-down'}
+                    size={18}
+                    color={adjustmentType === 'add' ? '#D97706' : '#059669'}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[
+                      styles.reviewLabel,
+                      adjustmentType === 'add' ? styles.reviewLabelAdd : styles.reviewLabelWaive,
+                    ]}>
+                      Balance after {adjustmentType === 'add' ? 'addition' : 'waiver'}
+                    </Text>
+                    <Text style={styles.reviewHint}>{selectedFee.fee_type}</Text>
+                  </View>
+                  <Text style={[
+                    styles.reviewAmount,
+                    adjustmentType === 'add' ? styles.reviewAmountAdd : styles.reviewAmountWaive,
+                  ]}>
+                    {fmtINR(Math.round(balanceAfterAdjustment * 100) / 100)}
                   </Text>
                 </View>
-                <Switch
-                  value={sendNotification}
-                  onValueChange={setSendNotification}
-                  trackColor={{ false: isDark ? '#374151' : '#E2E8F0', true: '#A5B4FC' }}
-                  thumbColor={sendNotification ? '#4F46E5' : isDark ? '#9CA3AF' : '#F8FAFC'}
-                  ios_backgroundColor={isDark ? '#374151' : '#E2E8F0'}
-                  accessibilityLabel="Send notification to student and parents"
-                />
-              </View>
+              )}
 
               <PremiumButton
                 title={
@@ -985,7 +1218,7 @@ export default function FeeAdjustmentsScreen() {
                 colors={
                   adjustmentType === 'add'
                     ? ['#D97706', '#F59E0B']
-                    : ['#4F46E5', '#6366F1']
+                    : ['#059669', '#10B981']
                 }
                 icon={
                   <Ionicons
@@ -1004,11 +1237,11 @@ export default function FeeAdjustmentsScreen() {
         {/* History */}
         <Animated.View
           entering={FadeInDown.delay(160).duration(320)}
-          style={[styles.card, clayCard(isDark, 'md'), { marginTop: 18 }]}
+          style={[styles.card, { marginTop: 20 }]}
         >
           <View style={styles.cardHeader}>
             <View style={styles.cardIconBadge}>
-              <Ionicons name="time-outline" size={16} color={ADMIN_THEME.colors.primary} />
+              <Ionicons name="time-outline" size={16} color={accentColor(isDark)} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.cardTitle}>History</Text>
@@ -1071,7 +1304,7 @@ export default function FeeAdjustmentsScreen() {
 
           {loadingHistory ? (
             <View style={styles.inlineLoader}>
-              <LogoLoader size={36} color={ADMIN_THEME.colors.primary} />
+              <LogoLoader size={36} color={accentColor(isDark)} />
               <Text style={styles.hintText}>Loading history…</Text>
             </View>
           ) : filteredHistory.length === 0 ? (
@@ -1113,15 +1346,18 @@ export default function FeeAdjustmentsScreen() {
   );
 }
 
-const getStyles = (theme: Theme, isDark: boolean) =>
+const getStyles = (isDark: boolean) =>
   StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: 'transparent',
+      backgroundColor: isDark ? '#0F172A' : '#F1F4F9',
     },
     scrollContent: {
       padding: 16,
-      paddingTop: 12,
+      paddingTop: 20,
+      width: '100%',
+      maxWidth: 1040,
+      alignSelf: 'center',
     },
 
     /* Intro */
@@ -1166,7 +1402,7 @@ const getStyles = (theme: Theme, isDark: boolean) =>
       }),
     },
     introTitle: {
-      fontSize: 16,
+      fontSize: 21,
       fontWeight: '800',
       color: isDark ? '#EEF2FF' : '#312E81',
       letterSpacing: -0.3,
@@ -1175,7 +1411,7 @@ const getStyles = (theme: Theme, isDark: boolean) =>
     introDesc: {
       fontSize: 13,
       lineHeight: 18,
-      color: isDark ? '#A5B4FC' : '#6366F1',
+      color: isDark ? '#C7D2FE' : '#4C4A79',
       fontWeight: '500',
     },
 
@@ -1194,12 +1430,12 @@ const getStyles = (theme: Theme, isDark: boolean) =>
       flexWrap: 'wrap',
     },
     summaryHero: {
-      minWidth: 64,
+      minWidth: 48,
     },
     summaryHeroLabel: {
       fontSize: 11,
       fontWeight: '600',
-      color: '#94A3B8',
+      color: isDark ? '#B6C2D3' : '#526176',
       textTransform: 'uppercase',
       letterSpacing: 0.4,
     },
@@ -1217,7 +1453,7 @@ const getStyles = (theme: Theme, isDark: boolean) =>
     },
     summaryChip: {
       flex: 1,
-      minWidth: 90,
+      minWidth: 72,
     },
     summaryDot: {
       width: 6,
@@ -1228,7 +1464,7 @@ const getStyles = (theme: Theme, isDark: boolean) =>
     summaryLabel: {
       fontSize: 11,
       fontWeight: '600',
-      color: '#94A3B8',
+      color: isDark ? '#B6C2D3' : '#526176',
     },
     summaryAmount: {
       fontSize: 14,
@@ -1239,14 +1475,27 @@ const getStyles = (theme: Theme, isDark: boolean) =>
 
     /* Cards */
     card: {
-      padding: 20,
-      overflow: 'hidden',
+      padding: 18,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: isDark ? '#334155' : '#D6DDEA',
+      backgroundColor: isDark ? '#192334' : '#FFFFFF',
+      ...Platform.select({
+        web: { boxShadow: '0 4px 20px rgba(15,23,42,0.05)' } as any,
+        default: {},
+      }),
+    },
+    section: {
+      paddingTop: 18,
+      marginBottom: 20,
+      borderTopWidth: 1,
+      borderTopColor: isDark ? '#334155' : '#E2E8F0',
     },
     cardHeader: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
-      marginBottom: 18,
+      marginBottom: 20,
     },
     cardIconBadge: {
       width: 36,
@@ -1264,7 +1513,8 @@ const getStyles = (theme: Theme, isDark: boolean) =>
     },
     cardSubtitle: {
       fontSize: 12,
-      color: '#94A3B8',
+      lineHeight: 18,
+      color: isDark ? '#B6C2D3' : '#526176',
       marginTop: 2,
       fontWeight: '500',
     },
@@ -1277,38 +1527,41 @@ const getStyles = (theme: Theme, isDark: boolean) =>
       marginBottom: 10,
     },
     stepBadge: {
-      width: 22,
-      height: 22,
-      borderRadius: 8,
+      width: 26,
+      height: 26,
+      borderRadius: 9,
       backgroundColor: isDark ? 'rgba(99,102,241,0.25)' : '#EEF2FF',
       alignItems: 'center',
       justifyContent: 'center',
     },
+    stepBadgeDone: {
+      backgroundColor: '#059669',
+    },
     stepBadgeText: {
       fontSize: 11,
       fontWeight: '800',
-      color: ADMIN_THEME.colors.primary,
+      color: isDark ? '#C4B5FD' : '#4F46E5',
     },
     stepLabel: {
       fontSize: 13,
       fontWeight: '700',
-      color: isDark ? '#CBD5E1' : '#475569',
+      color: isDark ? '#F1F5F9' : '#1E293B',
     },
 
     /* Search */
     searchContainer: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: isDark ? '#121824' : '#FFFFFF',
+      backgroundColor: isDark ? '#0F172A' : '#F8FAFC',
       borderRadius: 14,
       borderWidth: 1.5,
-      borderColor: isDark ? '#334155' : '#E2E8F0',
-      paddingHorizontal: 12,
-      minHeight: 48,
+      borderColor: isDark ? '#64748B' : '#94A3B8',
+      paddingHorizontal: 14,
+      minHeight: 56,
       gap: 8,
     },
     searchContainerFocused: {
-      borderColor: ADMIN_THEME.colors.primary,
+      borderColor: accentColor(isDark),
       ...Platform.select({
         ios: {
           shadowColor: '#6366F1',
@@ -1344,7 +1597,8 @@ const getStyles = (theme: Theme, isDark: boolean) =>
     },
     hintText: {
       fontSize: 12,
-      color: '#94A3B8',
+      color: isDark ? '#B6C2D3' : '#526176',
+      lineHeight: 18,
       marginTop: 8,
       fontWeight: '500',
     },
@@ -1394,7 +1648,7 @@ const getStyles = (theme: Theme, isDark: boolean) =>
     dropdownAvatarText: {
       fontSize: 14,
       fontWeight: '800',
-      color: ADMIN_THEME.colors.primary,
+      color: accentColor(isDark),
     },
     dropdownName: {
       fontSize: 14,
@@ -1430,7 +1684,7 @@ const getStyles = (theme: Theme, isDark: boolean) =>
     avatarText: {
       fontSize: 18,
       fontWeight: '800',
-      color: ADMIN_THEME.colors.primary,
+      color: accentColor(isDark),
     },
     studentName: {
       fontSize: 15,
@@ -1440,9 +1694,42 @@ const getStyles = (theme: Theme, isDark: boolean) =>
     },
     studentDetails: {
       fontSize: 12,
-      color: '#64748B',
+      color: isDark ? '#B6C2D3' : '#526176',
+      lineHeight: 18,
       marginTop: 2,
       fontWeight: '500',
+    },
+    studentMetaRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: 6,
+      marginTop: 6,
+    },
+    studentMetaPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      maxWidth: '100%',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 8,
+      backgroundColor: isDark ? 'rgba(99,102,241,0.16)' : '#FFFFFF',
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(129,140,248,0.28)' : '#E0E7FF',
+    },
+    studentMetaPillClass: {
+      backgroundColor: isDark ? 'rgba(99,102,241,0.16)' : '#EEF2FF',
+      borderColor: isDark ? 'rgba(129,140,248,0.28)' : '#C7D2FE',
+    },
+    studentMetaText: {
+      flexShrink: 1,
+      fontSize: 11,
+      fontWeight: '700',
+      color: isDark ? '#E0E7FF' : '#4338CA',
+    },
+    studentMetaClassText: {
+      color: isDark ? '#C7D2FE' : '#3730A3',
     },
     clearStudentBtn: {
       width: 32,
@@ -1462,15 +1749,116 @@ const getStyles = (theme: Theme, isDark: boolean) =>
     feeChip: {
       paddingHorizontal: 14,
       paddingVertical: 12,
+      paddingLeft: 16,
       borderRadius: 14,
       borderWidth: 1.5,
-      borderColor: isDark ? '#334155' : '#E2E8F0',
-      backgroundColor: isDark ? '#121824' : '#FFFFFF',
-      minWidth: 118,
+      borderColor: isDark ? '#64748B' : '#B8C4D4',
+      backgroundColor: isDark ? '#0F172A' : '#F8FAFC',
+      minWidth: 148,
+      maxWidth: '100%',
+      flexGrow: 1,
+      flexBasis: '45%',
+      minHeight: 104,
       position: 'relative',
+      overflow: 'hidden',
+    },
+    feeChipSelected: {
+      borderWidth: 2,
+    },
+    feeAccent: {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      bottom: 0,
+      width: 4,
+    },
+    feeChipTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+      marginBottom: 8,
+    },
+    feeKindIconWrap: {
+      width: 34,
+      height: 34,
+    },
+    feeKindIcon: {
+      width: 34,
+      height: 34,
+      borderRadius: 11,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#FFFFFF',
+    },
+    feeKindIconTransport: {
+      backgroundColor: isDark ? 'rgba(14,116,144,0.28)' : '#CFFAFE',
+    },
+    feeIconCheck: {
+      position: 'absolute',
+      right: -4,
+      bottom: -4,
+      width: 16,
+      height: 16,
+      borderRadius: 8,
+      backgroundColor: '#4F46E5',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: isDark ? '#0F172A' : '#FFFFFF',
+    },
+    statusPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 3,
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+      borderRadius: 999,
+    },
+    statusPillText: {
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 0.4,
+      textTransform: 'uppercase',
+    },
+    feeDueAmount: {
+      marginTop: 4,
+      fontSize: 17,
+      fontWeight: '800',
+      letterSpacing: -0.4,
+    },
+    feeClosedIcon: {
+      marginTop: 6,
+    },
+    statusLegend: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginTop: 12,
+    },
+    legendItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingHorizontal: 8,
+      paddingVertical: 5,
+      borderRadius: 999,
+      backgroundColor: isDark ? '#121824' : '#F8FAFC',
+      borderWidth: 1,
+      borderColor: isDark ? '#334155' : '#E2E8F0',
+    },
+    legendSwatch: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    legendText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: isDark ? '#CBD5E1' : '#475569',
     },
     feeChipActive: {
-      borderColor: ADMIN_THEME.colors.primary,
+      borderColor: accentColor(isDark),
       backgroundColor: isDark ? 'rgba(99,102,241,0.15)' : '#EEF2FF',
     },
     feeChipTransport: {
@@ -1508,18 +1896,23 @@ const getStyles = (theme: Theme, isDark: boolean) =>
       width: 16,
       height: 16,
       borderRadius: 8,
-      backgroundColor: ADMIN_THEME.colors.primary,
+      backgroundColor: '#4F46E5',
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    feeChipCheckWaive: {
+      backgroundColor: '#059669',
+    },
+    feeChipCheckAdd: {
+      backgroundColor: '#D97706',
     },
     feeChipText: {
       fontSize: 13,
       fontWeight: '700',
       color: isDark ? '#F1F5F9' : '#0F172A',
-      paddingRight: 18,
     },
     feeChipTextActive: {
-      color: ADMIN_THEME.colors.primary,
+      color: isDark ? '#C4B5FD' : '#4F46E5',
     },
     feeChipTextDisabled: {
       color: '#94A3B8',
@@ -1532,24 +1925,25 @@ const getStyles = (theme: Theme, isDark: boolean) =>
       fontWeight: '600',
     },
     feeChipBalanceActive: {
-      color: ADMIN_THEME.colors.primary,
+      color: isDark ? '#C4B5FD' : '#4F46E5',
     },
     feeChipBalanceDisabled: {
       color: '#94A3B8',
     },
     feeChipPaid: {
-      color: '#059669',
+      color: isDark ? '#6EE7B7' : '#047857',
     },
     feeChipWaived: {
-      color: '#7C3AED',
+      color: isDark ? '#C4B5FD' : '#7C3AED',
     },
 
     /* Form */
     formContainer: {
-      marginTop: 18,
-      borderTopWidth: 1,
-      borderTopColor: isDark ? '#334155' : 'rgba(226,232,240,0.9)',
-      paddingTop: 16,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: isDark ? '#475569' : '#D6DDEA',
+      backgroundColor: isDark ? '#111B2B' : '#F3F6FB',
+      padding: 14,
     },
     balanceGrid: {
       flexDirection: 'row',
@@ -1583,26 +1977,31 @@ const getStyles = (theme: Theme, isDark: boolean) =>
       marginBottom: 12,
       borderRadius: 12,
       borderWidth: 1,
-      borderColor: isDark ? 'rgba(16,185,129,0.28)' : '#BBF7D0',
-      backgroundColor: isDark ? 'rgba(16,185,129,0.10)' : '#ECFDF5',
+      borderColor: isDark ? 'rgba(245,158,11,0.35)' : '#FDE68A',
+      backgroundColor: isDark ? 'rgba(245,158,11,0.12)' : '#FFFBEB',
     },
     settledBannerText: {
       flex: 1,
       fontSize: 12,
       lineHeight: 17,
-      fontWeight: '600',
-      color: isDark ? '#6EE7B7' : '#047857',
+      fontWeight: '700',
+      color: isDark ? '#FCD34D' : '#9A3412',
     },
     typeOptionDisabled: {
       opacity: 0.45,
     },
+    balanceLabelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      marginBottom: 4,
+    },
     balanceCellLabel: {
       fontSize: 11,
       fontWeight: '600',
-      color: '#94A3B8',
+      color: isDark ? '#B6C2D3' : '#526176',
       textTransform: 'uppercase',
       letterSpacing: 0.3,
-      marginBottom: 4,
     },
     balanceCellVal: {
       fontSize: 15,
@@ -1613,9 +2012,21 @@ const getStyles = (theme: Theme, isDark: boolean) =>
     fieldLabel: {
       fontSize: 13,
       fontWeight: '700',
-      color: isDark ? '#94A3B8' : '#475569',
+      color: isDark ? '#E2E8F0' : '#334155',
       marginBottom: 8,
       marginTop: 4,
+    },
+    fieldLabelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 8,
+      marginTop: 4,
+    },
+    fieldLabelInline: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: isDark ? '#E2E8F0' : '#334155',
     },
     req: {
       color: '#EF4444',
@@ -1623,33 +2034,72 @@ const getStyles = (theme: Theme, isDark: boolean) =>
     typeSelector: {
       flexDirection: 'row',
       gap: 10,
-      marginBottom: 14,
+      marginBottom: 0,
     },
     typeOption: {
       flex: 1,
       borderWidth: 1.5,
-      borderColor: isDark ? '#334155' : '#E2E8F0',
+      borderColor: isDark ? '#64748B' : '#B8C4D4',
       borderRadius: 16,
       padding: 14,
-      backgroundColor: isDark ? '#121824' : '#FFFFFF',
+      backgroundColor: isDark ? '#0F172A' : '#F8FAFC',
       alignItems: 'flex-start',
+      minHeight: 124,
+    },
+    typeOptionWaive: {
+      borderColor: isDark ? 'rgba(16,185,129,0.35)' : '#BBF7D0',
+      backgroundColor: isDark ? 'rgba(16,185,129,0.06)' : '#F7FEF9',
+    },
+    typeOptionAddBase: {
+      borderColor: isDark ? 'rgba(245,158,11,0.4)' : '#FDE68A',
+      backgroundColor: isDark ? 'rgba(245,158,11,0.08)' : '#FFFDF5',
     },
     typeOptionActive: {
       borderColor: '#22C55E',
-      backgroundColor: isDark ? 'rgba(34,197,94,0.12)' : '#F0FDF4',
+      borderWidth: 2,
+      backgroundColor: isDark ? 'rgba(34,197,94,0.16)' : '#ECFDF5',
     },
     typeOptionActiveAdd: {
       borderColor: '#F59E0B',
-      backgroundColor: isDark ? 'rgba(245,158,11,0.12)' : '#FFFBEB',
+      borderWidth: 2,
+      backgroundColor: isDark ? 'rgba(245,158,11,0.16)' : '#FFFBEB',
+    },
+    typeOutcome: {
+      fontSize: 16,
+      fontWeight: '800',
+      letterSpacing: -0.3,
+      color: isDark ? '#86EFAC' : '#166534',
+      marginBottom: 2,
+    },
+    typeOutcomeAdd: {
+      fontSize: 16,
+      fontWeight: '800',
+      letterSpacing: -0.3,
+      color: isDark ? '#FCD34D' : '#9A3412',
+      marginBottom: 2,
+    },
+    typeOutcomeMuted: {
+      color: isDark ? '#94A3B8' : '#64748B',
+    },
+    typeLockRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      marginTop: 6,
+    },
+    typeLockText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: '#94A3B8',
     },
     typeIconWrap: {
-      width: 32,
-      height: 32,
-      borderRadius: 10,
+      width: 40,
+      height: 40,
+      borderRadius: 12,
       backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
       alignItems: 'center',
       justifyContent: 'center',
-      marginBottom: 8,
+      marginBottom: 10,
     },
     typeIconWrapActive: {
       backgroundColor: isDark ? 'rgba(34,197,94,0.2)' : '#DCFCE7',
@@ -1658,22 +2108,22 @@ const getStyles = (theme: Theme, isDark: boolean) =>
       backgroundColor: isDark ? 'rgba(245,158,11,0.2)' : '#FEF3C7',
     },
     typeOptionTitle: {
-      fontSize: 14,
-      fontWeight: '800',
-      color: isDark ? '#F1F5F9' : '#0F172A',
+      fontSize: 12,
+      fontWeight: '700',
+      color: isDark ? '#CBD5E1' : '#475569',
     },
     typeOptionTitleActive: {
-      color: '#166534',
+      color: isDark ? '#86EFAC' : '#166534',
     },
     typeOptionTitleActiveAdd: {
-      color: '#C2410C',
+      color: isDark ? '#FCD34D' : '#9A3412',
     },
     typeOptionDesc: {
-      fontSize: 11,
-      color: '#64748B',
+      fontSize: 12,
+      color: isDark ? '#B6C2D3' : '#526176',
       marginTop: 3,
       fontWeight: '500',
-      lineHeight: 15,
+      lineHeight: 18,
     },
     amountInputWrap: {
       flexDirection: 'row',
@@ -1681,16 +2131,89 @@ const getStyles = (theme: Theme, isDark: boolean) =>
       backgroundColor: isDark ? '#121824' : '#FFFFFF',
       borderRadius: 14,
       borderWidth: 1.5,
-      borderColor: isDark ? '#334155' : '#E2E8F0',
+      borderColor: isDark ? '#64748B' : '#94A3B8',
       paddingHorizontal: 14,
-      minHeight: 52,
-      marginBottom: 12,
+      minHeight: 58,
+      marginBottom: 0,
       gap: 6,
+    },
+    amountInputWaive: {
+      borderColor: isDark ? 'rgba(16,185,129,0.55)' : '#6EE7B7',
+    },
+    amountInputAdd: {
+      borderColor: isDark ? 'rgba(245,158,11,0.6)' : '#FCD34D',
+    },
+    inputFocused: {
+      borderColor: isDark ? '#A5B4FC' : '#4F46E5',
+      ...Platform.select({
+        web: { boxShadow: '0 0 0 3px rgba(99,102,241,0.18)' } as any,
+        default: {},
+      }),
+    },
+    inputError: {
+      borderColor: isDark ? '#FCA5A5' : '#DC2626',
+    },
+    fieldHint: {
+      fontSize: 12,
+      lineHeight: 18,
+      color: isDark ? '#B6C2D3' : '#526176',
+      marginTop: 6,
+      marginBottom: 18,
+    },
+    errorText: {
+      color: isDark ? '#FCA5A5' : '#B91C1C',
+    },
+    reviewRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: 10,
+      padding: 14,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: isDark ? '#6366F1' : '#C7D2FE',
+      backgroundColor: isDark ? '#25254A' : '#EEF2FF',
+      marginBottom: 12,
+    },
+    reviewRowWaive: {
+      borderColor: isDark ? 'rgba(16,185,129,0.4)' : '#A7F3D0',
+      backgroundColor: isDark ? 'rgba(16,185,129,0.12)' : '#ECFDF5',
+    },
+    reviewRowAdd: {
+      borderColor: isDark ? 'rgba(245,158,11,0.4)' : '#FDE68A',
+      backgroundColor: isDark ? 'rgba(245,158,11,0.12)' : '#FFFBEB',
+    },
+    reviewLabel: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: isDark ? '#E0E7FF' : '#3730A3',
+    },
+    reviewLabelWaive: {
+      color: isDark ? '#A7F3D0' : '#065F46',
+    },
+    reviewLabelAdd: {
+      color: isDark ? '#FCD34D' : '#9A3412',
+    },
+    reviewHint: {
+      fontSize: 12,
+      color: isDark ? '#C7D2FE' : '#4C4A79',
+      marginTop: 4,
+    },
+    reviewAmount: {
+      fontSize: 22,
+      fontWeight: '800',
+      color: isDark ? '#E0E7FF' : '#3730A3',
+    },
+    reviewAmountWaive: {
+      color: isDark ? '#6EE7B7' : '#047857',
+    },
+    reviewAmountAdd: {
+      color: isDark ? '#FCD34D' : '#C2410C',
     },
     currencyPrefix: {
       fontSize: 18,
       fontWeight: '800',
-      color: ADMIN_THEME.colors.primary,
+      color: accentColor(isDark),
     },
     amountInput: {
       flex: 1,
@@ -1708,26 +2231,24 @@ const getStyles = (theme: Theme, isDark: boolean) =>
     maxBtnText: {
       fontSize: 11,
       fontWeight: '800',
-      color: ADMIN_THEME.colors.primary,
+      color: accentColor(isDark),
       letterSpacing: 0.4,
     },
     formInput: {
+      maxWidth: '100%',
       backgroundColor: isDark ? '#121824' : '#FFFFFF',
       borderWidth: 1.5,
-      borderColor: isDark ? '#334155' : '#E2E8F0',
+      borderColor: isDark ? '#64748B' : '#94A3B8',
       borderRadius: 14,
       padding: 14,
       fontSize: 14,
       color: isDark ? '#F1F5F9' : '#0F172A',
       marginBottom: 12,
-      minHeight: 72,
+      minHeight: 104,
       textAlignVertical: 'top',
       fontWeight: '500',
     },
-    notifyRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
+    notifyPanel: {
       padding: 14,
       marginBottom: 12,
       borderRadius: 14,
@@ -1735,40 +2256,41 @@ const getStyles = (theme: Theme, isDark: boolean) =>
       borderColor: isDark ? '#334155' : '#E2E8F0',
       backgroundColor: isDark ? '#121824' : '#FFFFFF',
     },
-    notifyIconWrap: {
-      width: 36,
-      height: 36,
-      borderRadius: 12,
+    notifyPanelOn: {
+      borderColor: isDark ? 'rgba(99,102,241,0.55)' : '#C7D2FE',
+      backgroundColor: isDark ? 'rgba(99,102,241,0.12)' : '#EEF2FF',
+    },
+    notifyRow: {
+      flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
     },
-    notifyIconWrapOn: {
-      backgroundColor: isDark ? 'rgba(99,102,241,0.2)' : '#EEF2FF',
-    },
-    notifyIconWrapOff: {
-      backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
-    },
-    notifyBody: {
+    notifyTitleRow: {
       flex: 1,
-      paddingRight: 4,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
     },
     notifyTitle: {
+      flex: 1,
       fontSize: 13,
       fontWeight: '800',
       color: isDark ? '#F1F5F9' : '#0F172A',
       letterSpacing: -0.2,
     },
     notifyDesc: {
-      fontSize: 11,
-      lineHeight: 15,
-      color: '#64748B',
+      fontSize: 12,
+      lineHeight: 18,
+      color: isDark ? '#B6C2D3' : '#526176',
       fontWeight: '500',
-      marginTop: 3,
+      marginTop: 8,
     },
 
     /* Filters */
     filterRow: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       gap: 8,
       marginBottom: 14,
     },
@@ -1785,7 +2307,7 @@ const getStyles = (theme: Theme, isDark: boolean) =>
     },
     filterChipActive: {
       backgroundColor: isDark ? 'rgba(99,102,241,0.25)' : '#EEF2FF',
-      borderColor: ADMIN_THEME.colors.primary,
+      borderColor: accentColor(isDark),
     },
     filterChipText: {
       fontSize: 12,
@@ -1793,7 +2315,7 @@ const getStyles = (theme: Theme, isDark: boolean) =>
       color: '#64748B',
     },
     filterChipTextActive: {
-      color: ADMIN_THEME.colors.primary,
+      color: accentColor(isDark),
     },
     filterCount: {
       minWidth: 20,
@@ -1805,7 +2327,7 @@ const getStyles = (theme: Theme, isDark: boolean) =>
       justifyContent: 'center',
     },
     filterCountActive: {
-      backgroundColor: ADMIN_THEME.colors.primary,
+      backgroundColor: '#4F46E5',
     },
     filterCountText: {
       fontSize: 10,

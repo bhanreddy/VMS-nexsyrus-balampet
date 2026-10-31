@@ -49,6 +49,7 @@ import LogoLoader from '../../src/components/LogoLoader';
 import ReadAloudButton from '../../src/components/ReadAloudButton';
 import { readAloudService } from '../../src/services/readAloudService';
 import { isPhotoFallbackContent, normalizeDiaryAttachments } from '../../src/utils/smartDiary/attachments';
+import DiaryPhotoViewer from '../../src/components/diary/DiaryPhotoViewer';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -643,16 +644,15 @@ function HistoryOverview({
 
 // ─── Task Card ────────────────────────────────────────────────────────────────
 
-function DiaryPhoto({ src }: { src: string }) {
+function DiaryPhoto({ src, photos, initialIndex }: { src: string; photos: string[]; initialIndex: number }) {
   const { theme, isDark } = useTheme();
   const { t } = useTranslation();
   const styles = useMemo(() => getStyles(theme, isDark), [theme, isDark]);
   const imageSource = useMemo(() => ({ uri: src }), [src]);
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
   const [viewerOpen, setViewerOpen] = useState(false);
-  const [viewerFailed, setViewerFailed] = useState(false);
+  const [askGeminiOnOpen, setAskGeminiOnOpen] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const [viewerAttempt, setViewerAttempt] = useState(0);
 
   const retry = () => {
     setStatus('loading');
@@ -671,7 +671,7 @@ function DiaryPhoto({ src }: { src: string }) {
             </Pressable>
           </View>
         ) : (
-          <Pressable onPress={() => setViewerOpen(true)} disabled={status !== 'ready'} accessibilityRole="button" accessibilityLabel={t('studentDiary.openPhoto')} style={styles.photoFill}>
+          <Pressable onPress={() => { setAskGeminiOnOpen(false); setViewerOpen(true); }} disabled={status !== 'ready'} accessibilityRole="button" accessibilityLabel={t('studentDiary.openPhoto')} style={styles.photoFill}>
             <Image
               key={`${src}:${attempt}`}
               source={imageSource}
@@ -684,26 +684,11 @@ function DiaryPhoto({ src }: { src: string }) {
           </Pressable>
         )}
       </View>
-      <Modal visible={viewerOpen} transparent animationType="fade" onRequestClose={() => setViewerOpen(false)}>
-        <Pressable style={styles.photoViewerOverlay} onPress={() => setViewerOpen(false)}>
-          {viewerFailed ? (
-            <View style={styles.photoStatus}>
-              <Text style={[styles.photoStatusText, { color: '#FFFFFF' }]}>{t('studentDiary.photoUnavailable')}</Text>
-              <Pressable onPress={(event) => { event.stopPropagation(); setViewerFailed(false); setViewerAttempt((value) => value + 1); }} accessibilityRole="button" accessibilityLabel={t('studentDiary.retryPhoto')} style={styles.photoRetry}>
-                <Text style={styles.photoViewerRetryText}>{t('studentDiary.retry')}</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <Image
-              key={`${src}:viewer:${viewerAttempt}`}
-              source={imageSource}
-              style={styles.photoViewerImage}
-              resizeMode="contain"
-              onError={() => setViewerFailed(true)}
-            />
-          )}
-        </Pressable>
-      </Modal>
+      <Pressable accessibilityRole="button" accessibilityLabel={t('studentDiary.gemini.button')} disabled={status !== 'ready'} onPress={() => { setAskGeminiOnOpen(true); setViewerOpen(true); }} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, backgroundColor: isDark ? '#1E2945' : '#EEF2FF', opacity: status === 'ready' ? 1 : .4 }}>
+        <Ionicons name="sparkles-outline" size={18} color={theme.colors.primary} />
+        <Text style={{ flexShrink: 1, color: theme.colors.primary, fontSize: 13, fontWeight: '700' }}>{t('studentDiary.gemini.button')}</Text>
+      </Pressable>
+      {viewerOpen ? <DiaryPhotoViewer photos={photos} initialIndex={initialIndex} allowGemini initialGeminiOpen={askGeminiOnOpen} onClose={() => setViewerOpen(false)} /> : null}
     </>
   );
 }
@@ -768,7 +753,7 @@ function TaskCard({ item, index, hideAttachments }: { item: DiaryEntry; index: n
             {!photoOnly && localizedContent ? <Text style={styles.taskBody}>{localizedContent}</Text> : null}
             {!hideAttachments && photos.length > 0 ? (
               <View style={styles.attachmentRow}>
-                {photos.map((src) => <DiaryPhoto key={src} src={src} />)}
+                {photos.map((src, photoIndex) => <DiaryPhoto key={src} src={src} photos={photos} initialIndex={photoIndex} />)}
                 <Text style={styles.attachmentHint}>{t('studentDiary.originalPhoto', 'Original diary photo')}</Text>
               </View>
             ) : null}
@@ -842,7 +827,7 @@ function DiaryTaskList({
             {bundle.map((item, i) => <TaskCard key={item.id} item={item} index={i} hideAttachments />)}
             {photos.length ? (
               <View style={styles.attachmentRow}>
-                {photos.map((src) => <DiaryPhoto key={src} src={src} />)}
+                {photos.map((src, photoIndex) => <DiaryPhoto key={src} src={src} photos={photos} initialIndex={photoIndex} />)}
                 <Text style={styles.attachmentHint}>{t('studentDiary.originalPhoto', 'Original diary photo')}</Text>
               </View>
             ) : null}

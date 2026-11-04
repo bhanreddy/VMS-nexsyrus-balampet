@@ -11,8 +11,10 @@ const mockLocation = {
   stopLocationUpdatesAsync: jest.fn(),
   watchPositionAsync: jest.fn(),
   Accuracy: {
-    High: 6
-  }
+    High: 4,
+    BestForNavigation: 6
+  },
+  ActivityType: { AutomotiveNavigation: 2 }
 };
 let mockAuthId = 'driver-a';
 let mockContext: string | null = 'context-a';
@@ -80,6 +82,7 @@ jest.mock('./activeContextStore', () => ({
 jest.mock('../constants/school', () => ({
   SCHOOL_ID: 1
 }));
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const tracking = require('./driverLocationTask') as typeof import('./driverLocationTask');
 const position = (timestamp = Date.now(), coords = {}) => ({
   timestamp,
@@ -230,4 +233,67 @@ test('foreground fallback is explicit when background permission is absent', asy
   await tracking.startDriverLocationUpdates('bus-a');
   expect(tracking.getTrackingHealth().mode).toBe('foreground_only');
   expect(mockLocation.watchPositionAsync).toHaveBeenCalledTimes(1);
+});
+
+test('native capture uses navigation sensors at two-second cadence without deferred batching', async () => {
+  await tracking.startDriverLocationUpdates('bus-a');
+  expect(mockLocation.startLocationUpdatesAsync).toHaveBeenCalledWith(tracking.DRIVER_LOCATION_TASK, expect.objectContaining({
+    accuracy: mockLocation.Accuracy.BestForNavigation,
+    timeInterval: 2000,
+    distanceInterval: 0,
+    activityType: mockLocation.ActivityType.AutomotiveNavigation,
+    deferredUpdatesInterval: 0,
+    deferredUpdatesDistance: 0,
+    pausesUpdatesAutomatically: false,
+  }));
+});
+test('foreground fallback uses the same navigation-grade capture profile', async () => {
+  mockLocation.getBackgroundPermissionsAsync.mockResolvedValue({ granted: false });
+  await tracking.startDriverLocationUpdates('bus-a');
+  expect(mockLocation.watchPositionAsync).toHaveBeenCalledWith(expect.objectContaining({ accuracy: 6, timeInterval: 2000 }), expect.any(Function));
+});
+test('reopening an existing tracker upgrades its capture options once and preserves queued data', async () => {
+  await tracking.startDriverLocationUpdates('bus-a');
+  await tracking.enqueueBusLocations('bus-a', [position()]);
+  const key = 'transport_tracking_session_v2';
+  const saved = JSON.parse(mockStore.get(key)!);
+  delete saved.capture_profile;
+  mockStore.set(key, JSON.stringify(saved));
+  mockLocation.hasStartedLocationUpdatesAsync.mockResolvedValue(true);
+  mockLocation.startLocationUpdatesAsync.mockClear();
+  await tracking.startDriverLocationUpdates('bus-a');
+  await tracking.startDriverLocationUpdates('bus-a');
+  expect(mockLocation.startLocationUpdatesAsync).toHaveBeenCalledTimes(1);
+  expect(mockApi.post.mock.calls.some((call: any) => call[0].includes('/locations/batch'))).toBe(true);
+});
+test('uploads newest packets first so offline history cannot delay live GPS', async () => {
+  await tracking.startDriverLocationUpdates('bus-a');
+  const now = Date.now();
+  await tracking.enqueueBusLocations('bus-a', Array.from({ length: 230 }, (_, i) => position(now - i * 2000)));
+  await tracking.flushQueuedBusLocations('bus-a');
+  const batches = mockApi.post.mock.calls.filter((call: any) => call[0].includes('/locations/batch'));
+  expect(batches[0][1].fixes.at(-1).recorded_at).toBe(new Date(now).toISOString());
+  expect(batches[1][1].fixes.every((fix: any) => Date.parse(fix.recorded_at) < now - 99000)).toBe(true);
+});
+test('duplicate capture timestamps preserve the queued fix ID and malformed dates cannot crash capture', async () => {
+  await tracking.startDriverLocationUpdates('bus-a');
+  const now = Date.now();
+  await tracking.enqueueBusLocations('bus-a', [position(now)]);
+  const queueKey = [...mockStore.keys()].find(key => key.startsWith('transport_location_queue_v2:'))!;
+  const id = JSON.parse(mockStore.get(queueKey)!)[0].fix_id;
+  await tracking.enqueueBusLocations('bus-a', [position(now), position(now + 60000), position(Number.MAX_VALUE)]);
+  const fixes = JSON.parse(mockStore.get(queueKey)!);
+  expect(fixes).toHaveLength(1);
+  expect(fixes[0].fix_id).toBe(id);
+  expect(tracking.toQueuedFix(position(Number.MAX_VALUE))).toBeNull();
+});
+test('reports approximate permission and server-rejected jumps without claiming a reliable GPS update', async () => {
+  mockLocation.getForegroundPermissionsAsync.mockResolvedValue({ granted: true, android: { accuracy: 'coarse' } });
+  await tracking.startDriverLocationUpdates('bus-a');
+  expect(tracking.getTrackingHealth().precisePermission).toBe(false);
+  await tracking.enqueueBusLocations('bus-a', [position()]);
+  mockApi.post.mockImplementation(async (_path: string, body: any) => ({ ...ack(body), realtime_updated: false, gps_quality: 'implausible_jump' }));
+  await tracking.flushQueuedBusLocations('bus-a');
+  expect(tracking.getTrackingHealth().gpsQuality).toBe('jump_rejected');
+  expect(tracking.getTrackingHealth().lastReliableFixAt).toBeNull();
 });

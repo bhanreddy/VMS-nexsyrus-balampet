@@ -1,16 +1,16 @@
 /**
  * LiveBusMap — the map body of the parent/student live-tracking card.
  *
- * Pure presentational: fed entirely by the backend `/transport/my-bus/live`
- * payload (no direct DB access). Rendered only while the card is expanded, so
- * the MapLibre surface and OSM tile fetches cost nothing when collapsed.
+ * Shared parent/admin map, fed by authenticated transport payloads.
+ * Camera controls preserve manual panning until the user follows or fits again.
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { Map, Camera, GeoJSONSource, Layer, Marker } from './MapWrapper';
 import { useTheme } from '../hooks/useTheme';
+import { hasMapCoordinate, routeFeatures, accuracyFeature } from '../services/transportMapModel';
 
 // OpenStreetMap raster tiles (no API key required)
 const OSM_STYLE = JSON.stringify({
@@ -36,14 +36,16 @@ export type LiveStop = {
   status: string;
 };
 
-type Props = {
+export type Props = {
   stops: LiveStop[];
   busLocation: { latitude: number; longitude: number } | null;
   heading?: number | null;
   speed?: number | null;
+  accuracy?: number | null;
   isFresh?: boolean;
   boardingStopId?: string | null;
   height?: number;
+  selectedStopId?: string | null;
 };
 
 const PAD = 0.004;
@@ -53,34 +55,33 @@ export default function LiveBusMap({
   busLocation,
   heading,
   speed,
+  accuracy,
   isFresh = true,
   boardingStopId,
   height = 260,
+  selectedStopId,
 }: Props) {
   const { t } = useTranslation();
   const { theme } = useTheme();
-  const [following, setFollowing] = useState(true);
+  const [cameraMode, setCameraMode] = useState<'follow' | 'route' | 'free'>('route');
+  const [focusedStopId, setFocusedStopId] = useState(selectedStopId);
+  useEffect(() => setFocusedStopId(selectedStopId), [selectedStopId]);
+  const busColor = isFresh ? theme.colors.primary : '#64748B';
+  const following = cameraMode === 'follow';
+  busLocation = hasMapCoordinate(busLocation) ? busLocation : null;
 
   useEffect(() => {
-    if (!busLocation) setFollowing(false);
+    if (!busLocation) setCameraMode('route');
   }, [busLocation]);
 
   const mapStops = useMemo(
-    () => stops.filter((s) => s.latitude != null && s.longitude != null),
+    () => stops.filter(hasMapCoordinate),
     [stops],
   );
 
-  const routeGeoJSON = useMemo<GeoJSON.FeatureCollection>(() => ({
-    type: 'FeatureCollection',
-    features: [{
-      type: 'Feature',
-      properties: {},
-      geometry: {
-        type: 'LineString',
-        coordinates: mapStops.map((s) => [Number(s.longitude), Number(s.latitude)]),
-      },
-    }],
-  }), [mapStops]);
+  const routeGeoJSON = useMemo(() => routeFeatures(stops), [stops]);
+  const uncertainty = useMemo(() => accuracyFeature(busLocation, accuracy), [busLocation, accuracy]);
+  const selectedStop = mapStops.find(stop => stop.id === focusedStopId);
 
   const bounds = useMemo(() => {
     const lats = mapStops.map((s) => Number(s.latitude));
@@ -107,8 +108,10 @@ export default function LiveBusMap({
 
   return (
     <View style={[s.wrap, { height }]}>
-      <Map style={StyleSheet.absoluteFillObject} mapStyle={OSM_STYLE} logo={false} attribution={false}>
-        {following && busLocation ? (
+      <Map style={StyleSheet.absoluteFillObject} mapStyle={OSM_STYLE} logo={false} attribution={false}
+        onRegionWillChange={event => { if (event.nativeEvent.userInteraction) { setCameraMode('free'); setFocusedStopId(null); } }}>
+        {selectedStop ? <Camera center={[Number(selectedStop.longitude), Number(selectedStop.latitude)]} zoom={16} duration={650} /> : cameraMode === 'free' ? null :
+        following && busLocation ? (
           <Camera
             center={[busLocation.longitude, busLocation.latitude]}
             zoom={15.5}
@@ -116,9 +119,13 @@ export default function LiveBusMap({
             duration={850}
           />
         ) : (
-          <Camera bounds={bounds} easing="ease" duration={650} />
+          <Camera bounds={bounds} padding={{ top: 64, right: 56, bottom: 60, left: 40 }} easing="ease" duration={650} />
         )}
 
+        {!!uncertainty.features.length && <GeoJSONSource id="bus-accuracy-source" data={uncertainty}>
+          <Layer id="bus-accuracy-fill" type="fill" paint={{ 'fill-color': busColor, 'fill-opacity': 0.1 }} />
+          <Layer id="bus-accuracy-outline" type="line" paint={{ 'line-color': busColor, 'line-opacity': 0.45, 'line-width': 1 }} />
+        </GeoJSONSource>}
         {mapStops.length > 1 && (
           <GeoJSONSource id="live-route-source" data={routeGeoJSON}>
             <Layer
@@ -130,7 +137,7 @@ export default function LiveBusMap({
             <Layer
               id="live-route-line"
               type="line"
-              paint={{ 'line-color': theme.colors.primary, 'line-width': 5, 'line-opacity': 0.95 }}
+              paint={{ 'line-color': ['case', ['get', 'served'], '#94A3B8', theme.colors.primary], 'line-width': 5, 'line-opacity': 0.95 }}
               layout={{ 'line-cap': 'round', 'line-join': 'round' }}
             />
           </GeoJSONSource>
@@ -149,7 +156,7 @@ export default function LiveBusMap({
                   <Text style={s.boardingLabel}>{t('busTracker.your_stop')}</Text>
                 </View>
               ) : (
-                <View style={[s.stopDot, served && s.stopDotServed]} />
+                <View style={[s.stopDot, { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }, served && s.stopDotServed, stop.id === focusedStopId && { borderColor: theme.colors.primary, borderWidth: 3 }]}><Text style={{ fontSize: 10, fontWeight: '800', color: '#334155' }}>{stops.findIndex(item => item.id === stop.id) + 1}</Text></View>
               )}
             </Marker>
           );
@@ -159,14 +166,14 @@ export default function LiveBusMap({
           <Marker id="live-bus-marker" lngLat={[busLocation.longitude, busLocation.latitude]}>
             <View style={s.busMarkerShell}>
               {isFresh && <View style={[s.busHalo, { backgroundColor: theme.colors.primary }]} />}
-              <View
+              {heading != null && Number.isFinite(heading) && isFresh && <View
                 style={[
                   s.headingArrow,
-                  { borderBottomColor: theme.colors.primary },
-                  heading != null ? { transform: [{ rotate: `${heading}deg` }] } : null,
+                  { borderBottomColor: busColor },
+                  heading != null && Number.isFinite(heading) ? { transform: [{ rotate: `${heading}deg` }] } : null,
                 ]}
-              />
-              <View style={[s.busMarker, { backgroundColor: theme.colors.primary, shadowColor: theme.colors.primary }]}>
+              />}
+              <View style={[s.busMarker, { backgroundColor: busColor, shadowColor: busColor }]}>
                 <Ionicons name="bus" size={17} color="#FFFFFF" />
               </View>
             </View>
@@ -176,12 +183,12 @@ export default function LiveBusMap({
 
       <View style={s.liveOverlay} pointerEvents="none">
         <View style={s.livePill}>
-          <View style={[s.liveDot, { backgroundColor: isFresh ? '#10B981' : '#F59E0B' }]} />
+          <View style={[s.liveDot, { backgroundColor: isFresh && busLocation ? '#10B981' : '#F59E0B' }]} />
           <Text style={s.livePillText}>
-            {isFresh ? t('busTracker.live_movement') : t('busTracker.last_known_position')}
+            {!busLocation ? t('busTracker.route_overview') : isFresh ? t('busTracker.live_movement') : t('busTracker.last_known_position')}
           </Text>
         </View>
-        {speed != null && (
+        {busLocation && isFresh && speed != null && Number.isFinite(speed) && (
           <View style={s.speedPill}>
             <Ionicons name="speedometer-outline" size={13} color="#0F172A" />
             <Text style={s.speedText}>{Math.max(0, Math.round(speed))} km/h</Text>
@@ -193,9 +200,10 @@ export default function LiveBusMap({
         <TouchableOpacity
           accessibilityRole="button"
           accessibilityLabel={t('busTracker.recenter_bus')}
+          accessibilityState={{ selected: following }}
           activeOpacity={0.8}
           style={[s.recenterButton, following && { backgroundColor: theme.colors.primary }]}
-          onPress={() => setFollowing((value) => !value)}
+          onPress={() => { setFocusedStopId(null); setCameraMode('follow'); }}
         >
           <Ionicons
             name={following ? 'navigate' : 'locate-outline'}
@@ -205,13 +213,22 @@ export default function LiveBusMap({
         </TouchableOpacity>
       )}
 
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('busTracker.route_overview')}
+        accessibilityState={{ selected: cameraMode === 'route' && !focusedStopId }}
+        onPress={() => { setFocusedStopId(null); setCameraMode('route'); }}
+        style={[s.recenterButton, { bottom: busLocation ? 94 : 44 }]}>
+        <Ionicons name="scan-outline" size={19} color="#0F172A" />
+      </TouchableOpacity>
+      {busLocation && accuracy != null && Number.isFinite(accuracy) && accuracy >= 0 && <View style={s.accuracyBadge} pointerEvents="none">
+        <Text style={s.accuracyText}>{t('busTracker.accuracy_radius', { meters: Math.ceil(accuracy) })}</Text>
+      </View>}
       <View style={s.followBadge} pointerEvents="none">
         <Ionicons name={following ? 'navigate-circle' : 'map-outline'} size={14} color={following ? theme.colors.primary : '#64748B'} />
         <Text style={[s.followText, following && { color: theme.colors.primary }]}>
           {following ? t('busTracker.following_bus') : t('busTracker.route_overview')}
         </Text>
       </View>
-      <Text style={s.attribution}>© OpenStreetMap</Text>
+      <Text accessibilityRole="link" onPress={() => void Linking.openURL('https://www.openstreetmap.org/copyright')} style={s.attribution}>© OpenStreetMap contributors</Text>
     </View>
   );
 }
@@ -311,7 +328,9 @@ const s = StyleSheet.create({
     position: 'absolute',
     top: 12,
     left: 12,
-    right: 12,
+    right: 60,
+    gap: 8,
+    flexWrap: 'wrap',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -357,10 +376,12 @@ const s = StyleSheet.create({
     shadowRadius: 7,
     elevation: 6,
   },
+  accuracyBadge: { position: 'absolute', right: 12, bottom: 142, borderRadius: 9, paddingHorizontal: 8, paddingVertical: 6, backgroundColor: 'rgba(255,255,255,0.95)' },
+  accuracyText: { fontSize: 10, color: '#475569', fontWeight: '700' },
   followBadge: {
     position: 'absolute',
     left: 12,
-    bottom: 12,
+    bottom: 28,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
@@ -373,7 +394,7 @@ const s = StyleSheet.create({
   attribution: {
     position: 'absolute',
     bottom: 5,
-    right: 58,
+    right: 12,
     fontSize: 9,
     color: '#64748B',
   },

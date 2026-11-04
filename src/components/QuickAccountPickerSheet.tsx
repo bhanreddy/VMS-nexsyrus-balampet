@@ -15,18 +15,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeInDown, FadeInUp, ZoomIn } from 'react-native-reanimated';
-import { useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import type { VaultAccount } from '../services/accountVault';
 import { SCHOOL_CONFIG, schoolColorWithAlpha } from '../constants/schoolConfig';
 import { useTheme } from '../hooks/useTheme';
-import { clay, clayCard } from '../theme/clayStyles';
+import { useSurfaceMaterials, useSurfaceStyleMap } from '../theme/surfaceStyles';
 import * as Haptics from '../utils/haptics';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 
 const FALLBACK_AVATAR = 'https://cdn-icons-png.flaticon.com/512/2922/2922506.png';
 
-function clayPuck(isDark: boolean, tint?: string): object {
+function raisedPuck(isDark: boolean, tint?: string): object {
   if (Platform.OS === 'web') {
     const drop = tint
       ? schoolColorWithAlpha(tint, isDark ? 0.42 : 0.28)
@@ -53,7 +53,7 @@ function clayPuck(isDark: boolean, tint?: string): object {
   };
 }
 
-function clayRow(isDark: boolean, accent?: string): object {
+function raisedRow(isDark: boolean, accent?: string): object {
   if (Platform.OS === 'web') {
     const drop = accent
       ? schoolColorWithAlpha(accent, isDark ? 0.38 : 0.26)
@@ -82,7 +82,7 @@ function clayRow(isDark: boolean, accent?: string): object {
   };
 }
 
-function clayInsetSoft(isDark: boolean): object {
+function raisedInsetSoft(isDark: boolean): object {
   if (Platform.OS === 'web') {
     const lo = isDark ? 'rgba(0,0,0,0.55)' : 'rgba(148,163,184,0.4)';
     const hi = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.9)';
@@ -140,6 +140,8 @@ function ActiveAccountCard({
   primary: string;
   styles: ReturnType<typeof getStyles>;
 }) {
+  const { puck: clayPuck, row: clayRow } = useSurfaceMaterials({ puck: raisedPuck, row: raisedRow });
+
   const { t } = useTranslation();
   const { line } = accountMeta(account, t);
   return (
@@ -186,6 +188,8 @@ function SwitchAccountRow({
   primary: string;
   styles: ReturnType<typeof getStyles>;
 }) {
+  const { puck: clayPuck, row: clayRow } = useSurfaceMaterials({ puck: raisedPuck, row: raisedRow });
+
   const { t } = useTranslation();
   const { line } = accountMeta(account, t);
 
@@ -247,13 +251,16 @@ export default function QuickAccountPickerSheet({
   onClose,
   onSelect,
 }: Props) {
+  const { flat, raised: clay, card: clayCard, puck: clayPuck, row: clayRow, softInset: clayInsetSoft } = useSurfaceMaterials({ puck: raisedPuck, row: raisedRow, softInset: raisedInsetSoft });
+
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const router = useRouter();
+  const navigation = useNavigation();
   const { theme, isDark } = useTheme();
   const { t } = useTranslation();
   const primary = theme.colors.primary as string;
-  const s = useMemo(() => getStyles(isDark, primary), [isDark, primary]);
+  const s = useSurfaceStyleMap(useMemo(() => getStyles(isDark, primary), [isDark, primary]));
   const isWeb = Platform.OS === 'web';
   const isWide = width >= 520;
 
@@ -272,7 +279,8 @@ export default function QuickAccountPickerSheet({
   const goToSettings = () => {
     Haptics.selectionAsync();
     onClose();
-    router.push('/Screen/settings');
+    if (flat) (navigation as any).navigate('account-settings');
+    else router.push('/Screen/settings');
   };
 
   const handleSwitch = (userId: string) => {

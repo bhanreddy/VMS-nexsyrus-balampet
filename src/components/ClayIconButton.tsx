@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, Platform, ViewStyle, StyleProp } from 'react-native';
 import { schoolColorWithAlpha } from '../constants/schoolConfig';
+import { useFlatSurface } from '../contexts/SurfaceAppearanceContext';
 
 /* ------------------------------------------------------------------ */
 /* Claymorphic icon puck — raised, gradient-lit, tactile on press.     */
@@ -38,6 +39,10 @@ export default function ClayIconButton({
     style,
     children,
 }: ClayIconButtonProps) {
+    const flat = useFlatSurface();
+    if (flat) return <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel} hitSlop={6}
+        style={({ pressed }) => [{ width: size, height: size, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
+            backgroundColor: pressed ? schoolColorWithAlpha(accent, 0.14) : 'transparent', opacity: pressed ? 0.75 : 1 }, style]}>{children}</Pressable>;
     const tint = isDark ? '#05030A' : accent;
     const radius = round ? size / 2 : Math.round(size * 0.36);
 

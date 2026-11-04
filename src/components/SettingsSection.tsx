@@ -9,6 +9,7 @@ import {
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { useTheme } from '../hooks/useTheme';
+import { useSurfaceStyleMap } from '../theme/surfaceStyles';
 import type { Theme, ThemeColors } from '../theme/themes';
 
 export interface SettingRowProps {
@@ -36,6 +37,7 @@ export function SettingRow({
   onPress,
   labelColor,
 }: SettingRowProps) {
+  const styles = useSurfaceStyleMap(baseStyles);
   const { theme, isDark } = useTheme();
   const colors = theme.colors as ThemeColors;
   const rowContent = (
@@ -130,6 +132,7 @@ export function SettingsGroup({
   borderColor,
   children,
 }: SettingsGroupProps) {
+  const styles = useSurfaceStyleMap(baseStyles);
   const { theme, isDark } = useTheme();
   const colors = theme.colors as ThemeColors;
 
@@ -177,7 +180,7 @@ export function SettingsGroup({
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   group: {
     marginBottom: 24,
   },

@@ -2,7 +2,7 @@ import { TourTarget, TourScrollView } from '@/src/features/app-tour';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import AppTextInput from '@/src/components/AppTextInput';
 import KeyboardAwareScreen from '@/components/keyboard/KeyboardAwareScreen';
-import { clayCard, clayInset } from '@/src/theme/clayStyles';
+import { useSurfaceMaterials, useSurfaceStyleMap } from '@/src/theme/surfaceStyles';
 
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
@@ -17,6 +17,7 @@ import Animated, {
   withSpring, withRepeat, withTiming, Easing,
 } from 'react-native-reanimated';
 import StaffHeader from '../../src/components/StaffHeader';
+import { LibraryService } from '../../src/services/libraryService';
 import ViewAsBanner from '../../src/components/ViewAsBanner';
 import { useEffectiveStaffId } from '../../src/hooks/useEffectiveStaffId';
 import { ComplaintService, Complaint, TeacherService, TeacherClassAssignment } from '../../src/services/commonServices';
@@ -205,6 +206,8 @@ function FormField({
   error?: string;
   required?: boolean;
 }) {
+  const { inset: clayInset } = useSurfaceMaterials();
+  const ff = useSurfaceStyleMap(fieldStyles);
   const [focused, setFocused] = useState(false);
   const showError = !!error && error.trim().length > 0;
 
@@ -268,6 +271,7 @@ function StepHeader({
 }: {
   step: number; title: string; subtitle?: string; isDark: boolean; done?: boolean;
 }) {
+  const ff = useSurfaceStyleMap(fieldStyles);
   return (
     <View style={ff.stepRow}>
       <View style={[
@@ -292,7 +296,7 @@ function StepHeader({
   );
 }
 
-const ff = StyleSheet.create({
+const fieldStyles = StyleSheet.create({
   wrap: { marginBottom: 14 },
   labelRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 7, gap: 8 },
   label: { fontSize: 13, fontWeight: '700', letterSpacing: -0.15 },
@@ -319,6 +323,8 @@ const ff = StyleSheet.create({
 
 // ─── Skeleton ──────────────────────────────────────────────────────
 function SkeletonCard({ isDark, delay = 0 }: { isDark: boolean; delay?: number }) {
+  const { card: clayCard } = useSurfaceMaterials();
+  const sk = useSurfaceStyleMap(skeletonStyles);
   const opacity = useSharedValue(0.45);
   useEffect(() => {
     opacity.value = withRepeat(
@@ -347,7 +353,7 @@ function SkeletonCard({ isDark, delay = 0 }: { isDark: boolean; delay?: number }
   );
 }
 
-const sk = StyleSheet.create({
+const skeletonStyles = StyleSheet.create({
   card: { padding: 16, paddingLeft: 20, marginBottom: 12, overflow: 'hidden' },
   stripe: { position: 'absolute', left: 0, top: 14, bottom: 14, width: 3.5, borderRadius: 3 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -362,6 +368,8 @@ const ComplaintCard = React.memo(function ComplaintCard({
 }: {
   item: UIComplaint; index: number; isDark: boolean; wide: boolean; onPress: (c: UIComplaint) => void;
 }) {
+  const { card: clayCard } = useSurfaceMaterials();
+  const cc = useSurfaceStyleMap(complaintCardStyles);
   const catKey = item.category?.toLowerCase() || 'default';
   const cat = CATEGORY_CFG[catKey] || CATEGORY_CFG.default;
   const pri = PRIORITY_CFG[(item.priority || 'low').toLowerCase()] || PRIORITY_CFG.low;
@@ -445,7 +453,7 @@ const ComplaintCard = React.memo(function ComplaintCard({
   );
 });
 
-const cc = StyleSheet.create({
+const complaintCardStyles = StyleSheet.create({
   card: { borderRadius: 18, overflow: 'hidden', position: 'relative' },
   cardWide: { minHeight: 176 },
   gridItem: { width: '49.35%' },
@@ -486,6 +494,8 @@ function DetailSheet({
 }: {
   item: UIComplaint | null; visible: boolean; onClose: () => void; isDark: boolean;
 }) {
+  const { card: clayCard } = useSurfaceMaterials();
+  const ds = useSurfaceStyleMap(detailStyles);
   if (!item) return null;
   const cat = CATEGORY_CFG[item.category?.toLowerCase() || 'default'] || CATEGORY_CFG.default;
   const pri = PRIORITY_CFG[(item.priority || 'low').toLowerCase()] || PRIORITY_CFG.low;
@@ -583,7 +593,7 @@ function DetailSheet({
   );
 }
 
-const ds = StyleSheet.create({
+const detailStyles = StyleSheet.create({
   backdrop: {
     flex: 1, backgroundColor: 'rgba(15,23,42,0.45)',
     justifyContent: 'flex-end', padding: 16, paddingBottom: 28,
@@ -614,8 +624,11 @@ const ds = StyleSheet.create({
 });
 
 // ─── Main Screen ───────────────────────────────────────────────────
-export default function StaffComplaints() {
-  const { isDark } = useTheme();
+export default function StaffComplaints({ schoolWide = false, embedded = false }: { schoolWide?: boolean; embedded?: boolean }) {
+  const { card: clayCard, inset: clayInset, flat } = useSurfaceMaterials();
+  const ms = useSurfaceStyleMap(mainStyles);
+  const wz = useSurfaceStyleMap(wizardStyles);
+  const { isDark, theme } = useTheme();
   const { isViewingAsAdmin, viewAsName, staffId } = useEffectiveStaffId();
 
   const [wizardVisible, setWizardVisible] = useState(false);
@@ -669,7 +682,7 @@ export default function StaffComplaints() {
   useEffect(() => {
     if (!wizardVisible || studentMode !== 'multiple') return;
     loadTeacherClasses();
-  }, [wizardVisible, studentMode, staffId]);
+  }, [wizardVisible, studentMode, staffId, schoolWide]);
 
   useEffect(() => {
     if (!wizardVisible || studentMode !== 'multiple' || !selectedClassSectionId) return;
@@ -718,6 +731,14 @@ export default function StaffComplaints() {
     setLoadingClass(true);
     let loadedSections: ClassSectionOption[] = [];
     try {
+      if (schoolWide) {
+        const sections = await LibraryService.classes();
+        loadedSections = sections;
+        setClassSections(sections);
+        setSelectedClassSectionId((prev) => prev && sections.some((s) => s.class_section_id === prev) ? prev : sections[0]?.class_section_id ?? null);
+        if (!sections.length) setClassStudents([]);
+        return;
+      }
       const assignments = await TeacherService.getMyClasses();
       let sections = getUniqueClassSections(assignments);
 
@@ -761,6 +782,10 @@ export default function StaffComplaints() {
     setSelectedStudentIds([]);
     try {
       const section = classSections.find((item) => item.class_section_id === classSectionId);
+      if (schoolWide && section) {
+        setClassStudents(await LibraryService.students({ class_id: section.class_id, section_id: section.section_id }));
+        return;
+      }
       if (section?.class_id && section?.section_id) {
         const response = await StudentService.getAll<StudentWithDetails>({
           class_id: section.class_id,
@@ -831,6 +856,10 @@ export default function StaffComplaints() {
   const searchStudents = async () => {
     try {
       setIsSearching(true);
+      if (schoolWide) {
+        setStudentsList(await LibraryService.students({ search: studentSearch }));
+        return;
+      }
       const res = await StudentService.getAll<StudentWithDetails>({ search: studentSearch, limit: 5 });
       setStudentsList(res.data.map((s: StudentWithDetails) => ({
         id: s.id,
@@ -957,14 +986,14 @@ export default function StaffComplaints() {
   return (
     <View style={{ flex: 1 }}>
       <LinearGradient
-        colors={isDark ? ['#050810', '#0A1210', '#060908'] : ['#F0FDF4', '#ECFDF5', '#F8FAFC']}
+        colors={flat ? [theme.colors.background, theme.colors.background] : isDark ? ['#050810', '#0A1210', '#060908'] : ['#F0FDF4', '#ECFDF5', '#F8FAFC']}
         style={StyleSheet.absoluteFillObject}
         start={{ x: 0, y: 0 }}
         end={{ x: 0.55, y: 1 }}
       />
 
-      <TourTarget id="screen.staff-complaints.overview"><StaffHeader title="Complaints & Remarks" showBackButton /></TourTarget>
-      {isViewingAsAdmin && <ViewAsBanner name={viewAsName} />}
+      {!embedded && <TourTarget id="screen.staff-complaints.overview"><StaffHeader title="Complaints & Remarks" showBackButton /></TourTarget>}
+      {!embedded && isViewingAsAdmin && <ViewAsBanner name={viewAsName} />}
 
       <KeyboardAwareScreen
         variant="scroll"
@@ -1001,7 +1030,7 @@ export default function StaffComplaints() {
                   isDesktop && ms.pageTitleDesktop,
                   { color: isDark ? '#EEF2FF' : '#06101E', fontFamily: FONT },
                 ]}>
-                  Student Disciplinary
+                  {schoolWide ? 'School-wide Complaints & Remarks' : 'Student Disciplinary'}
                 </Text>
                 <Text style={[
                   ms.pageSub,
@@ -1262,7 +1291,7 @@ export default function StaffComplaints() {
       <Modal visible={wizardVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={closeWizard}>
         <View style={{ flex: 1, backgroundColor: isDark ? '#0A1210' : '#F8FAFC' }}>
           <LinearGradient
-            colors={isDark ? ['#050810', '#0A1210'] : ['#F0FDF4', '#F8FAFC']}
+            colors={flat ? [theme.colors.background, theme.colors.background] : isDark ? ['#050810', '#0A1210'] : ['#F0FDF4', '#F8FAFC']}
             style={StyleSheet.absoluteFillObject}
           />
           <View style={[wz.header, { borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)' }]}>
@@ -1510,7 +1539,7 @@ export default function StaffComplaints() {
                         <View style={ms.classEmpty}>
                           <Ionicons name="school-outline" size={24} color={isDark ? '#334155' : '#CBD5E1'} />
                           <Text style={[ms.classEmptyText, { color: isDark ? '#64748B' : '#94A3B8', fontFamily: FONT }]}>
-                            No classes assigned. Switch to One student and search instead.
+                            {schoolWide ? 'No active classes found. Switch to One student and search instead.' : 'No classes assigned. Switch to One student and search instead.'}
                           </Text>
                         </View>
                       ) : classStudents.length === 0 ? (
@@ -1703,7 +1732,7 @@ export default function StaffComplaints() {
 }
 
 // ─── Styles ────────────────────────────────────────────────────────
-const ms = StyleSheet.create({
+const mainStyles = StyleSheet.create({
   scroll: { paddingHorizontal: 18, paddingTop: 10, paddingBottom: 30 },
   scrollDesktop: { paddingHorizontal: 32, paddingTop: 24 },
   contentShell: { width: '100%', maxWidth: 1440, alignSelf: 'center' },
@@ -1931,7 +1960,7 @@ const ms = StyleSheet.create({
   reviewBody: { fontSize: 13, fontWeight: '500', marginTop: 6, lineHeight: 19 },
 });
 
-const wz = StyleSheet.create({
+const wizardStyles = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,

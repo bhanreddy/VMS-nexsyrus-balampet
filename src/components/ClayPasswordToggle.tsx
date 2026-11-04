@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ADMIN_THEME } from '@/src/constants/adminTheme';
 import { useTranslation } from 'react-i18next';
+import { useFlatSurface } from '../contexts/SurfaceAppearanceContext';
+import { NO_DEPTH } from '../theme/surfaceStyles';
 
 // Fixed coral palette — reads as an action control, distinct from field lavender.
 const TOGGLE = {
@@ -50,6 +52,7 @@ export default function ClayPasswordToggle({
   onToggle,
   isDark,
 }: ClayPasswordToggleProps) {
+  const flat = useFlatSurface();
   const { t } = useTranslation();
   const iconColor = visible
     ? (isDark ? '#FFF5F2' : '#FFFFFF')
@@ -69,12 +72,12 @@ export default function ClayPasswordToggle({
       hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
       style={({ pressed }) => [
         styles.btn,
-        clayToggleBtn(isDark, visible),
+        flat ? NO_DEPTH : clayToggleBtn(isDark, visible),
         { backgroundColor: bg, borderColor: border },
         pressed && styles.pressed,
       ]}
     >
-      <LinearGradient
+      {!flat && <LinearGradient
         colors={
           visible
             ? [isDark ? TOGGLE.coralMid + 'CC' : '#FFFFFF55', 'transparent']
@@ -83,7 +86,7 @@ export default function ClayPasswordToggle({
         style={styles.gloss}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
-      />
+      />}
       <Ionicons
         name={visible ? 'eye-off-outline' : 'eye-outline'}
         size={16}

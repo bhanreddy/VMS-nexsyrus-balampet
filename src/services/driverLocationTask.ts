@@ -12,6 +12,14 @@ import { SCHOOL_ID } from '../constants/school';
 export const DRIVER_LOCATION_TASK = 'driver-bus-location-task';
 const SESSION_KEY = 'transport_tracking_session_v2';
 const QUEUE_PREFIX = 'transport_location_queue_v2:';
+const CAPTURE_PROFILE_VERSION = 3;
+export const DRIVER_CAPTURE_INTERVAL_MS = 2000;
+const CAPTURE_OPTIONS: Location.LocationOptions = {
+  accuracy: Location.Accuracy.BestForNavigation,
+  timeInterval: DRIVER_CAPTURE_INTERVAL_MS,
+  distanceInterval: 0,
+  mayShowUserSettingsDialog: true,
+};
 interface Scope {
   authUserId: string;
   contextId: string | null;
@@ -20,6 +28,7 @@ interface Scope {
   bus_id: string;
   session_id: string;
   device_id: string;
+  capture_profile?: number;
 }
 export interface DriverStopTarget {
   latitude: number;
@@ -41,13 +50,21 @@ export interface TrackingHealth {
   lastFixAt: number | null;
   lastUploadAt: number | null;
   message: string;
+  accuracyMeters: number | null;
+  lastReliableFixAt: number | null;
+  gpsQuality: 'acquiring' | 'precise' | 'limited' | 'reacquiring' | 'jump_rejected';
+  precisePermission: boolean;
 }
 let health: TrackingHealth = {
   mode: 'stopped',
   queued: 0,
   lastFixAt: null,
   lastUploadAt: null,
-  message: 'Location sharing stopped'
+  message: 'Location sharing stopped',
+  accuracyMeters: null,
+  lastReliableFixAt: null,
+  gpsQuality: 'acquiring',
+  precisePermission: true
 };
 const listeners = new Set<() => void>();
 export const getTrackingHealth = () => health;
@@ -103,6 +120,8 @@ const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFi
 export function toQueuedFix(loc: Location.LocationObject): QueuedDriverFix | null {
   const c = loc?.coords;
   if (!c || !finite(c.latitude) || Math.abs(c.latitude) > 90 || !finite(c.longitude) || Math.abs(c.longitude) > 180 || !finite(loc.timestamp)) return null;
+  const recorded = new Date(loc.timestamp);
+  if (!Number.isFinite(recorded.getTime())) return null;
   return {
     fix_id: Crypto.randomUUID(),
     latitude: c.latitude,
@@ -110,7 +129,7 @@ export function toQueuedFix(loc: Location.LocationObject): QueuedDriverFix | nul
     speed: finite(c.speed) && c.speed >= 0 ? c.speed * 3.6 : null,
     heading: finite(c.heading) && c.heading >= 0 && c.heading < 360 ? c.heading : null,
     accuracy: finite(c.accuracy) && c.accuracy >= 0 ? c.accuracy : null,
-    recorded_at: new Date(loc.timestamp).toISOString(),
+    recorded_at: recorded.toISOString(),
     is_mocked: loc.mocked === true
   };
 }
@@ -120,12 +139,25 @@ export async function enqueueBusLocations(busId: string, locations: Location.Loc
   if (!s || s.bus_id !== busId || !(await identityMatches(s))) return;
   await queueSerial(async () => {
     if (version !== generation || !same(await scope(), s)) return;
-    const merged = [...(await readQueue(s)), ...locations.map(toQueuedFix).filter((f): f is QueuedDriverFix => f !== null)];
-    const fixes = [...new Map(merged.filter(f => Date.parse(f.recorded_at) >= Date.now() - 21600000).map(f => [f.recorded_at, f])).values()].slice(-1000);
+    const captured = locations.map(toQueuedFix).filter((fix): fix is QueuedDriverFix => fix !== null);
+    const now = Date.now();
+    const merged = [...(await readQueue(s)), ...captured]
+      .filter(fix => Number.isFinite(Date.parse(fix.recorded_at)) && Date.parse(fix.recorded_at) >= now - 21600000 && Date.parse(fix.recorded_at) <= now + 5000)
+      .sort((a, b) => Date.parse(a.recorded_at) - Date.parse(b.recorded_at));
+    // Preserve the first stable ID for a timestamp, including pending uploads.
+    const byTime = new Map<string, QueuedDriverFix>();
+    for (const fix of merged) if (!byTime.has(fix.recorded_at)) byTime.set(fix.recorded_at, fix);
+    const fixes = [...byTime.values()].slice(-1000);
     await AsyncStorage.setItem(queueKey(s), JSON.stringify(fixes));
+    const latest = fixes.at(-1);
+    const newer = latest && Date.parse(latest.recorded_at) >= (health.lastFixAt || 0);
     updateHealth({
       queued: fixes.length,
-      lastFixAt: locations.at(-1)?.timestamp || health.lastFixAt
+      ...(newer ? {
+        lastFixAt: Date.parse(latest.recorded_at),
+        accuracyMeters: latest.accuracy,
+        gpsQuality: !latest.is_mocked && latest.accuracy != null && latest.accuracy <= 25 ? 'precise' : 'limited',
+      } : {}),
     });
   });
 }
@@ -147,9 +179,12 @@ export async function flushQueuedBusLocations(busId: string): Promise<number> {
     let total = 0;
     for (let chunk = 0; chunk < 10; chunk++) {
       if (version !== generation || !(await identityMatches(s)) || !same(await scope(), s)) break;
-      const fixes = (await queueSerial(() => readQueue(s))).slice(0, 100);
+      const fixes = (await queueSerial(() => readQueue(s))).slice(-100);
       if (!fixes.length) break;
       const result = await api.post<{
+        realtime_updated?: boolean;
+        gps_quality?: string | null;
+        location?: { recorded_at: string; accuracy: number | null } | null;
         acknowledgements: {
           index: number;
           fix_id: string | null;
@@ -176,7 +211,9 @@ export async function flushQueuedBusLocations(busId: string): Promise<number> {
         updateHealth({
           queued: remaining.length,
           lastUploadAt: Date.now(),
-          message: 'Location sharing active'
+          message: 'Location sharing active',
+          ...(result.realtime_updated && result.location ? { lastReliableFixAt: Date.parse(result.location.recorded_at) } : {}),
+          ...(result.gps_quality === 'reacquiring' ? { gpsQuality: 'reacquiring' as const } : result.gps_quality === 'implausible_jump' ? { gpsQuality: 'jump_rejected' as const } : {})
         });
       });
       total += acknowledged.size;
@@ -206,7 +243,7 @@ export async function postBusLocation(busId: string, loc: Location.LocationObjec
 // Fixed safe cadence also works without a mounted screen or an available next-stop target.
 export async function setDriverNextStopTarget(_target: DriverStopTarget | null) {}
 export async function adaptDriverLocationSampling(_loc: Location.LocationObject) {
-  return 5000;
+  return DRIVER_CAPTURE_INTERVAL_MS;
 }
 export async function isDriverLocationTaskRunning() {
   if (Platform.OS === 'web') return false;
@@ -273,14 +310,17 @@ export async function startDriverLocationUpdates(busId: string, tripId?: string)
       });
       return;
     }
+    updateHealth({ precisePermission: fg.android?.accuracy !== 'coarse' });
     const bg = await Location.getBackgroundPermissionsAsync();
     if (version !== generation) return;
     if (bg.granted) {
       try {
-        if (!(await isDriverLocationTaskRunning())) await Location.startLocationUpdatesAsync(DRIVER_LOCATION_TASK, {
-          accuracy: Location.Accuracy.High,
-          timeInterval: 5000,
-          distanceInterval: 0,
+        if (!(await isDriverLocationTaskRunning()) || old?.capture_profile !== CAPTURE_PROFILE_VERSION) await Location.startLocationUpdatesAsync(DRIVER_LOCATION_TASK, {
+          ...CAPTURE_OPTIONS,
+          activityType: Location.ActivityType.AutomotiveNavigation,
+          deferredUpdatesInterval: 0,
+          deferredUpdatesDistance: 0,
+          deferredUpdatesTimeout: 0,
           pausesUpdatesAutomatically: false,
           showsBackgroundLocationIndicator: true,
           foregroundService: {
@@ -289,6 +329,7 @@ export async function startDriverLocationUpdates(busId: string, tripId?: string)
             killServiceOnDestroy: false
           }
         });
+        await AsyncStorage.setItem(SESSION_KEY, JSON.stringify({ ...s, capture_profile: CAPTURE_PROFILE_VERSION }));
         foreground?.remove();
         foreground = null;
         updateHealth({
@@ -309,11 +350,7 @@ export async function startDriverLocationUpdates(busId: string, tripId?: string)
   });
 }
 async function startForeground(s: Scope, version: number) {
-  if (!foreground) foreground = await Location.watchPositionAsync({
-    accuracy: Location.Accuracy.High,
-    timeInterval: 5000,
-    distanceInterval: 0
-  }, loc => {
+  if (!foreground) foreground = await Location.watchPositionAsync(CAPTURE_OPTIONS, loc => {
     if (version === generation) void postBusLocation(s.bus_id, loc);
   });
   updateHealth({
@@ -334,7 +371,11 @@ export async function stopDriverLocationUpdates(expectedTripId?: string) {
       queued: 0,
       lastFixAt: null,
       lastUploadAt: null,
-      message: 'Location sharing stopped'
+      message: 'Location sharing stopped',
+      accuracyMeters: null,
+      lastReliableFixAt: null,
+      gpsQuality: 'acquiring',
+      precisePermission: true
     });
   });
 }

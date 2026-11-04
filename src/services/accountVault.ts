@@ -356,6 +356,7 @@ export async function setBackupRefreshTokenForUser(
 ): Promise<void> {
   await ensureMigrated();
   const tokens = await _readRefreshMap();
+  if (tokens[userId] === token) return;
   tokens[userId] = token;
   await _writeRefreshMap(tokens);
 }
@@ -471,18 +472,34 @@ export async function addAccount(account: VaultAccount): Promise<void> {
   await ensureMigrated();
   const accounts = await _readAccounts();
   const idx = accounts.findIndex((a) => a.userId === account.userId);
-  if (idx >= 0) {
-    accounts[idx] = account; // refresh stored session/profile
-  } else {
-    accounts.push(account);
+  // A switch validates the profile again, but usually leaves the saved tokens
+  // unchanged. Avoid rewriting every account's encrypted chunks in that case.
+  // Keep display labels populated separately by the account picker.
+  const next = idx >= 0 ? { ...accounts[idx], ...account } : account;
+  if (idx >= 0 && accounts[idx].validatedUser.classId !== account.validatedUser.classId && account.classLabel === undefined) {
+    delete next.classLabel;
   }
-  await _writeAccounts(accounts);
+  // Supabase recalculates expires_in on every setSession, even for the same
+  // JWT. The absolute expires_at controls token validity throughout the app.
+  const comparable = (entry: VaultAccount) => JSON.stringify({
+    ...entry,
+    supabaseSession: { ...entry.supabaseSession, expires_in: undefined },
+  });
+  const changed = idx < 0 || comparable(accounts[idx]) !== comparable(next);
+  if (idx >= 0) {
+    accounts[idx] = next;
+  } else {
+    accounts.push(next);
+  }
+  if (changed) await _writeAccounts(accounts);
 
   const refresh = account.supabaseSession?.refresh_token;
   if (refresh) {
     const tokens = await _readRefreshMap();
-    tokens[account.userId] = refresh;
-    await _writeRefreshMap(tokens);
+    if (tokens[account.userId] !== refresh) {
+      tokens[account.userId] = refresh;
+      await _writeRefreshMap(tokens);
+    }
   }
 }
 

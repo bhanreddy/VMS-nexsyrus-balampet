@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import React from 'react';
-import { TouchableOpacity, FlatList, Text } from 'react-native';
+import { TouchableOpacity, FlatList, Text, View, Dimensions } from 'react-native';
+import { TourScrollView } from '../features/app-tour';
 import ManageStudents from '../../app/staff/manage-students';
 import SwipeableStudentCard from '../components/SwipeableStudentCard';
 import AppDatePicker from '../components/AppDatePicker';
@@ -58,6 +59,7 @@ async function submitPartial() {
 }
 beforeEach(() => {
   jest.clearAllMocks();
+  Dimensions.set({ window: { width: 390, height: 844, scale: 1, fontScale: 1 } });
   mockParams = { session: 'morning', date: '2026-10-03' };
   mockContext = { staffId: undefined, isViewingAsAdmin: false, viewAsName: '' };
   jest.mocked(persistentQueryCache.read).mockResolvedValue(null);
@@ -228,4 +230,66 @@ it('does not get stuck loading when an input date caps to the selected day', asy
   expect(cards()).toHaveLength(2);
   expect(text()).not.toContain('Loading class and checking queued attendance');
   expect(AttendanceService.getMyClass).toHaveBeenCalledTimes(callsBefore);
+});
+
+async function resizeAttendance(width: number, height: number) {
+  await act(async () => {
+    tree.root.findAllByType(View).find((node: any) => node.props.testID === 'student-attendance-screen').props.onLayout({
+      nativeEvent: { layout: { width, height, x: 0, y: 0 } },
+    });
+  });
+}
+
+it('keeps drafts and session controls when a tablet rotates between portrait and landscape', async () => {
+  await renderScreen();
+  await resizeAttendance(800, 1050);
+  await markFirst();
+  expect(tree.root.findAllByType(TourScrollView)).toHaveLength(0);
+
+  await resizeAttendance(1200, 720);
+  expect(tree.root.findAllByType(TourScrollView)).toHaveLength(1);
+  expect(datePicker().props.value).toBe('2026-10-03');
+  expect(cards()[0].props.student.status).toBe('present');
+  expect(button('Submit 1 marked morning attendance record').props.disabled).toBe(false);
+
+  await resizeAttendance(800, 1050);
+  expect(tree.root.findAllByType(TourScrollView)).toHaveLength(0);
+  expect(cards()[0].props.student.status).toBe('present');
+  expect(AttendanceService.getMyClass).toHaveBeenCalledTimes(1);
+});
+
+it('uses the available pane width when the tablet enters split-screen', async () => {
+  Dimensions.set({ window: { width: 1200, height: 800, scale: 1, fontScale: 1 } });
+  await renderScreen();
+  expect(tree.root.findAllByType(TourScrollView)).toHaveLength(1);
+  await resizeAttendance(600, 720);
+  expect(tree.root.findAllByType(TourScrollView)).toHaveLength(0);
+  expect(cards()).toHaveLength(2);
+  await act(async () => { button('Afternoon attendance session').props.onPress(); });
+  expect(AttendanceService.getMyClass).toHaveBeenLastCalledWith('2026-10-03', undefined, 'afternoon');
+});
+
+it('keeps submission reachable in the scrollable roster on short tablet windows', async () => {
+  await renderScreen();
+  await markFirst();
+  await resizeAttendance(1024, 400);
+  const footer = tree.root.findByType(FlatList).props.ListFooterComponent;
+  expect(footer.props.children).toBeTruthy();
+  const submit = button('Submit 1 marked morning attendance record');
+  expect(submit.props.disabled).toBe(false);
+  let parent = submit.parent;
+  while (parent && parent.type !== FlatList) parent = parent.parent;
+  expect(parent).not.toBeNull();
+  await submitPartial();
+  expect(text()).toContain('Server confirmed 1 morning record');
+});
+
+it('keeps a single scrollable layout at large tablet text sizes', async () => {
+  Dimensions.set({ window: { width: 1200, height: 800, scale: 1, fontScale: 2 } });
+  await renderScreen();
+  await resizeAttendance(1200, 800);
+  expect(tree.root.findAllByType(TourScrollView)).toHaveLength(0);
+  expect(tree.root.findByType(FlatList).props.ListFooterComponent.props.children).toBeTruthy();
+  expect(button('Morning attendance session')).toBeDefined();
+  expect(datePicker()).toBeDefined();
 });

@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import * as Haptics from '../utils/haptics';
-import { useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 
 import StaffToolsDrawer from './StaffToolsDrawer';
 import ClayIconButton from './ClayIconButton';
@@ -14,10 +14,13 @@ import { useAuth } from '../hooks/useAuth';
 import { useEffectiveStaffId } from '../hooks/useEffectiveStaffId';
 import { exitStaffPortalToAdmin } from '../services/staffPortalExit';
 import { Spacing } from '../theme/themes';
+import { useFlatSurface } from '../contexts/SurfaceAppearanceContext';
+import { NO_DEPTH } from '../theme/surfaceStyles';
 
 import Animated, { SharedValue, useAnimatedStyle, interpolateColor, interpolate, Extrapolation } from 'react-native-reanimated';
 
 interface StaffHeaderProps {
+    portal?: 'staff' | 'library';
     title: string;
     subtitle?: string;
     showMenuButton?: boolean;
@@ -29,6 +32,7 @@ interface StaffHeaderProps {
 }
 
 const StaffHeader: React.FC<StaffHeaderProps> = ({
+    portal = 'staff',
     title = SCHOOL_NAME,
     subtitle,
     showMenuButton = true,
@@ -39,10 +43,13 @@ const StaffHeader: React.FC<StaffHeaderProps> = ({
     scrollY
 }) => {
     const router = useRouter();
+    const flat = useFlatSurface();
+    const navigation = useNavigation();
     const { theme, isDark } = useTheme();
     const [menuVisible, setMenuVisible] = useState(false);
     const { user } = useAuth();
-    const { staffId, isViewingAsAdmin, viewAsName, userId: viewAsUserId, actorUserId } = useEffectiveStaffId();
+    const { staffId, isViewingAsAdmin: staffViewAs, viewAsName, userId: viewAsUserId, actorUserId } = useEffectiveStaffId();
+    const isViewingAsAdmin = portal === 'staff' && staffViewAs;
     const viewAsParams = isViewingAsAdmin ? { staffId, viewAsName, viewAsUserId, viewAsActorId: actorUserId } : undefined;
 
     const accent = theme.colors.primary;
@@ -61,6 +68,7 @@ const StaffHeader: React.FC<StaffHeaderProps> = ({
     const clayTransparent = isDark ? 'rgba(28,22,48,0)' : 'rgba(246,242,252,0)';
 
     const animatedStyle = useAnimatedStyle(() => {
+        if (flat) return { backgroundColor: theme.colors.card, shadowOpacity: 0, borderBottomWidth: 1, borderBottomColor: theme.colors.border };
         if (!scrollY) {
             return {
                 backgroundColor: claySolid,
@@ -98,6 +106,7 @@ const StaffHeader: React.FC<StaffHeaderProps> = ({
 
     const runBack = () => {
         if (onBack) onBack();
+        else if (portal === 'library') (navigation as any).navigate('dashboard');
         else if (router.canGoBack()) router.back();
         else if (isViewingAsAdmin) void exitStaffPortalToAdmin();
         else router.push({ pathname: '/staff/dashboard', params: viewAsParams } as any);
@@ -112,10 +121,11 @@ const StaffHeader: React.FC<StaffHeaderProps> = ({
             // and left a gap under the ribbon. Only a small breathing pad is needed.
             { paddingTop: isWeb ? 12 : Spacing.xs, shadowColor: accent },
             isAbsolute && styles.absoluteHeader,
-            animatedStyle
+            animatedStyle,
+            flat && { ...NO_DEPTH, backgroundColor: theme.colors.card, borderBottomWidth: 1, borderBottomColor: theme.colors.border, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }
         ]}>
             {/* Soft gloss sweeping across the top of the clay slab. */}
-            {isWeb ? <View pointerEvents="none" style={styles.claySheen} /> : null}
+            {isWeb && !flat ? <View pointerEvents="none" style={styles.claySheen} /> : null}
 
             <TourTarget id="staff.navigation" native><View style={styles.contentRow}>
                 {/* Left: native = menu on home, back on inner; web = both when menu enabled */}
@@ -126,7 +136,7 @@ const StaffHeader: React.FC<StaffHeaderProps> = ({
                         </ClayIconButton>
                     ) : null}
                     {showNavMenu ? (
-                        <ClayIconButton accessibilityLabel="Open staff tools" size={44} onPress={handleMenuPress} isDark={isDark} accent={accent}>
+                        <ClayIconButton accessibilityLabel={portal === 'library' ? 'Open librarian tools' : 'Open staff tools'} size={44} onPress={handleMenuPress} isDark={isDark} accent={accent}>
                             <Feather name="menu" size={19} color={accent} />
                         </ClayIconButton>
                     ) : null}
@@ -140,6 +150,7 @@ const StaffHeader: React.FC<StaffHeaderProps> = ({
                                 styles.title,
                                 { color: theme.colors.textStrong },
                                 { textShadowColor: isDark ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.85)' },
+                                flat && { textShadowColor: 'transparent', textShadowRadius: 0 },
                             ]}
                         >
                             {title}
@@ -165,8 +176,10 @@ const StaffHeader: React.FC<StaffHeaderProps> = ({
                     </ClayIconButton>
                     {showProfileButton && (
                         <ClayIconButton
-                            accessibilityLabel="Open staff settings"
-                            onPress={() => router.push({ pathname: '/staff/settings', params: viewAsParams } as any)}
+                            accessibilityLabel={portal === 'library' ? 'Open librarian settings' : 'Open staff settings'}
+                            onPress={() => portal === 'library'
+                                ? (navigation as any).navigate('account-settings')
+                                : router.push({ pathname: '/staff/settings', params: viewAsParams } as any)}
                             isDark={isDark}
                             accent={accent}
                             round
@@ -178,7 +191,7 @@ const StaffHeader: React.FC<StaffHeaderProps> = ({
                 </View>
             </View></TourTarget>
 
-            {menuVisible && <StaffToolsDrawer onClose={() => setMenuVisible(false)} photoUrl={user?.photoUrl} />}
+            {menuVisible && <StaffToolsDrawer portal={portal} onClose={() => setMenuVisible(false)} photoUrl={user?.photoUrl} />}
         </Animated.View>
     );
 };

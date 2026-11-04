@@ -285,28 +285,33 @@ function options(argv) {
       assert(argv[i + 1] && !argv[i + 1].startsWith('--'), `Missing value for ${arg}`);
       out[arg.slice(2)] = argv[++i];
     } else {
-      assert(['--execute', '--dry-run', '--help'].includes(arg), `Unknown argument: ${arg}`);
+      assert(['--execute', '--dry-run', '--git-only', '--help'].includes(arg), `Unknown argument: ${arg}`);
       out[arg.slice(2)] = true;
     }
   }
   assert(!(out.execute && out['dry-run']), 'Use either --execute or --dry-run');
   assert(!out['retry-school'] || (out.resume && out.execute), '--retry-school requires --resume and --execute');
+  assert(!(out['git-only'] && out['retry-school']), '--retry-school is unavailable in Git-only mode');
   return out;
 }
 async function main(argv = process.argv.slice(2)) {
   const opt = options(argv);
   if (opt.help) {
-    console.log('Usage: node scripts/release-schools.cjs [--config FILE] [--account GROUP] [--schools ghs,slate] [--execute]\n' +
+    console.log('Usage: node scripts/release-schools.cjs [--config FILE] [--account GROUP] [--schools ghs,slate] [--git-only] [--execute]\n' +
       'Default: validate and print plan only.\n' +
+      'Git-only: prepare, commit and push school files; skip npm install, Expo authentication, prebuild and EAS builds.\n' +
       'Resume: --resume /absolute/run-directory --execute\n' +
       'After verifying an uncertain EAS submission was NOT accepted: --resume DIR --retry-school KEY --execute');
     return;
   }
   let config; let schools; let state; let root;
+  let mode = opt['git-only'] ? 'git-only' : 'build';
   if (opt.resume) {
     assert(!opt.config && !opt.schools && !opt.account, 'Resume uses the original frozen configuration and selection; omit --config, --schools and --account');
     root = path.resolve(opt.resume);
     state = json(path.join(root, 'state.json'));
+    assert(!opt['git-only'] || state.mode === 'git-only', 'Cannot change an existing build run to Git-only mode; start a new Git-only run');
+    mode = state.mode || 'build';
     config = state.config; schools = state.schools;
     assert(state.digest === snapshotDigest(root), 'Release snapshot changed; refuse to resume');
   } else {
@@ -326,8 +331,11 @@ async function main(argv = process.argv.slice(2)) {
     assert(schools.length, `No enabled schools selected${opt.account ? ` for account ${opt.account}` : ''}`);
     if (config.groupByAccount) schools.sort((a, b) => a.account.localeCompare(b.account));
     sourceFiles(config.sourceDir); // Validate source Git checkout before any mutation.
-    assert(fs.existsSync(path.join(config.sourceDir, 'package-lock.json')), 'package-lock.json required for npm ci');
+    if (mode === 'build') assert(fs.existsSync(path.join(config.sourceDir, 'package-lock.json')), 'package-lock.json required for npm ci');
   }
+  const gitOnly = mode === 'git-only';
+  assert(!(gitOnly && opt['retry-school']), '--retry-school is unavailable in Git-only mode');
+  if (gitOnly) console.log('Git-only mode: no Expo authentication, dependency install, prebuild or EAS build.\n');
   if (opt.account) console.log(`Account scope: ${opt.account} (${schools.length} school${schools.length === 1 ? '' : 's'})\n`);
   for (const s of schools) {
     console.log(`${s.key}: ${s.repo}\n  owner=${s.app.owner}; login=${config.accounts[s.account]?.username}; profile=${s.profile}; package=${s.app.android.package}`);
@@ -335,8 +343,10 @@ async function main(argv = process.argv.slice(2)) {
   }
   if (!opt.execute) { console.log('\nDry run complete. No login changes, GitHub pushes, prebuilds or EAS builds performed.'); return; }
   const easBin = path.join(config.sourceDir, 'node_modules', '.bin', 'eas');
-  assert(fs.existsSync(easBin), 'Run npm ci in SchoolIMS-Frontend first (local EAS CLI required).');
-  command('npm', ['--version'], { capture: true });
+  if (!gitOnly) {
+    assert(fs.existsSync(easBin), 'Run npm ci in SchoolIMS-Frontend first (local EAS CLI required).');
+    command('npm', ['--version'], { capture: true });
+  }
   if (!root) {
     fs.mkdirSync(config.outputRoot, { recursive: true, mode: 0o700 });
     root = fs.mkdtempSync(path.join(config.outputRoot, `${new Date().toISOString().replace(/[:.]/g, '-')}-`));
@@ -344,7 +354,7 @@ async function main(argv = process.argv.slice(2)) {
     snapshot(config, root, schools);
     // Do not persist public env or source SSD paths in state; those are in the frozen overlay files.
     schools = schools.map(({ env, mapped, ...s }) => s);
-    state = { version: 1, config, schools, digest: snapshotDigest(root), progress: {} };
+    state = { version: 1, mode, config, schools, digest: snapshotDigest(root), progress: {} };
     save(path.join(root, 'state.json'), state);
   }
   console.log(`\nRelease run: ${root}`);
@@ -355,6 +365,7 @@ async function main(argv = process.argv.slice(2)) {
   try {
     for (const school of schools) {
       let progress = state.progress[school.key] ||= {};
+      if (gitOnly && progress.phase === 'pushed') { console.log(`Skip ${school.key}: already pushed ${progress.commit}`); continue; }
       if (progress.phase === 'submitted') { console.log(`Skip ${school.key}: already submitted ${progress.builds.map(b => b.url).join(', ')}`); continue; }
       if (progress.phase === 'submitting') {
         const output = path.join(root, `${school.key}.build.json`);
@@ -368,7 +379,7 @@ async function main(argv = process.argv.slice(2)) {
         progress.phase = 'prebuilt'; persist();
       }
       console.log(`\n=== ${school.key} ===`);
-      const authEnv = await authenticate(config, school, easBin);
+      const authEnv = gitOnly ? childEnv() : await authenticate(config, school, easBin);
       if (!progress.work) {
         progress.phase = 'preparing'; persist();
         const unfinishedWork = path.join(root, 'work', school.key);
@@ -380,11 +391,19 @@ async function main(argv = process.argv.slice(2)) {
       const work = progress.work;
       assert(git(work, ['rev-parse', 'HEAD']).stdout.trim() === progress.commit, 'Release commit changed; refusing to continue');
       if (progress.phase === 'prepared') {
-        command('npm', ['ci', '--no-audit', '--no-fund'], { cwd: work, env: authEnv });
-        // Check access to the existing project before pushing or consuming build credits.
-        command(easBin, ['project:info'], { cwd: work, env: authEnv });
+        if (!gitOnly) {
+          command('npm', ['ci', '--no-audit', '--no-fund'], { cwd: work, env: authEnv });
+          // Check access to the existing project before pushing or consuming build credits.
+          command(easBin, ['project:info'], { cwd: work, env: authEnv });
+        }
+        assert(git(work, ['status', '--porcelain', '--untracked-files=all']).stdout.trim() === '',
+          'Prepared release workspace has uncommitted changes; review and commit them before pushing');
         command('git', ['-C', work, 'push', 'origin', `HEAD:refs/heads/${progress.branch}`]);
         progress.phase = 'pushed'; persist();
+      }
+      if (gitOnly) {
+        console.log(`Pushed ${school.key}: ${school.repo} (${progress.branch}, ${progress.commit})`);
+        continue;
       }
       const buildEnv = { ...authEnv, ...parseEnv(fs.readFileSync(path.join(work, '.env'), 'utf8')), CI: '1' };
       if (progress.phase === 'pushed') {
@@ -409,7 +428,9 @@ async function main(argv = process.argv.slice(2)) {
         for (const build of progress.builds) console.log(`Submitted: ${build.url}`);
       }
     }
-    console.log(`\nAll selected schools submitted. Build links and progress: ${path.join(root, 'state.json')}`);
+    console.log(gitOnly
+      ? `\nAll selected schools pushed. No Expo commands or EAS builds ran. Progress: ${path.join(root, 'state.json')}`
+      : `\nAll selected schools submitted. Build links and progress: ${path.join(root, 'state.json')}`);
   } finally { fs.rmSync(lock, { force: true }); }
 }
 module.exports = { parseEnv, profileFor, inspectSchool, loadConfig, options, childEnv, parseBuilds, sourceFiles, prepare, snapshot, snapshotDigest, main };

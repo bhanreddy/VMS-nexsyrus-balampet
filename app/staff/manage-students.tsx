@@ -158,7 +158,14 @@ export default function ManageStudents() {
   // Keep unsubmitted edits isolated by staff, date, session and class across tab visits.
   // These are in-memory edits; only explicit offline submissions are persisted.
   const drafts = useRef<Record<string, Record<string, SessionStatus>>>({});
-  const { width, fontScale } = useWindowDimensions();
+  const { width, height, fontScale } = useWindowDimensions();
+  const [workspaceSize, setWorkspaceSize] = useState<{ width: number; height: number } | null>(null);
+  // The pager can be narrower/shorter than the device in tablet split-screen.
+  const availableWidth = (workspaceSize?.width ?? width) - insets.left - insets.right;
+  const availableHeight = workspaceSize?.height ?? height;
+  const wideLayout = availableWidth >= 1000 && availableWidth / fontScale >= 900;
+  const inlineFooter = availableHeight / Math.max(1, fontScale) < 480;
+  const footerRow = availableWidth / fontScale >= 420;
   const studentListRef = useRef<FlatList>(null);
   const isFocused = useIsFocused();
   const busy = submitting || clearingDay || refreshing;
@@ -618,7 +625,7 @@ export default function ManageStudents() {
     </View></TourTarget>
   );
 
-  const renderHeader = () => (
+  const renderControls = () => (
     <View style={styles.headerContainer}>
       {renderDatePicker()}
 
@@ -718,6 +725,11 @@ export default function ManageStudents() {
         </TouchableOpacity>
       )}
 
+    </View>
+  );
+
+  const renderListHeader = () => (
+    <View style={styles.headerContainer}>
       {/* Search Bar */}
       {total > 0 && (
         <View style={styles.searchContainer}>
@@ -746,6 +758,8 @@ export default function ManageStudents() {
       </View></TourTarget>
     </View>
   );
+
+  const renderHeader = () => <>{renderControls()}{renderListHeader()}</>;
 
   const attendanceRows = useMemo(
     () => filteredStudents.map((student) => ({ ...student, status: statusOf(student) })),
@@ -788,7 +802,12 @@ export default function ManageStudents() {
   );
 
   const renderFooter = () => (
-    <View style={[styles.actionFooter, styles.surface]}>
+    <View style={styles.actionFooter}>
+      {submissionMessage && <Text accessibilityLiveRegion="polite" style={styles.statusHint}>{submissionMessage}</Text>}
+      <View style={[styles.footerActions, !footerRow && styles.stackedActions]}>
+        <TouchableOpacity accessibilityRole="button" onPress={() => { setStatusFilter('unmarked'); setSearchQuery(''); setFilterChronicAbsent(false); studentListRef.current?.scrollToOffset({ offset: 0, animated: true }); }} style={styles.unmarkedAction}>
+          <Text style={{ color: theme.colors.primary, fontWeight: '600' }}>Show unmarked</Text>
+        </TouchableOpacity>
       <TouchableOpacity
         activeOpacity={0.85}
         onPress={handleSubmit}
@@ -798,7 +817,7 @@ export default function ManageStudents() {
         accessibilityLabel={canSubmit
           ? `Submit ${marked} marked ${session} attendance record${marked === 1 ? '' : 's'}`
           : 'Mark at least one student to submit attendance'}
-        style={[styles.submitBtn, { backgroundColor: theme.colors.primaryDark, borderRadius: theme.shape.borderRadiusMD, opacity: busy || !canSubmit ? 0.5 : 1 }]}
+        style={[styles.submitBtn, footerRow && { flex: 1 }, { backgroundColor: theme.colors.primaryDark, borderRadius: theme.shape.borderRadiusMD, opacity: busy || !canSubmit ? 0.5 : 1 }]}
       >
         {submitting ? (
           <LogoLoader color="#fff" />
@@ -813,12 +832,18 @@ export default function ManageStudents() {
           </>
         )}
       </TouchableOpacity>
+      </View>
     </View>
   );
 
   return (
     <TourTarget id="screen.staff-manage-students.workspace" style={{ flex: 1 }}><GestureHandlerRootView style={{ flex: 1 }}>
-      <View style={styles.container}>
+      <View testID="student-attendance-screen" style={[styles.container, { paddingLeft: insets.left, paddingRight: insets.right }]} onLayout={({ nativeEvent: { layout } }) => {
+        if (layout.width > 0 && layout.height > 0) {
+          setWorkspaceSize((previous) => previous?.width === layout.width && previous?.height === layout.height
+            ? previous : { width: layout.width, height: layout.height });
+        }
+      }}>
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
         <TourTarget id="screen.staff-manage-students.overview"><StaffHeader
@@ -828,7 +853,7 @@ export default function ManageStudents() {
           showMenuButton={false}
         /></TourTarget>
         {isViewingAsAdmin && <ViewAsBanner name={viewAsName} />}
-        <View style={{ width: '100%', maxWidth: 900, alignSelf: 'center', paddingHorizontal: 16, paddingVertical: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        <View style={[styles.classContext, wideLayout && { maxWidth: 1200 }]}>
           <Text style={{ color: theme.colors.textStrong, fontSize: theme.typography.fontSizeMD, fontWeight: '600' }}>{detectedClassLabel ? `Class ${detectedClassLabel}` : loading ? 'Loading class…' : loadError ? 'Class unavailable' : 'No class assigned'}</Text>
           <Text style={{ color: theme.colors.textSecondary, fontSize: theme.typography.fontSizeMD }}>{session === 'morning' ? 'Morning session' : 'Afternoon session'}</Text>
         </View>
@@ -875,12 +900,18 @@ export default function ManageStudents() {
             </View>
           </TourScrollView>
         ) : (
+          <View style={[styles.attendanceWorkspace, wideLayout && styles.wideWorkspace]}>
+          {wideLayout && (
+            <TourScrollView style={styles.controlsPane} contentContainerStyle={{ paddingBottom: inlineFooter ? tabBarReserve + insets.bottom : 24 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+              {renderControls()}
+            </TourScrollView>
+          )}
           <FlatList
             ref={studentListRef}
             data={attendanceRows}
             keyExtractor={(item) => item.id}
             style={styles.scrollFlex}
-            contentContainerStyle={[styles.listContent, { paddingBottom: 24 }]}
+            contentContainerStyle={[styles.listContent, { paddingBottom: inlineFooter ? tabBarReserve + insets.bottom : 24 }]}
             refreshing={refreshing}
             onRefresh={() => { if (!busy) void loadStudents(); }}
             showsVerticalScrollIndicator={false}
@@ -888,8 +919,8 @@ export default function ManageStudents() {
             initialNumToRender={10}
             maxToRenderPerBatch={8}
             windowSize={7}
-            ListHeaderComponent={renderHeader()}
-            ListFooterComponent={<View style={{ height: 24 }} />}
+            ListHeaderComponent={wideLayout ? renderListHeader() : renderHeader()}
+            ListFooterComponent={inlineFooter ? renderFooter() : <View style={{ height: 24 }} />}
             ListEmptyComponent={(
               <View style={{ padding: 24, alignItems: 'center', gap: 12 }}>
                 <Text style={{ color: theme.colors.textStrong, fontSize: 16, fontWeight: '600' }}>
@@ -916,19 +947,12 @@ export default function ManageStudents() {
               />
             )}
           />
+          </View>
         )}
 
-        {!loading && total > 0 && !keyboardVisible && (
+        {!loading && total > 0 && !keyboardVisible && !inlineFooter && (
           <View style={{ marginBottom: tabBarReserve, paddingBottom: Math.max(insets.bottom, 8), backgroundColor: theme.colors.surface }}>
-            <TouchableOpacity accessibilityRole="button" onPress={() => { setStatusFilter('unmarked'); setSearchQuery(''); setFilterChronicAbsent(false); studentListRef.current?.scrollToOffset({ offset: 0, animated: true }); }} style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 16, width: '100%', maxWidth: 900, alignSelf: 'center' }}>
-              <Text style={{ color: theme.colors.primary, fontWeight: '600' }}>Show unmarked</Text>
-            </TouchableOpacity>
-            {submissionMessage && <Text accessibilityLiveRegion="polite" style={[styles.statusHint, { paddingHorizontal: 16, width: '100%', maxWidth: 900, alignSelf: 'center' }]}>{submissionMessage}</Text>}
-            {width >= 600 || fontScale <= 1.3 ? renderFooter() : (
-              <TouchableOpacity accessibilityRole="button" disabled={busy || !canSubmit} onPress={handleSubmit} style={[styles.submitBtn, { backgroundColor: theme.colors.primaryDark, opacity: busy || !canSubmit ? 0.5 : 1 }]}>
-                <Text style={[styles.submitText, { color: '#fff' }]}>{submitting ? 'Submitting…' : queued ? 'Waiting for sync' : submissionConfirmed ? 'Submitted to server' : `Submit ${marked} marked`}</Text>
-              </TouchableOpacity>
-            )}
+            {renderFooter()}
           </View>
         )}
 
@@ -1005,7 +1029,7 @@ const getStyles = (theme: SchoolTheme, isDark: boolean) => StyleSheet.create({
   headerContainer: { paddingBottom: 8 },
 
   datePickerCard: { marginHorizontal: 16, marginTop: 16, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 12, gap: 10 },
-  datePickerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  datePickerTop: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', justifyContent: 'space-between' },
   datePickerActions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   moreBtn: {
     width: 44,
@@ -1056,7 +1080,7 @@ const getStyles = (theme: SchoolTheme, isDark: boolean) => StyleSheet.create({
   sessionSwitch: { flexDirection: 'row', marginHorizontal: 16, marginTop: 16, padding: 4, borderRadius: 16, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#E2E8F0', gap: 4 },
   sessionTab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 12, gap: 6 },
   sessionTabActive: { backgroundColor: theme.colors.primaryDark },
-  sessionTabText: { fontSize: 14, fontWeight: '700' },
+  sessionTabText: { flexShrink: 1, fontSize: 14, fontWeight: '700' },
   
   sessionHint: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginHorizontal: 20, marginTop: 12 },
   sessionHintText: { flex: 1, fontSize: 12, fontWeight: '600', color: theme.colors.textSecondary },
@@ -1065,19 +1089,26 @@ const getStyles = (theme: SchoolTheme, isDark: boolean) => StyleSheet.create({
   searchIcon: { marginRight: 8 },
   searchInput: { flex: 1, fontSize: 15, color: theme.colors.textPrimary, fontWeight: '500' },
 
-  listMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginTop: 20, marginBottom: 8 },
+  listMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, marginTop: 20, marginBottom: 8 },
   listMetaLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   sectionAccent: { width: 4, height: 18, borderRadius: 2 },
   listMetaText: { fontSize: 12, fontWeight: '800', color: theme.colors.textMuted, textTransform: 'uppercase', letterSpacing: 1.5 },
   studentCountLabel: { fontSize: 13, fontWeight: '700', color: theme.colors.textSecondary },
-  scrollFlex: { flex: 1, width: '100%', maxWidth: 900, alignSelf: 'center' },
+  classContext: { width: '100%', maxWidth: 900, alignSelf: 'center', paddingHorizontal: 16, paddingVertical: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  attendanceWorkspace: { flex: 1, minHeight: 0, width: '100%', maxWidth: 900, alignSelf: 'center' },
+  wideWorkspace: { flexDirection: 'row', maxWidth: 1200 },
+  controlsPane: { width: 340, flexGrow: 0, flexShrink: 0, borderRightWidth: 1, borderRightColor: theme.colors.border },
+  scrollFlex: { flex: 1, minWidth: 0, minHeight: 0 },
   listContent: { paddingTop: 4, flexGrow: 1, paddingBottom: 8 },
 
   actionFooter: { width: '100%', maxWidth: 900, alignSelf: 'center', gap: 8, padding: 12 },
+  footerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  stackedActions: { flexDirection: 'column', alignItems: 'stretch', gap: 4 },
+  unmarkedAction: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 },
   quickActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  quickBtn: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, minHeight: 40 },
-  quickBtnText: { fontSize: 14, fontWeight: '800' },
-  submitBtn: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 8, minHeight: 40 },
+  quickBtn: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 10, minHeight: 48 },
+  quickBtnText: { flexShrink: 1, textAlign: 'center', fontSize: 14, fontWeight: '800' },
+  submitBtn: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, minHeight: 48 },
   submitText: { flexShrink: 1, textAlign: 'center', fontSize: 16, fontWeight: '800', letterSpacing: 0.2 },
 
   chronicAlertBanner: {

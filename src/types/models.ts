@@ -1,5 +1,5 @@
 // Core Role Types
-export type Role = 'admin' | 'staff' | 'teacher' | 'student' | 'parent' | 'accountant' | 'driver';
+export type Role = 'admin' | 'staff' | 'teacher' | 'student' | 'parent' | 'accountant' | 'driver' | 'librarian';
 
 // ================= AUTH & USER =================
 export interface User {

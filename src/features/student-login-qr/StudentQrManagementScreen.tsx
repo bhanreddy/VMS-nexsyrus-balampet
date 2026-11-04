@@ -1,3 +1,4 @@
+import { useStaffQrStyles } from '../library/useStaffQrStyles';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -74,9 +75,10 @@ function loginQrStatus(student: LoginQrStudent, issued: Map<string, IssuedLoginQ
   return { label: 'Login set up', tone: 'idle' as const };
 }
 
-function FilterPicker({ label, value, options, onChange }: {
-  label: string; value: string; options: PickerOption[]; onChange: (value: string) => void;
+function FilterPicker({ label, value, options, onChange, staffAppearance = false }: {
+  label: string; value: string; options: PickerOption[]; onChange: (value: string) => void; staffAppearance?: boolean;
 }) {
+  const styles = useStaffQrStyles(baseStyles, staffAppearance);
   const [open, setOpen] = useState(false);
   const { height } = useWindowDimensions();
   const selected = options.find((option) => option.value === value);
@@ -95,7 +97,7 @@ function FilterPicker({ label, value, options, onChange }: {
             {[{ value: '', label: 'All' }, ...options].map((item) => (
               <Pressable key={item.value || 'all'} style={[styles.pickerOption, item.value === value && styles.pickerOptionActive]} onPress={() => { onChange(item.value); setOpen(false); }}>
                 <Text style={[styles.pickerOptionText, item.value === value && styles.pickerOptionTextActive]}>{item.label}</Text>
-                {item.value === value ? <Ionicons name="checkmark-circle" size={20} color="#6D28D9" /> : null}
+                {item.value === value ? <Ionicons name="checkmark-circle" size={20} color={styles.primaryAction.backgroundColor} /> : null}
               </Pressable>
             ))}
           </ScrollView>
@@ -105,13 +107,15 @@ function FilterPicker({ label, value, options, onChange }: {
   </>;
 }
 
-function PreviewModal({ credential, school, academicYear, onClose, onRegenerated }: {
+function PreviewModal({ credential, school, academicYear, onClose, onRegenerated, staffAppearance = false }: {
+  staffAppearance?: boolean;
   credential: IssuedLoginQr | null;
   school: LoginQrSchool | null;
   academicYear: string;
   onClose: () => void;
   onRegenerated: (credential: IssuedLoginQr) => void;
 }) {
+  const styles = useStaffQrStyles(baseStyles, staffAppearance);
   const qrRef = useRef<{ toDataURL: (callback: (data: string) => void) => void } | null>(null);
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState('Working…');
@@ -244,7 +248,7 @@ function PreviewModal({ credential, school, academicYear, onClose, onRegenerated
 
             <View style={styles.actionGrid}>
               <Pressable disabled={busy} style={styles.secondaryButton} onPress={() => { void downloadPng(); }}>
-                <Ionicons name="image-outline" size={18} color="#5B21B6" />
+                <Ionicons name="image-outline" size={18} color={styles.primaryAction.backgroundColor} />
                 <View style={styles.actionCopy}>
                   <Text style={styles.secondaryButtonText}>Save QR image</Text>
                   <Text style={styles.secondaryButtonHint}>PNG for WhatsApp or files</Text>
@@ -255,7 +259,7 @@ function PreviewModal({ credential, school, academicYear, onClose, onRegenerated
                 style={styles.secondaryButton}
                 onPress={() => { void run('Opening print dialog…', async () => { await printStudentQrPdf(printOptions, true); await audit('print'); }); }}
               >
-                <Ionicons name="print-outline" size={18} color="#5B21B6" />
+                <Ionicons name="print-outline" size={18} color={styles.primaryAction.backgroundColor} />
                 <View style={styles.actionCopy}>
                   <Text style={styles.secondaryButtonText}>Print now</Text>
                   <Text style={styles.secondaryButtonHint}>Opens the printer dialog</Text>
@@ -280,7 +284,7 @@ function PreviewModal({ credential, school, academicYear, onClose, onRegenerated
           </View> : null}
           {busy ? (
             <View style={styles.busyOverlay}>
-              <ActivityIndicator size="large" color="#7C3AED" />
+              <ActivityIndicator size="large" color={styles.primaryAction.backgroundColor} />
               <Text style={styles.busyLabel}>{busyLabel}</Text>
             </View>
           ) : null}
@@ -290,8 +294,9 @@ function PreviewModal({ credential, school, academicYear, onClose, onRegenerated
   );
 }
 
-export default function StudentQrManagementScreen() {
-  useRequireRole('admin', 'principal', 'accountant', 'accounts');
+export default function StudentQrManagementScreen({ embedded = false }: { embedded?: boolean }) {
+  const styles = useStaffQrStyles(baseStyles, embedded);
+  useRequireRole('admin', 'principal', 'accountant', 'accounts', 'librarian');
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const { role } = useAuth();
@@ -368,7 +373,7 @@ export default function StudentQrManagementScreen() {
   const canPrintSheet = selected.size > 0 || Boolean(classId && sectionId);
   const brandedSchool = useMemo(() => brandedLoginQrSchool(metadata?.school || null), [metadata]);
 
-  const toggle = (id: string) => setSelected((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  const toggle = (id: string) => setSelected((current) => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   const selectAll = () => setSelected(allSelected ? new Set() : new Set(selectable.map((student) => student.id)));
 
   const storeIssued = (credentials: IssuedLoginQr[]) => setIssued((current) => {
@@ -496,6 +501,10 @@ export default function StudentQrManagementScreen() {
   };
 
   const configureLogin = (student: LoginQrStudent) => {
+    if (role === 'librarian') {
+      alertCompat('Login setup needed', 'Ask an administrator or the Accounts department to configure this student login.');
+      return;
+    }
     const accountsPortal = role === 'accountant' || role === 'accounts';
     router.push({ pathname: accountsPortal ? '/accounts/addStudent' : '/admin/addStudent', params: { id: student.id } } as never);
   };
@@ -513,11 +522,11 @@ export default function StudentQrManagementScreen() {
     />
   );
 
-  if (!metadata && loading) return <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>{!accountsShell ? pageHeader : null}<View style={styles.center}><ActivityIndicator size="large" color="#7C3AED" /><Text style={styles.muted}>Loading secure QR workspace…</Text></View></View>;
+  if (!metadata && loading) return <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>{!accountsShell && !embedded ? pageHeader : null}<View style={styles.center}><ActivityIndicator size="large" color={styles.primaryAction.backgroundColor} /><Text style={styles.muted}>Loading secure QR workspace…</Text></View></View>;
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
-      {!accountsShell ? pageHeader : null}
+      {!accountsShell && !embedded ? pageHeader : null}
       <FlatList
         data={students}
         keyExtractor={(item) => item.id}
@@ -534,22 +543,22 @@ export default function StudentQrManagementScreen() {
           <View style={[styles.filters, isWide && styles.filtersWide, isDark && styles.darkCard]}>
             <View style={styles.searchBox}><Ionicons name="search" size={18} color="#64748B" /><TextInput value={search} onChangeText={setSearch} placeholder="Search name, admission no, or login" placeholderTextColor="#94A3B8" style={styles.searchInput} autoCapitalize="none" /></View>
             <View style={styles.filterRow}>
-              <FilterPicker label="Academic Year" value={academicYearId} options={(metadata?.academicYears || []).map((year) => ({ value: year.id, label: year.code }))} onChange={(value) => { setAcademicYearId(value); setClassId(''); setSectionId(''); }} />
-              <FilterPicker label="Class" value={classId} options={classOptions} onChange={(value) => { setClassId(value); setSectionId(''); }} />
-              <FilterPicker label="Section" value={sectionId} options={sectionOptions} onChange={setSectionId} />
+              <FilterPicker staffAppearance={embedded} label="Academic Year" value={academicYearId} options={(metadata?.academicYears || []).map((year) => ({ value: year.id, label: year.code }))} onChange={(value) => { setAcademicYearId(value); setClassId(''); setSectionId(''); }} />
+              <FilterPicker staffAppearance={embedded} label="Class" value={classId} options={classOptions} onChange={(value) => { setClassId(value); setSectionId(''); }} />
+              <FilterPicker staffAppearance={embedded} label="Section" value={sectionId} options={sectionOptions} onChange={setSectionId} />
               <View style={styles.statusFilterChip}><View style={styles.activeDot} /><Text style={styles.statusFilterText}>Active students only</Text></View>
             </View>
           </View>
           <View style={styles.toolbar}>
-            <Pressable style={styles.selectAllButton} onPress={selectAll}><Ionicons name={allSelected ? 'checkbox' : 'square-outline'} size={21} color="#6D28D9" /><Text style={styles.selectAllText}>Select this page ({selectable.length})</Text></Pressable>
-            {total > students.length ? <Pressable style={styles.selectAllButton} onPress={() => { void selectAllMatching(); }}><Ionicons name="checkmark-done-outline" size={21} color="#6D28D9" /><Text style={styles.selectAllText}>Select every match ({total})</Text></Pressable> : null}
+            <Pressable style={styles.selectAllButton} onPress={selectAll}><Ionicons name={allSelected ? 'checkbox' : 'square-outline'} size={21} color={styles.primaryAction.backgroundColor} /><Text style={styles.selectAllText}>Select this page ({selectable.length})</Text></Pressable>
+            {total > students.length ? <Pressable style={styles.selectAllButton} onPress={() => { void selectAllMatching(); }}><Ionicons name="checkmark-done-outline" size={21} color={styles.primaryAction.backgroundColor} /><Text style={styles.selectAllText}>Select every match ({total})</Text></Pressable> : null}
             <Text style={styles.selectedCount}>{selected.size ? `${selected.size} selected` : `${total} students`}</Text>
             <View style={styles.toolbarActions}>
               <Pressable disabled={working} onPress={() => { void loadStudents(page); }} style={styles.iconToolbarButton} accessibilityLabel="Refresh student list">
-                <Ionicons name="refresh-outline" size={18} color="#6D28D9" />
+                <Ionicons name="refresh-outline" size={18} color={styles.primaryAction.backgroundColor} />
               </Pressable>
               <Pressable disabled={working || !canPrintSheet} onPress={() => { void bulkGenerate(); }} style={[styles.outlineButton, !canPrintSheet && styles.disabledAction]}>
-                <Ionicons name="qr-code-outline" size={17} color="#6D28D9" />
+                <Ionicons name="qr-code-outline" size={17} color={styles.primaryAction.backgroundColor} />
                 <Text style={styles.outlineButtonText}>{selected.size ? `Issue selected (${selected.size})` : classId && sectionId ? 'Issue this class' : 'Issue QR codes'}</Text>
               </Pressable>
               <Pressable disabled={working || !canPrintSheet} onPress={downloadA4} style={[styles.primaryAction, !canPrintSheet && styles.disabledAction]}>
@@ -566,7 +575,7 @@ export default function StudentQrManagementScreen() {
                 : 'Select students, or choose both class and section, to print an A4 sheet of QR cards.'}
           </Text>
           {error ? <View style={styles.errorBanner}><Ionicons name="alert-circle" size={18} color="#B91C1C" /><Text style={styles.errorBannerText}>{error}</Text><Pressable onPress={() => { void loadStudents(page); }}><Text style={styles.retryText}>Retry</Text></Pressable></View> : null}
-          {working ? <View style={styles.workingBanner}><ActivityIndicator size="small" color="#6D28D9" /><Text style={styles.workingText}>Preparing login QR cards…</Text></View> : null}
+          {working ? <View style={styles.workingBanner}><ActivityIndicator size="small" color={styles.primaryAction.backgroundColor} /><Text style={styles.workingText}>Preparing login QR cards…</Text></View> : null}
           {isWide ? <View style={styles.tableHeader}><Text style={[styles.headerCell, { width: 54 }]}>SELECT</Text><Text style={[styles.headerCell, { flex: 2 }]}>STUDENT</Text><Text style={[styles.headerCell, { flex: 1 }]}>CLASS</Text><Text style={[styles.headerCell, { flex: 1.5 }]}>STATUS</Text><Text style={[styles.headerCell, { width: 116 }]}>ACTION</Text></View> : null}
         </>}
         renderItem={({ item }) => {
@@ -574,19 +583,19 @@ export default function StudentQrManagementScreen() {
           const status = loginQrStatus(item, issued);
           const opening = openingId === item.id;
           return <View style={[styles.studentRow, !isWide && styles.studentCard, isDark && styles.darkCard]}>
-            <Pressable disabled={!item.login_configured} onPress={() => toggle(item.id)} style={styles.checkboxCell}><Ionicons name={checked ? 'checkbox' : 'square-outline'} size={23} color={item.login_configured ? '#6D28D9' : '#CBD5E1'} /></Pressable>
+            <Pressable disabled={!item.login_configured} onPress={() => toggle(item.id)} style={styles.checkboxCell}><Ionicons name={checked ? 'checkbox' : 'square-outline'} size={23} color={item.login_configured ? styles.primaryAction.backgroundColor : '#CBD5E1'} /></Pressable>
             <View style={styles.studentMain}><View style={styles.avatar}><Text style={styles.avatarText}>{item.name.slice(0, 1).toUpperCase()}</Text></View><View style={{ flex: 1 }}><Text numberOfLines={2} style={[styles.studentName, isDark && styles.darkText]}>{item.name}</Text><Text style={styles.studentSub}>Adm. {item.admission_no}{item.login_email ? ` · ${item.login_email}` : ''}</Text></View></View>
             <Text style={[styles.classCell, !isWide && styles.mobileMeta]}>Class {item.class_name} - {item.section_name}</Text>
             <View style={[styles.statusCell, status.tone === 'ready' ? styles.readyStatus : status.tone === 'idle' ? styles.idleStatus : styles.missingStatus]}>
-              <View style={[styles.statusDot, { backgroundColor: status.tone === 'ready' ? '#16A34A' : status.tone === 'idle' ? '#7C3AED' : '#D97706' }]} />
-              <Text style={[styles.statusText, { color: status.tone === 'ready' ? '#166534' : status.tone === 'idle' ? '#5B21B6' : '#92400E' }]}>{status.label}</Text>
+              <View style={[styles.statusDot, { backgroundColor: status.tone === 'ready' ? '#16A34A' : status.tone === 'idle' ? styles.primaryAction.backgroundColor : '#D97706' }]} />
+              <Text style={[styles.statusText, { color: status.tone === 'ready' ? '#166534' : status.tone === 'idle' ? styles.primaryAction.backgroundColor : '#92400E' }]}>{status.label}</Text>
             </View>
             <Pressable
               disabled={opening}
               style={[styles.rowAction, !item.login_configured && styles.configureAction]}
               onPress={() => item.login_configured ? generateOne(item) : configureLogin(item)}
             >
-              {opening ? <ActivityIndicator size="small" color="#6D28D9" /> : <Ionicons name={item.login_configured ? (status.tone === 'ready' ? 'eye-outline' : 'qr-code-outline') : 'key-outline'} size={16} color={item.login_configured ? '#6D28D9' : '#92400E'} />}
+              {opening ? <ActivityIndicator size="small" color={styles.primaryAction.backgroundColor} /> : <Ionicons name={item.login_configured ? (status.tone === 'ready' ? 'eye-outline' : 'qr-code-outline') : 'key-outline'} size={16} color={item.login_configured ? styles.primaryAction.backgroundColor : '#92400E'} />}
               <Text style={[styles.rowActionText, !item.login_configured && { color: '#92400E' }]}>
                 {item.login_configured ? (opening ? 'Opening' : status.tone === 'ready' ? 'View QR' : 'Create QR') : 'Set up login'}
               </Text>
@@ -594,7 +603,7 @@ export default function StudentQrManagementScreen() {
           </View>;
         }}
         ListEmptyComponent={!loading ? <View style={styles.empty}><Ionicons name="people-outline" size={42} color="#94A3B8" /><Text style={[styles.emptyTitle, isDark && styles.darkText]}>No active students found</Text><Text style={styles.muted}>Try another class, section, academic year, or search.</Text></View> : null}
-        ListFooterComponent={loading ? <View style={styles.center}><ActivityIndicator color="#7C3AED" /><Text style={styles.muted}>Loading students…</Text></View> : <View style={styles.pagination}>
+        ListFooterComponent={loading ? <View style={styles.center}><ActivityIndicator color={styles.primaryAction.backgroundColor} /><Text style={styles.muted}>Loading students…</Text></View> : <View style={styles.pagination}>
           <Text style={styles.footerNote}>{total} active students · page {page} of {totalPages} · {academicYearLabel}</Text>
           {totalPages > 1 ? <View style={styles.pagerRow}>
             <Pressable disabled={page <= 1 || working} onPress={() => { void loadStudents(page - 1); }} style={[styles.pagerButton, page <= 1 && styles.pagerDisabled]}><Text style={styles.pagerText}>Previous</Text></Pressable>
@@ -602,12 +611,12 @@ export default function StudentQrManagementScreen() {
           </View> : null}
         </View>}
       />
-      <PreviewModal credential={preview} school={brandedSchool} academicYear={academicYearLabel} onClose={() => setPreview(null)} onRegenerated={(next) => { storeIssued([next]); setPreview(next); void loadStudents(page); }} />
+      <PreviewModal staffAppearance={embedded} credential={preview} school={brandedSchool} academicYear={academicYearLabel} onClose={() => setPreview(null)} onRegenerated={(next) => { storeIssued([next]); setPreview(next); void loadStudents(page); }} />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   screen: { flex: 1 }, content: { padding: 18, paddingBottom: 44, maxWidth: 1180, width: '100%', alignSelf: 'center' }, center: { minHeight: 180, alignItems: 'center', justifyContent: 'center', gap: 12 }, muted: { color: '#64748B', fontSize: 13, textAlign: 'center' }, darkText: { color: '#F8FAFC' }, darkCard: { backgroundColor: '#121827', borderColor: '#263044' },
   hero: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 22, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 14 }, heroIcon: { width: 54, height: 54, borderRadius: 17, backgroundColor: '#6D28D9', alignItems: 'center', justifyContent: 'center' }, heroTitle: { color: '#0F172A', fontSize: 19, fontWeight: '800' }, heroCopy: { color: '#64748B', fontSize: 13, lineHeight: 19, marginTop: 3 }, securityBadge: { flexDirection: 'row', gap: 5, alignItems: 'center', backgroundColor: '#DCFCE7', borderRadius: 99, paddingHorizontal: 10, paddingVertical: 7 }, securityBadgeText: { color: '#166534', fontSize: 9, fontWeight: '900', letterSpacing: .7 },
   filters: { borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#FFFFFF', borderRadius: 18, padding: 14, marginBottom: 14 }, filtersWide: { flexDirection: 'row', alignItems: 'center', gap: 12 }, searchBox: { flex: 1.3, minWidth: 220, height: 48, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#CBD5E1', backgroundColor: '#FFFFFF', borderRadius: 12, paddingHorizontal: 13 }, searchInput: { flex: 1, color: '#0F172A', fontSize: 14, outlineStyle: 'none' } as never, filterRow: { flex: 2, flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 10 }, filterField: { minWidth: 128, flex: 1, borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC', borderRadius: 11, paddingHorizontal: 11, paddingVertical: 7 }, filterLabel: { color: '#64748B', fontSize: 9, fontWeight: '800', letterSpacing: .5, textTransform: 'uppercase' }, filterValueRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }, filterValue: { flex: 1, color: '#1E293B', fontWeight: '700', fontSize: 12 }, activeDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#22C55E' },

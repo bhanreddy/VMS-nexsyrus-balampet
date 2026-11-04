@@ -5,15 +5,11 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   RefreshControl,
   StatusBar,
   TouchableOpacity,
-  Platform,
-  AppState,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { isTelugu } from '../../src/utils/lang';
@@ -38,6 +34,7 @@ import LogoLoader from '../../src/components/LogoLoader';
 import { BusAttendanceService } from '../../src/services/busAttendanceService';
 import LiveBusMap, { LiveStop } from '../../src/components/LiveBusMap';
 import LiveRouteTracker from '../../src/components/LiveRouteTracker';
+import { fixAgeSeconds, hasMapCoordinate } from '../../src/services/transportMapModel';
 import {
   interpolateRouteCoordinate,
   isFixFromCurrentTrip,
@@ -110,6 +107,7 @@ type LivePayload = {
     longitude: number;
     speed: number | null;
     heading: number | null;
+    accuracy?: number | null;
     recorded_at: string;
     age_seconds: number | null;
     is_fresh: boolean;
@@ -215,11 +213,9 @@ export default function StudentBusTrackerScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [attendanceHistory, setAttendanceHistory] = useState<any[]>([]);
   const [live, setLive] = useState<LivePayload | null>(null);
-  const [mapOpen, setMapOpen] = useState(Platform.OS !== 'web');
+  const [mapOpen, setMapOpen] = useState(true);
   const [nowMs, setNowMs] = useState(Date.now());
   const [smoothEta, setSmoothEta] = useState<number | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const livePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pendingHighEtaRef = useRef<number | null>(null);
   const simulationStartedAtRef = useRef(0);
   const simulationClockRef = useRef(0);
@@ -268,9 +264,10 @@ export default function StudentBusTrackerScreen() {
     }
   }, []);
 
-  useTransportPolling(async () => { await load(true); await loadLive(); }, 10000);
+  useTransportPolling(() => load(true), 10000);
+  useTransportPolling(loadLive, 3000);
 
-  // Keep the freshness label accurate between 10-second live-location polls.
+  // Age observations between live polls; never keep a stale fix looking live.
   useEffect(() => {
     const activeUi = data?.trip?.ui_status || data?.trip?.status;
     if (!tripStatusIsActive(activeUi)) return;
@@ -281,7 +278,7 @@ export default function StudentBusTrackerScreen() {
   // ETA smoothing: a trustworthy ETA drops immediately (good news) but only
   // rises when the higher reading persists across two polls — no jitter.
   useEffect(() => {
-    if (!isFixFromCurrentTrip(live?.location?.recorded_at, data?.trip?.started_at)) {
+    if (live?.trip?.id !== data?.trip?.id || !isFixFromCurrentTrip(live?.location?.recorded_at, data?.trip?.started_at)) {
       setSmoothEta(null);
       pendingHighEtaRef.current = null;
       return;
@@ -290,11 +287,11 @@ export default function StudentBusTrackerScreen() {
     if (e == null) { setSmoothEta(null); pendingHighEtaRef.current = null; return; }
     setSmoothEta((prev) => {
       if (prev == null || e <= prev) { pendingHighEtaRef.current = null; return e; }
-      if (pendingHighEtaRef.current != null) { pendingHighEtaRef.current = null; return e; }
+      if (pendingHighEtaRef.current != null && e >= pendingHighEtaRef.current) { pendingHighEtaRef.current = null; return e; }
       pendingHighEtaRef.current = e;
       return prev;
     });
-  }, [data?.trip?.started_at, live?.eta_minutes, live?.location?.recorded_at]);
+  }, [data?.trip?.id, data?.trip?.started_at, live?.trip?.id, live?.eta_minutes, live?.location?.recorded_at]);
 
   useEffect(() => {
     setSimulationRunning(false);
@@ -336,6 +333,7 @@ export default function StudentBusTrackerScreen() {
     }
     simulationStartedAtRef.current =
       Date.now() - (startProgress / simulationEnd) * simulationDurationMs;
+    setMapOpen(false);
     setSimulationProgress(startProgress);
     setSimulationRunning(true);
   }, [
@@ -435,13 +433,11 @@ export default function StudentBusTrackerScreen() {
     rawLoc?.recorded_at,
     data.trip?.started_at,
   );
-  const loc = locBelongsToCurrentTrip ? rawLoc : null;
+  const loc = locBelongsToCurrentTrip && liveData?.trip?.id === data.trip?.id && hasMapCoordinate(rawLoc) ? rawLoc : null;
   // Freshness recomputed locally against the 1s clock so it feels real-time
   // between the 10s polls, instead of only updating when the server answers.
-  const locAgeSec = loc?.recorded_at
-    ? Math.max(0, Math.round((nowMs - new Date(loc.recorded_at).getTime()) / 1000))
-    : null;
-  const locFresh = locAgeSec != null && locAgeSec <= 120;
+  const locAgeSec = fixAgeSeconds(loc?.recorded_at, nowMs);
+  const locFresh = isLive && !!loc?.is_fresh && locAgeSec != null && locAgeSec <= 30;
   // Bridge the small gaps between real GPS packets. Projection is deliberately
   // capped to 12 seconds/250m, then the next driver fix corrects the marker.
   const simulatedPosition = loc
@@ -526,7 +522,7 @@ export default function StudentBusTrackerScreen() {
     }))
     : baseTrackerStops;
   const trackerBusPosition = showLive ? simulatedPosition : simulationBusPosition;
-  const usingStreetMap = mapOpen && showLive && Platform.OS !== 'web';
+  const usingStreetMap = mapOpen;
 
   return (
     <ScreenLayout>
@@ -630,7 +626,7 @@ export default function StudentBusTrackerScreen() {
                 </Text>
               </TouchableOpacity>
 
-              {Platform.OS !== 'web' && showLive && (
+              {(
                 <TouchableOpacity
                   style={[s.mapModeButton, usingStreetMap && s.mapModeButtonActive]}
                   activeOpacity={0.75}
@@ -644,15 +640,15 @@ export default function StudentBusTrackerScreen() {
               )}
             </View>
 
-            {/* Native gets a real follow-camera map; web and route mode use the
-                lightweight 60fps tracker. Both receive the same simulated fix. */}
+            {/* The same street map is available on web and native. */}
             {usingStreetMap ? (
               <Animated.View entering={FadeIn.duration(220)}>
                 <LiveBusMap
-                  stops={trackerStops}
-                  busLocation={simulatedPosition}
+                  stops={baseTrackerStops}
+                  busLocation={showLive && loc ? { latitude: loc.latitude, longitude: loc.longitude } : null}
                   heading={loc?.heading}
                   speed={loc?.speed}
+                  accuracy={loc?.accuracy}
                   isFresh={locFresh}
                   boardingStopId={liveData?.boarding_stop_id || boardingStopId}
                   height={310}
@@ -683,7 +679,7 @@ export default function StudentBusTrackerScreen() {
                   <View>
                     <Text style={s.mapStatLabel}>{t('busTracker.speed')}</Text>
                     <Text style={[s.mapStatValue, isDark && { color: theme.colors.textPrimary }]}>
-                      {loc?.speed != null ? `${Math.max(0, Math.round(loc.speed))} km/h` : '—'}
+                      {locFresh && loc?.speed != null ? `${Math.max(0, Math.round(loc.speed))} km/h` : '—'}
                     </Text>
                   </View>
                 </View>

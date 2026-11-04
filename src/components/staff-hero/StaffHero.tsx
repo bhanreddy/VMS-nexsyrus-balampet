@@ -1,3 +1,4 @@
+import { useFlatSurface } from '../../contexts/SurfaceAppearanceContext';
 import React, { useCallback, useRef, useState } from 'react';
 import {
   Pressable,
@@ -24,13 +25,14 @@ const NAVY = ['#15245C', '#1B2F78', '#243A86'] as const;
 const RING = '#F5C518';
 
 export interface StaffHeroProps {
+  welcomeText?: string;
   firstName: string;
   roleLine: string;
   chipLabel?: string | null;
   photoUrl?: string | null;
   pendingLeaves?: number;
   unreadUpdates?: number;
-  slides: Array<HeroSlideItem | CelebrationSlideItem>;
+  slides: (HeroSlideItem | CelebrationSlideItem)[];
   stories: SchoolStoryAuthor[];
   canAddStories?: boolean;
   addPhotoUrl?: string | null;
@@ -43,6 +45,7 @@ export interface StaffHeroProps {
 }
 
 export default function StaffHero({
+  welcomeText = 'Where Teachers Shape Tomorrow',
   firstName,
   roleLine,
   chipLabel,
@@ -60,6 +63,7 @@ export default function StaffHero({
   onPublished,
   onAccountSwitched,
 }: StaffHeroProps) {
+  const flat = useFlatSurface();
   const lastTapRef = useRef(0);
   const longPressTriggeredRef = useRef(false);
   const [busyUserId, setBusyUserId] = useState<string | null>(null);
@@ -123,7 +127,7 @@ export default function StaffHero({
 
   return (
     <Animated.View entering={FadeInDown.duration(420)} style={styles.root}>
-      <LinearGradient colors={[...NAVY]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.panel}>
+      <LinearGradient colors={flat ? ['#292354', '#493781', '#315E87'] : [...NAVY]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.panel}>
         <View style={styles.orbOne} pointerEvents="none" />
         <View style={styles.orbTwo} pointerEvents="none" />
 
@@ -164,7 +168,7 @@ export default function StaffHero({
           </Pressable>
         </View>
 
-        <Text style={styles.welcome} numberOfLines={1}>Where Teachers Shape Tomorrow</Text>
+        <Text style={styles.welcome} numberOfLines={1}>{welcomeText}</Text>
 
         <Pressable
           onPress={() => {

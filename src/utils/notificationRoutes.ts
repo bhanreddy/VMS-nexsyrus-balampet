@@ -16,7 +16,8 @@ export type NotificationPortal =
   | 'accounts'
   | 'driver'
   | 'gatekeeper'
-  | 'applicant';
+  | 'applicant'
+  | 'library';
 
 export type ResolvedNotificationRoute = {
   pathname: string;
@@ -31,6 +32,7 @@ const HOME: Record<NotificationPortal, string> = {
   driver: '/driver/dashboard',
   gatekeeper: '/gatekeeper/dashboard',
   applicant: '/admission/dashboard',
+  library: '/library/dashboard',
 };
 
 const LEGACY_PATHS: Record<string, string> = {
@@ -72,6 +74,7 @@ const SCREENS = {
   complaints: {
     parent: '/Screen/complaints',
     staff: '/staff/complaints',
+    library: '/library/complaints',
     admin: '/admin/complaints',
   } satisfies PortalRoutes,
   lms: {
@@ -424,6 +427,7 @@ export const ALL_NOTIFICATION_PORTALS: NotificationPortal[] = [
   'driver',
   'gatekeeper',
   'applicant',
+  'library',
 ];
 
 export function notificationPortalForRole(role: string | null | undefined): NotificationPortal {
@@ -432,6 +436,7 @@ export function notificationPortalForRole(role: string | null | undefined): Noti
   if (code === 'staff' || code === 'teacher') return 'staff';
   if (code === 'accountant' || code === 'accounts') return 'accounts';
   if (code === 'driver') return 'driver';
+  if (code === 'librarian') return 'library';
   if (code === 'gate_keeper' || code === 'gatekeeper') return 'gatekeeper';
   if (code === 'applicant') return 'applicant';
   return 'parent';
@@ -492,6 +497,7 @@ function belongsToPortal(pathname: string, portal: NotificationPortal): boolean 
   if (pathname.startsWith('/staff/')) return portal === 'staff';
   if (pathname.startsWith('/admin/')) return portal === 'admin';
   if (pathname.startsWith('/accounts/')) return portal === 'accounts';
+  if (pathname.startsWith('/library/')) return portal === 'library';
   if (pathname.startsWith('/driver/')) return portal === 'driver';
   if (pathname.startsWith('/gatekeeper/')) return portal === 'gatekeeper';
   if (pathname.startsWith('/admission/')) return portal === 'applicant' || portal === 'parent';

@@ -295,3 +295,42 @@ test('checked-in account configs cover each school once with unique pinned ident
   for (const field of ['key', 'folder', 'repo']) assert.equal(new Set(all.map(s => s[field])).size, all.length);
   for (const field of ['projectId', 'androidPackage', 'schoolId']) assert.equal(new Set(all.map(s => s.expected[field])).size, all.length);
 });
+test('Git-only pushes school files without EAS, npm or prebuild and resume remains Git-only', t => {
+  const f = fixture(t);
+  const before = run('git', ['-C', f.source, 'status', '--porcelain']);
+  fs.rmSync(path.join(f.source, 'node_modules'), { recursive: true, force: true });
+  // Any attempted npm invocation fails; Expo/EAS executables do not exist.
+  write(path.join(f.root, 'bin', 'npm'), '#!/usr/bin/env node\nprocess.exit(99);\n', true);
+  const result = spawnSync(process.execPath, [runner, '--config', f.configFile, '--account', 'group', '--git-only', '--execute'],
+    { env: { ...f.env, RELEASE_TEST_TOKEN: '' }, encoding: 'utf8' });
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  assert.match(result.stdout, /All selected schools pushed/);
+  const dir = path.join(f.root, 'runs', fs.readdirSync(path.join(f.root, 'runs'))[0]);
+  const state = JSON.parse(fs.readFileSync(path.join(dir, 'state.json')));
+  assert.equal(state.mode, 'git-only');
+  assert.equal(state.progress.test.phase, 'pushed');
+  assert.equal(run('git', ['--git-dir', f.remote, 'show', 'main:common.txt']), 'dirty latest code');
+  assert.equal(run('git', ['--git-dir', f.remote, 'show', 'main:src/constants/schoolConfig.ts']), 'export const school = 7;');
+  assert.equal(run('git', ['-C', f.source, 'status', '--porcelain']), before);
+  const work = state.progress.test.work;
+  assert.equal(fs.existsSync(path.join(work, 'node_modules')), false);
+  assert.equal(fs.existsSync(path.join(work, 'android')), false);
+  assert.equal(fs.existsSync(f.env.MOCK_BUILD_CALLS), false);
+  assert.equal(fs.existsSync(path.join(dir, 'test.build.json')), false);
+  const commit = run('git', ['--git-dir', f.remote, 'rev-parse', 'main']);
+  const resumed = run(process.execPath, [runner, '--resume', dir, '--execute'], { env: f.env });
+  assert.match(resumed, /already pushed/);
+  assert.equal(run('git', ['--git-dir', f.remote, 'rev-parse', 'main']), commit);
+  assert.equal(fs.existsSync(f.env.MOCK_BUILD_CALLS), false);
+});
+test('a frozen build run cannot be resumed as Git-only', t => {
+  const f = fixture(t);
+  const failed = spawnSync(process.execPath, [runner, '--config', f.configFile, '--execute'],
+    { env: { ...f.env, RELEASE_TEST_TOKEN: 'bad-token' }, encoding: 'utf8' });
+  assert.equal(failed.status, 1);
+  const dir = path.join(f.root, 'runs', fs.readdirSync(path.join(f.root, 'runs'))[0]);
+  const refused = spawnSync(process.execPath, [runner, '--resume', dir, '--git-only', '--execute'], { env: f.env, encoding: 'utf8' });
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /Cannot change an existing build run to Git-only/);
+  assert.equal(fs.existsSync(f.env.MOCK_BUILD_CALLS), false);
+});

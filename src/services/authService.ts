@@ -721,11 +721,6 @@ async function doSwitchAccount(
       : null;
   const previousLiveSession = live.data.session;
 
-  // Keep the account we're leaving in sync with the live client's latest tokens.
-  if (previousActive && previousLiveSession?.refresh_token) {
-    await snapshotLiveAccountToVault(previousActive, previousLiveSession);
-  }
-
   const { accessToken, refreshToken, needsRecovery } = await resolveTargetSessionTokens(
     target,
     userId
@@ -733,6 +728,11 @@ async function doSwitchAccount(
 
   beginInternalSwap();
   try {
+    // Preserve outgoing tokens before changing the live client, while allowing
+    // the independent school authorization request to run during this disk write.
+    const snapshot = previousActive && previousLiveSession?.refresh_token
+      ? snapshotLiveAccountToVault(previousActive, previousLiveSession)
+      : Promise.resolve();
     let liveSession: Session | null = null;
     let validatedUser: ValidatedUser | undefined;
     let setSessionError: string | undefined;
@@ -743,10 +743,10 @@ async function doSwitchAccount(
       // its SDK lock, and excludes the outgoing account's portal context.
       // Settle both requests before rollback or the next serialized switch.
       const [established, validation] = await Promise.allSettled([
-        supabase.auth.setSession({
+        snapshot.then(() => supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
-        }),
+        })),
         validateUserForAccountSwitch(accessToken),
       ]);
       if (established.status === 'rejected') throw established.reason;
@@ -766,6 +766,7 @@ async function doSwitchAccount(
     // Refresh dead or setSession rejected → rebuild from the saved password
     // or school QR credential, depending on how this account was added.
     if (!liveSession) {
+      await snapshot;
       const recovered = await recoverSessionWithSavedCredential(vaultAccountAsPrior(target));
       if (recovered.session) {
         liveSession = recovered.session;
@@ -842,13 +843,13 @@ async function finalizeSwitchedSession(
       : Date.now() + 3600000,
   };
 
-  await setSecureItem(STORAGE_KEY, JSON.stringify(newActive));
-
-  try {
-    await syncVaultFromAuthSession(newActive);
-  } catch {
-    /* best-effort */
-  }
+  // These write different storage keys. Settle both before committing the
+  // pointer (or rolling back), so a slow vault write cannot outlive this swap.
+  const [persisted] = await Promise.allSettled([
+    setSecureItem(STORAGE_KEY, JSON.stringify(newActive)),
+    syncVaultFromAuthSession(newActive), // best-effort, as on refresh
+  ]);
+  if (persisted.status === 'rejected') throw persisted.reason;
   await accountVault.setActiveAccountId(target.userId);
 
   return { session: newActive };

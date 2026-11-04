@@ -1,12 +1,8 @@
 /**
  * LiveRouteTracker — realtime schematic bus tracker.
  *
- * Deliberately does NOT use MapLibre: that wrapper is a stub on web
- * (MapWrapper.web.tsx), so a map-based tracker can't look live on the web
- * build. This renders the route + a gliding bus with plain react-native-svg
- * (route line + stops, drawn once) plus Reanimated overlay views for the bus
- * marker and pulse — the motion runs on the UI thread, so it holds 60fps on
- * low-end Android and works identically on web and native.
+ * A schematic alternative to the street map, with UI-thread marker animation.
+ * It depicts stop order and journey progress; the background is not geography.
  *
  * Path priority:
  *   1. Real stop lat/lng (geographic projection)
@@ -19,16 +15,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { hasMapCoordinate } from '../services/transportMapModel';
 import Svg, {
   Circle,
-  Defs,
   G,
-  LinearGradient as SvgLinearGradient,
   Line,
-  Path,
   Polyline,
   Rect,
-  Stop,
   Text as SvgText,
 } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
@@ -155,7 +148,7 @@ export default function LiveRouteTracker({
   const [w, setW] = useState(0);
 
   const coordStops = useMemo(
-    () => stops.filter((s) => s.latitude != null && s.longitude != null),
+    () => stops.filter(hasMapCoordinate),
     [stops],
   );
 
@@ -213,29 +206,9 @@ export default function LiveRouteTracker({
 
   const points = geoPoints.length >= 2 ? geoPoints : schematicPoints;
   const usingSchematic = geoPoints.length < 2 && schematicPoints.length > 0;
-  const mapBlocks = useMemo(() => {
-    if (w <= 0) return [];
-    const blocks: { x: number; y: number; width: number; height: number; tone: string }[] = [];
-    const columns = Math.max(4, Math.ceil(w / 74));
-    const rows = Math.max(3, Math.ceil(height / 68));
-    const tones = ['#E1E7E2', '#E6EAE5', '#DDE5DF'];
-    for (let row = 0; row < rows; row += 1) {
-      for (let column = 0; column < columns; column += 1) {
-        const seed = row * columns + column;
-        blocks.push({
-          x: 13 + column * 74 + (row % 2) * 9,
-          y: 14 + row * 68 + (column % 2) * 7,
-          width: 27 + (seed % 3) * 7,
-          height: 15 + (seed % 2) * 8,
-          tone: tones[seed % tones.length],
-        });
-      }
-    }
-    return blocks;
-  }, [height, w]);
-
   // Where to draw the bus: real GPS on geo path, else journey progress on schematic.
   const busTarget = useMemo(() => {
+    if (mode === 'live' && !bus) return null;
     if (project && geoPoints.length >= 1) {
       if (bus) {
         return {
@@ -280,6 +253,7 @@ export default function LiveRouteTracker({
     }
     return { x: at.px, y: at.py, heading: null };
   }, [
+    mode,
     project,
     geoPoints.length,
     bus,
@@ -336,13 +310,14 @@ export default function LiveRouteTracker({
 
   // ── Pulse (UI thread, only while fresh) ──
   const pulse = useSharedValue(1);
+  const hasBusTarget = busTarget != null;
   useEffect(() => {
-    if (isFresh) {
+    if (isFresh && hasBusTarget) {
       pulse.value = withRepeat(withTiming(2.4, { duration: 1600, easing: Easing.out(Easing.ease) }), -1, false);
     } else {
       pulse.value = withTiming(1);
     }
-  }, [isFresh, pulse]);
+  }, [isFresh, hasBusTarget, pulse]);
 
   const busWrapStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: bx.value - BUS / 2 }, { translateY: by.value - BUS / 2 }],
@@ -388,66 +363,7 @@ export default function LiveRouteTracker({
     >
       {showPath ? (
         <>
-          {/* Lightweight vector basemap: streets, blocks, park and water give
-              route context without requiring a tile provider on web. */}
-          <Svg width={w} height={height} style={StyleSheet.absoluteFill}>
-            <Defs>
-              <SvgLinearGradient id="tracker-map-wash" x1="0" y1="0" x2="1" y2="1">
-                <Stop offset="0" stopColor="#F8FAF8" />
-                <Stop offset="1" stopColor={MAP_BG} />
-              </SvgLinearGradient>
-            </Defs>
-            <Rect x={0} y={0} width={w} height={height} fill="url(#tracker-map-wash)" />
-            <Path
-              d={`M ${w * 0.72} -10 C ${w * 0.65} ${height * 0.25}, ${w * 0.92} ${height * 0.55}, ${w * 0.82} ${height + 10} L ${w + 10} ${height + 10} L ${w + 10} -10 Z`}
-              fill="#DCEFF2"
-              opacity={0.8}
-            />
-            <Rect
-              x={w * 0.56}
-              y={height * 0.09}
-              width={Math.max(48, w * 0.2)}
-              height={Math.max(38, height * 0.2)}
-              rx={12}
-              fill="#DCEBDD"
-            />
-            {mapBlocks.map((block, index) => (
-              <Rect
-                key={`block-${index}`}
-                x={block.x}
-                y={block.y}
-                width={block.width}
-                height={block.height}
-                rx={4}
-                fill={block.tone}
-                opacity={0.82}
-              />
-            ))}
-
-            <G>
-              <Line x1={-20} y1={height * 0.2} x2={w + 20} y2={height * 0.43} stroke="#FFFFFF" strokeWidth={18} />
-              <Line x1={-20} y1={height * 0.2} x2={w + 20} y2={height * 0.43} stroke="#D8DEDA" strokeWidth={2} />
-              <Line x1={w * 0.18} y1={-20} x2={w * 0.42} y2={height + 20} stroke="#FFFFFF" strokeWidth={13} />
-              <Line x1={w * 0.18} y1={-20} x2={w * 0.42} y2={height + 20} stroke="#D8DEDA" strokeWidth={1.5} />
-              <Line x1={w * 0.72} y1={-20} x2={w * 0.61} y2={height + 20} stroke="#FFFFFF" strokeWidth={11} />
-              <Line x1={w * 0.72} y1={-20} x2={w * 0.61} y2={height + 20} stroke="#D8DEDA" strokeWidth={1.4} />
-              <Line x1={-20} y1={height * 0.78} x2={w + 20} y2={height * 0.62} stroke="#FFFFFF" strokeWidth={15} />
-              <Line x1={-20} y1={height * 0.78} x2={w + 20} y2={height * 0.62} stroke="#D8DEDA" strokeWidth={1.5} />
-              <Line x1={w * 0.06} y1={height * 0.48} x2={w * 0.9} y2={height * 0.92} stroke="#FFFFFF" strokeWidth={9} />
-              <Line x1={w * 0.06} y1={height * 0.48} x2={w * 0.9} y2={height * 0.92} stroke="#DDE2DF" strokeWidth={1} />
-            </G>
-            <SvgText
-              x={w * 0.61}
-              y={height * 0.16}
-              fill="#7E9884"
-              fontSize={8}
-              fontWeight="700"
-              letterSpacing={0.8}
-            >
-              GREEN PARK
-            </SvgText>
-          </Svg>
-
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: MAP_BG }]} />
           <Svg width={w} height={height}>
             {/* Route casing + pending route, like a navigation app. */}
             <Polyline
@@ -574,9 +490,11 @@ export default function LiveRouteTracker({
             <Text style={styles.motionStatusText}>
               {simulationProgress != null
                 ? t('busTracker.route_simulation')
-                : isFresh
-                  ? t('busTracker.live_gps_active')
-                  : t('busTracker.last_known_position')}
+                : mode === 'preview'
+                  ? t('busTracker.route_preview')
+                  : isFresh && bus
+                    ? t('busTracker.live_gps_active')
+                    : bus ? t('busTracker.last_known_position') : t('busTracker.waiting_gps_signal')}
             </Text>
             {etaMinutes != null && (
               <Text style={styles.motionEta}>

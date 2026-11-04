@@ -65,6 +65,36 @@ before releasing. SSD overlays take precedence over source assets during this ch
 
 ## Run
 
+For a Git-only batch under `bhan_reddy`:
+
+```bash
+# Preview the school-specific changes/configuration
+npm run push:bhan-reddy
+
+# Prepare, commit and push the latest school-specific source
+npm run push:bhan-reddy -- --execute
+```
+
+For the `nexsyrus1` schools (Bhashayam, Chaitanya, NMMS, and Chanakya), use:
+
+```bash
+# Preview
+npm run push:nexsyrus1
+
+# Apply school files, commit and push; no Expo or EAS commands
+npm run push:nexsyrus1 -- --execute
+```
+
+This uses the existing school/account mapping and preserves repository history.
+It skips dependency installation, Expo login/logout, project access checks, Android
+prebuild and EAS build submission. Only GitHub authentication is needed. The master
+source stays intact; school overlays are applied in an isolated release copy.
+
+`--git-only` is also available with any account configuration on the generic runner.
+The mode is saved in `state.json`: resuming a Git-only run remains Git-only even
+without repeating the flag. Resume with the generic runner (omit `--config`).
+Already-pushed schools are skipped, and a build run cannot be switched to Git-only.
+
 Each account has its own command. All commands preview by default:
 
 ```bash

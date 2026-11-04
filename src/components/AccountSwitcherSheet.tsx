@@ -35,7 +35,7 @@ import {
   removeVaultedAccount,
 } from '../services/pushFanout';
 import ClayPasswordToggle from './ClayPasswordToggle';
-import { clay, clayCard, clayInset } from '../theme/clayStyles';
+import { useSurfaceMaterials, useSurfaceStyleMap } from '../theme/surfaceStyles';
 import { schoolColorWithAlpha } from '../constants/schoolConfig';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
@@ -43,7 +43,7 @@ import type { TFunction } from 'i18next';
 const FALLBACK_AVATAR = 'https://cdn-icons-png.flaticon.com/512/2922/2922506.png';
 
 /** Small raised clay puck (avatar rings, icon buttons, chips). */
-function clayPuck(isDark: boolean, tint?: string): object {
+function raisedPuck(isDark: boolean, tint?: string): object {
   if (Platform.OS === 'web') {
     const drop = tint
       ? schoolColorWithAlpha(tint, isDark ? 0.42 : 0.28)
@@ -71,7 +71,7 @@ function clayPuck(isDark: boolean, tint?: string): object {
 }
 
 /** Soft embossed clay for list rows — lighter than clay('sm') so stacks don't mud. */
-function clayRow(isDark: boolean, accent?: string): object {
+function raisedRow(isDark: boolean, accent?: string): object {
   if (Platform.OS === 'web') {
     const drop = accent
       ? schoolColorWithAlpha(accent, isDark ? 0.38 : 0.26)
@@ -101,7 +101,7 @@ function clayRow(isDark: boolean, accent?: string): object {
 }
 
 /** Pressed-in clay chip / grabber. */
-function clayInsetSoft(isDark: boolean): object {
+function raisedInsetSoft(isDark: boolean): object {
   if (Platform.OS === 'web') {
     const lo = isDark ? 'rgba(0,0,0,0.55)' : 'rgba(148,163,184,0.4)';
     const hi = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.9)';
@@ -122,7 +122,7 @@ interface Props {
 
 function localizedAccountSubtitle(acct: VaultAccount, t: TFunction): string {
   const roleCode = acct.validatedUser?.role?.code;
-  const role = roleCode === 'student' || roleCode === 'parent'
+  const role = roleCode === 'librarian' ? 'Librarian' : roleCode === 'student' || roleCode === 'parent'
     ? t('driver_ui.parent')
     : roleCode === 'staff' || roleCode === 'teacher'
       ? t('driver_ui.staff')
@@ -148,6 +148,8 @@ function localizedAccountSubtitle(acct: VaultAccount, t: TFunction): string {
  * Tap to switch instantly, or add another login you already have.
  */
 export default function AccountSwitcherSheet({ visible, onClose }: Props) {
+  const { raised: clay, card: clayCard, inset: clayInset, puck: clayPuck, row: clayRow, softInset: clayInsetSoft } = useSurfaceMaterials({ puck: raisedPuck, row: raisedRow, softInset: raisedInsetSoft });
+
   const { switchAccount, addAccount, signOut } = useAuth();
   const { theme, isDark } = useTheme();
   const router = useRouter();
@@ -301,7 +303,7 @@ export default function AccountSwitcherSheet({ visible, onClose }: Props) {
     );
   };
 
-  const s = getStyles(theme.colors, isDark, primary);
+  const s = useSurfaceStyleMap(getStyles(theme.colors, isDark, primary));
   const sheetMinHeight = Math.min(Math.round(height * 0.52), 540);
   const sheetMaxHeight = Math.round(height * 0.88);
   const iconMuted = isDark ? '#64748B' : '#94A3B8';

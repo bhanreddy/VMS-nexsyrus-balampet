@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useMemo } from 'react';
+import React, { useEffect, useCallback, useMemo, useState } from 'react';
 import {
     View,
     Text,
@@ -70,8 +70,10 @@ const SwipeableStudentCard: React.FC<Props> = ({
 }) => {
     const { theme } = useTheme();
     const { width, fontScale } = useWindowDimensions();
-    const compact = width < 500 || fontScale > 1.3;
-    const swipeThreshold = Math.min(width, 900) * 0.28;
+    const [measuredWidth, setMeasuredWidth] = useState<number | null>(null);
+    const cardWidth = measuredWidth ?? Math.max(1, Math.min(width, 900) - 32);
+    const compact = cardWidth / fontScale < 540;
+    const swipeThreshold = cardWidth * 0.28;
     const translateX = useSharedValue(0);
     const status = student.status;
     const styles = useMemo(() => getStyles(isDark), [isDark]);
@@ -165,7 +167,7 @@ const SwipeableStudentCard: React.FC<Props> = ({
 
         const backgroundColor = interpolateColor(
             translateX.value,
-            [-width, 0, width],
+            [-cardWidth, 0, cardWidth],
             [statusColors.absent, base, statusColors.present]
         );
 
@@ -184,11 +186,13 @@ const SwipeableStudentCard: React.FC<Props> = ({
     return (
         <View style={styles.container}>
             <GestureDetector gesture={panGesture} touchAction="pan-y">
-                <Animated.View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1, borderRadius: theme.shape.borderRadiusLG, opacity: disabled ? 0.65 : 1 }, animatedStyle]}>
+                <Animated.View onLayout={({ nativeEvent: { layout } }) => {
+                    if (layout.width > 0) setMeasuredWidth(layout.width);
+                }} style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.border, borderWidth: 1, borderRadius: theme.shape.borderRadiusLG, opacity: disabled ? 0.65 : 1 }, animatedStyle]}>
                     <View style={[styles.cardContent, compact && { flexDirection: 'column', alignItems: 'stretch' }]}>
                         {/* Student Card Primary Tap Area (cycles unmarked -> present -> absent -> unmarked) */}
                         <TouchableOpacity
-                            style={[styles.cardMainTapArea, { minHeight: 48 }]}
+                            style={[styles.cardMainTapArea, compact && { flex: 0 }, { minHeight: 48 }]}
                             activeOpacity={0.78}
                             disabled={disabled}
                             accessibilityState={{ disabled }}
@@ -326,6 +330,7 @@ const SwipeableStudentCard: React.FC<Props> = ({
                             <TouchableOpacity
                                 style={[
                                     styles.quickActionBtn,
+                                    compact && styles.compactAction,
                                     status === 'present'
                                         ? styles.quickActionPresent
                                         : styles.quickActionInactive,
@@ -356,6 +361,7 @@ const SwipeableStudentCard: React.FC<Props> = ({
                             <TouchableOpacity
                                 style={[
                                     styles.quickActionBtn,
+                                    compact && styles.compactAction,
                                     status === 'absent'
                                         ? styles.quickActionAbsent
                                         : styles.quickActionInactive,
@@ -414,6 +420,7 @@ const getStyles = (isDark: boolean) =>
         },
         cardMainTapArea: {
             flex: 1,
+            minWidth: 0,
             flexDirection: 'row',
             alignItems: 'center',
             gap: 12,
@@ -443,6 +450,7 @@ const getStyles = (isDark: boolean) =>
             color: isDark ? '#FDA4AF' : '#E11D48',
         },
         avatar: {
+            flexShrink: 0,
             width: 48,
             height: 48,
             borderRadius: 16,
@@ -456,6 +464,7 @@ const getStyles = (isDark: boolean) =>
         },
         info: {
             flex: 1,
+            minWidth: 0,
             gap: 4,
             justifyContent: 'center',
         },
@@ -561,6 +570,7 @@ const getStyles = (isDark: boolean) =>
             alignItems: 'center',
             gap: 6,
         },
+        compactAction: { flex: 1, minWidth: 0 },
         quickActionBtn: {
             minWidth: 96,
             minHeight: 48,
@@ -608,6 +618,7 @@ const getStyles = (isDark: boolean) =>
             })),
         },
         quickActionLabel: {
+            flexShrink: 1,
             fontSize: 13,
             fontWeight: '600',
         },

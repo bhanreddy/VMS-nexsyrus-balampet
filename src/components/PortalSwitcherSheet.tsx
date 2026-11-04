@@ -34,6 +34,7 @@ function portalLabel(portalType: string): string {
     case 'admin': return 'Admin Portal';
     case 'accounts': return 'Accounts Portal';
     case 'driver': return 'Driver Portal';
+    case 'library': return 'Library Portal';
     default: return portalType;
   }
 }

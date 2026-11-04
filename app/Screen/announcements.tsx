@@ -162,6 +162,7 @@ const DateCol = memo(function DateCol({
   todayLabel: string;
   yesterdayLabel: string;
 }) {
+  const { i18n } = useTranslation();
   const parts = useMemo(() => {
     if (!item.date || item.date.includes('/')) return null;
     const p = item.date.split('-');
@@ -172,11 +173,11 @@ const DateCol = memo(function DateCol({
     if (!year || !monthNum || !day) return null;
     return {
       day,
-      month: MONTHS[monthNum - 1] || 'DAT',
+      month: new Date(year, monthNum - 1, day).toLocaleDateString(i18n.language.startsWith('te') ? 'te-IN' : 'en-IN', { month: 'short' }),
       year,
       relative: relativeDayKey(item.date),
     };
-  }, [item.date]);
+  }, [item.date, i18n.language]);
 
   if (!parts) {
     return (
@@ -257,7 +258,7 @@ const NoticeTimelineRow = memo(function NoticeTimelineRow({
   const { t } = useTranslation();
   const { isDark, theme } = useTheme();
   const [expanded, setExpanded] = useState(false);
-  const [canExpand, setCanExpand] = useState(false);
+  const [textOverflows, setTextOverflows] = useState(false);
 
   const localizedTitle = t_field(item.title, item.title_te);
   const localizedMessage = t_field(item.message, item.message_te);
@@ -270,143 +271,51 @@ const NoticeTimelineRow = memo(function NoticeTimelineRow({
     [localizedMessage, localizedTitle, bodyDuplicatesTitle]
   );
 
-  const accentColor = item.important ? theme.colors.danger : theme.colors.primary;
-  const cardBg = item.important
-    ? (isDark ? 'rgba(239, 68, 68, 0.10)' : '#FFF7F7')
-    : (isDark ? theme.colors.surface : '#FFFFFF');
-  const cardBorder = item.important
-    ? (isDark ? 'rgba(239, 68, 68, 0.28)' : 'rgba(239, 68, 68, 0.16)')
-    : (isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.06)');
-
+  const accentColor = item.important ? (isDark ? '#FDA4AF' : '#BE3456') : (isDark ? '#C4B5FD' : theme.colors.primaryDark);
+  const canExpand = showBody && (textOverflows || localizedMessage.length > 180);
   const onToggle = useCallback(() => {
-    if (!showBody || !canExpand) return;
     Haptics.selectionAsync();
-    setExpanded((prev) => !prev);
-  }, [canExpand, showBody]);
-
+    setExpanded(previous => !previous);
+  }, []);
   const onBodyLayout = useCallback((event: { nativeEvent: { lines: { text: string }[] } }) => {
-    if (expanded) return;
-    if (event.nativeEvent.lines.length >= COLLAPSED_LINES) setCanExpand(true);
+    if (!expanded && event.nativeEvent.lines.length >= COLLAPSED_LINES) setTextOverflows(true);
   }, [expanded]);
 
   return (
     <Animated.View
-      entering={FadeInDown.delay(Math.min(index, 8) * 45).springify().damping(16).stiffness(125)}
-      layout={Layout.springify().damping(18)}
+      entering={FadeInDown.delay(Math.min(index, 5) * 35).duration(320)}
+      layout={Layout.duration(220)}
       style={[styles.timelineItem, isLast && styles.timelineItemLast]}
     >
-      <Pressable
-        onPress={onToggle}
-        disabled={!showBody || !canExpand}
-        accessibilityRole={canExpand ? 'button' : undefined}
-        accessibilityLabel={`${localizedTitle}. ${localizedMessage}`}
-        accessibilityHint={canExpand ? t('announcements.readMore', 'Read more') : undefined}
-        accessibilityState={{ expanded }}
-        style={({ pressed }) => [
-          styles.card,
-          {
-            backgroundColor: cardBg,
-            borderColor: cardBorder,
-            borderBottomColor: item.important
-              ? 'rgba(239, 68, 68, 0.28)'
-              : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.10)'),
-            transform: [{ scale: pressed && canExpand ? 0.985 : 1 }],
-          },
-          Platform.OS === 'web' ? ({ cursor: canExpand ? 'pointer' : 'auto' } as const) : null,
-        ]}
-      >{[
-        <LinearGradient
-          key="sheen"
-          colors={isDark
-            ? ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0)']
-            : ['rgba(255,255,255,0.95)', 'rgba(255,255,255,0)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0.55, y: 0.9 }}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        />,
-        item.important ? <View key="rail-accent" style={styles.importantRail} /> : null,
-        <View key="header" style={styles.cardHeader}>{[
-          <DateCol
-            key="date"
-            item={item}
-            styles={styles}
-            todayLabel={t('announcements.today', 'Today')}
-            yesterdayLabel={t('announcements.yesterday', 'Yesterday')}
-          />,
-          <View key="heading" style={styles.cardHeading}>{[
-            item.important ? (
-              <View key="badge" style={styles.badge}>
-                <Ionicons name="alert-circle" size={11} color={theme.colors.danger} />
-                <Text style={styles.badgeText}>{t('announcements.important', 'Important')}</Text>
+      <View style={[styles.card, item.important && styles.cardImportant]}>
+        <LinearGradient pointerEvents="none" colors={item.important
+          ? (isDark ? ['#3E253C', '#231F33'] : ['#FFF3F5', '#FFFFFF'])
+          : (isDark ? ['#2B2944', '#1F2236'] : ['#F7F3FF', '#FFFFFF'])}
+          start={{ x: 1, y: 0 }} end={{ x: 0.2, y: 0.8 }} style={StyleSheet.absoluteFill} />
+        <View style={[styles.cardAccent, { backgroundColor: accentColor }]} />
+        <View style={styles.compactCardRow}>
+          <DateCol item={item} styles={styles} todayLabel={t('announcements.today', 'Today')} yesterdayLabel={t('announcements.yesterday', 'Yesterday')} />
+          <View style={styles.cardCopy}>
+            <View style={styles.cardTopline}>
+              <View style={[styles.categoryBadge, item.important && styles.categoryBadgeImportant]}>
+                <Ionicons name={item.important ? 'alert-circle' : 'megaphone-outline'} size={10} color={accentColor} />
+                <Text style={[styles.categoryText, { color: accentColor }]}>{item.important ? t('announcements.important', 'Important') : t('announcements.schoolUpdate', 'School update')}</Text>
               </View>
-            ) : null,
-            <Text
-              key="title"
-              style={[styles.cardTitle, { color: isDark ? '#F8FAFC' : '#0F172A' }]}
-              numberOfLines={expanded ? 4 : 2}
-            >
-              {localizedTitle}
-            </Text>,
-          ]}</View>,
-          <ReadAloudButton
-            key="speech"
-            id={`announcement-${item.id}`}
-            text={speechParts}
-            color={accentColor}
-            size={32}
-          />,
-        ]}</View>,
-        showBody ? (
-          <Text
-            key="message"
-            style={[styles.message, { color: isDark ? '#CBD5E1' : '#475569' }]}
-            numberOfLines={expanded ? undefined : COLLAPSED_LINES}
-            onTextLayout={onBodyLayout}
-          >
-            {localizedMessage}
-          </Text>
-        ) : null,
-        (canExpand && showBody) || item.authorName ? (
-          <View key="footer" style={styles.cardFooter}>{[
-            item.authorName ? (
-              <View key="author-wrap" style={styles.authorWrap}>
-                <View style={styles.authorIcon}>
-                  <Ionicons name="school-outline" size={12} color={theme.colors.textMuted} />
-                </View>
-                <Text style={styles.authorText} numberOfLines={1}>
-                  {t('announcements.from', { name: item.authorName, defaultValue: `From ${item.authorName}` })}
-                </Text>
-              </View>
-            ) : <View key="spacer" style={styles.footerSpacer} />,
-            canExpand && showBody ? (
-              <View key="more-wrap" style={styles.readMoreWrap}>
-                <Text style={[styles.readMore, { color: accentColor }]}>
-                  {expanded
-                    ? t('announcements.showLess', 'Show less')
-                    : t('announcements.readMore', 'Read more')}
-                </Text>
-                <Ionicons
-                  name={expanded ? 'chevron-up' : 'chevron-down'}
-                  size={13}
-                  color={accentColor}
-                />
-              </View>
-            ) : null,
-          ]}</View>
-        ) : null,
-        <View key="time" style={styles.timeRow}>
-          <Ionicons name="time-outline" size={12} color={theme.colors.textMuted} />
-          <Text style={styles.timeText}>{item.time}</Text>
-        </View>,
-        <Ionicons
-          key="watermark"
-          name={item.important ? 'alert-circle' : 'notifications'}
-          size={28}
-          color={accentColor}
-          style={styles.bgIcon}
-        />,
-      ]}</Pressable>
+              <Text style={styles.timeText}>{item.time}</Text>
+            </View>
+            <Text style={styles.cardTitle}>{localizedTitle}</Text>
+            {showBody && <Text style={styles.message} numberOfLines={expanded || !canExpand ? undefined : COLLAPSED_LINES} onTextLayout={onBodyLayout}>{localizedMessage}</Text>}
+            {canExpand && <Pressable onPress={onToggle} accessibilityRole="button" accessibilityLabel={`${expanded ? t('announcements.showLess', 'Show less') : t('announcements.readMore', 'Read more')}: ${localizedTitle}`} accessibilityState={{ expanded }} style={({ pressed }) => [styles.expandButton, pressed && { opacity: 0.6 }]}>
+              <Text style={[styles.readMore, { color: accentColor }]}>{expanded ? t('announcements.showLess', 'Show less') : t('announcements.readMore', 'Read more')}</Text><Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={accentColor} />
+            </Pressable>}
+            <View style={styles.authorWrap}>
+              <Ionicons name="school-outline" size={12} color={theme.colors.textMuted} />
+              <Text style={styles.authorText} numberOfLines={1}>{item.authorName || t('announcements.schoolOffice', 'School office')}</Text>
+            </View>
+          </View>
+          <ReadAloudButton id={`announcement-${item.id}`} text={speechParts} color={accentColor} size={38} />
+        </View>
+      </View>
     </Animated.View>
   );
 });
@@ -490,10 +399,10 @@ function AnnouncementsScreenInner() {
         />
       </View>,
       <Text key="title" style={styles.emptyTitle}>
-        {t('announcements.emptyTitle', "You're all caught up")}
+        {error ? t('announcements.loadErrorTitle', 'Unable to load notices') : t('announcements.emptyTitle', "You're all caught up")}
       </Text>,
       <Text key="sub" style={styles.emptySubtitle}>
-        {filter === 'important'
+        {error ? t('announcements.loadErrorHint', 'Check your connection and try again.') : filter === 'important'
           ? t('announcements.emptyImportant', 'No important notices right now.')
           : t('announcements.emptySubtitle', 'New school notices will appear here.')}
       </Text>,
@@ -511,11 +420,11 @@ function AnnouncementsScreenInner() {
   ];
 
   return (
-    <ScreenLayout>{[
+    <ScreenLayout style={{ backgroundColor: isDark ? '#111321' : '#F6F4FA' }}>{[
       <StudentHeader
         key="screen-hdr"
         showBackButton={true}
-        title={t('announcements.title', 'Announcements')}
+        title={t('announcements.shortTitle', 'Notices')}
       />,
       <View key="screen-body" style={styles.container}>{[
         <View key="hero" style={styles.heroCard}>{[
@@ -530,41 +439,17 @@ function AnnouncementsScreenInner() {
           />,
           <View key="glow-one" style={styles.heroGlowOne} />,
           <View key="glow-two" style={styles.heroGlowTwo} />,
-          <View key="hero-top" style={styles.heroTop}>{[
-            <View key="hero-icon" style={styles.heroIcon}>
-              <Ionicons name="megaphone" size={20} color="#FFFFFF" />
-            </View>,
-            <View key="hero-copy" style={styles.heroCopy}>{[
-              <Text key="board" style={styles.pageTitle}>
-                {t('announcements.board', 'Notice board')}
-              </Text>,
-              <Text key="sub" style={styles.subtitle}>
-                {t('announcements.subtitle', "What's happening at school")}
-              </Text>,
-            ]}</View>,
-          ]}</View>,
-          <View key="hero-stats" style={styles.heroStats}>{[
-            <View key="all-stat" style={styles.heroStat}>{[
-              <View key="all-stat-icon" style={styles.heroStatIcon}>
-                <Ionicons name="notifications-outline" size={14} color="#FFFFFF" />
-              </View>,
-              <Text key="all-stat-text" style={styles.heroStatText}>
+          <View key="hero-top" style={styles.heroTop}>
+            <View style={styles.heroIcon}><Ionicons name="megaphone" size={18} color="#FFFFFF" /></View>
+            <View style={styles.heroCopy}>
+              <Text style={styles.pageTitle}>{t('announcements.board', 'Notice board')}</Text>
+              <Text style={styles.heroMeta}>
                 {t('announcements.updates', { count: notices.length, defaultValue: `${notices.length} updates` })}
-              </Text>,
-            ]}</View>,
-            <View key="stat-divider" style={styles.heroStatDivider} />,
-            <View key="important-stat" style={styles.heroStat}>{[
-              <View key="important-stat-icon" style={styles.heroStatIcon}>
-                <Ionicons name="alert-circle-outline" size={14} color="#FFFFFF" />
-              </View>,
-              <Text key="important-stat-text" style={styles.heroStatText}>
-                {t('announcements.pinnedCount', {
-                  count: importantCount,
-                  defaultValue: `${importantCount} important`,
-                })}
-              </Text>,
-            ]}</View>,
-          ]}</View>,
+                {'  ·  '}
+                {t('announcements.pinnedCount', { count: importantCount, defaultValue: `${importantCount} important` })}
+              </Text>
+            </View>
+          </View>,
         ]}</View>,
         <View key="filters" style={styles.filterRow}>
           {filters.map((chip) => {
@@ -627,7 +512,7 @@ function AnnouncementsScreenInner() {
             renderItem={renderItem}
             contentContainerStyle={styles.listContainer}
             showsVerticalScrollIndicator={false}
-            initialNumToRender={10}
+            initialNumToRender={Platform.OS === 'web' ? Math.max(10, rows.length) : 10}
             maxToRenderPerBatch={10}
             windowSize={5}
             removeClippedSubviews={Platform.OS === 'android'}
@@ -653,454 +538,70 @@ export default function AnnouncementsScreen() {
 
 const getStyles = (theme: SchoolTheme, isDark: boolean) => {
   const c = theme.colors;
+  const ink = isDark ? '#F5F2FC' : '#2B223D';
+  const muted = isDark ? '#B7AEC8' : '#766D84';
   return StyleSheet.create({
-    container: { flex: 1, backgroundColor: 'transparent' },
-    heroCard: {
-      marginHorizontal: 16,
-      marginTop: 14,
-      marginBottom: 12,
-      padding: 18,
-      borderRadius: 24,
-      overflow: 'hidden',
-      width: '92%',
-      maxWidth: 640,
-      alignSelf: 'center',
-      ...Platform.select({
-        ios: {
-          shadowColor: c.primaryDark,
-          shadowOffset: { width: 0, height: 10 },
-          shadowOpacity: isDark ? 0.18 : 0.24,
-          shadowRadius: 20,
-        },
-        android: { elevation: 5 },
-        web: {
-          boxShadow: `0 16px 32px -18px ${schoolColorWithAlpha(c.primaryDark, 0.72)}`,
-        } as object,
-      }),
-    },
-    heroGlowOne: {
-      position: 'absolute',
-      width: 130,
-      height: 130,
-      borderRadius: 65,
-      right: -38,
-      top: -74,
-      backgroundColor: 'rgba(255,255,255,0.14)',
-    },
-    heroGlowTwo: {
-      position: 'absolute',
-      width: 88,
-      height: 88,
-      borderRadius: 44,
-      left: -44,
-      bottom: -56,
-      backgroundColor: 'rgba(255,255,255,0.08)',
-    },
-    heroTop: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      zIndex: 1,
-    },
-    heroIcon: {
-      width: 46,
-      height: 46,
-      borderRadius: 15,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: 12,
-      backgroundColor: 'rgba(255,255,255,0.17)',
-      borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.22)',
-    },
+    container: { flex: 1 },
+    heroCard: { marginTop: 12, marginBottom: 10, padding: 15, borderRadius: 20, overflow: 'hidden', width: '92%', maxWidth: 640, alignSelf: 'center', ...Platform.select({ ios: { shadowColor: c.primaryDark, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.18, shadowRadius: 16 }, android: { elevation: 4 }, web: { boxShadow: `0 12px 30px -18px ${schoolColorWithAlpha(c.primaryDark, 0.65)}` } as object }) },
+    heroGlowOne: { position: 'absolute', width: 190, height: 190, borderRadius: 95, right: -65, top: -90, backgroundColor: '#FFFFFF10', borderWidth: 1, borderColor: '#FFFFFF15' },
+    heroGlowTwo: { position: 'absolute', width: 140, height: 140, borderRadius: 70, left: -80, bottom: -95, backgroundColor: '#FFFFFF10' },
+    heroTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    heroIcon: { width: 38, height: 40, borderRadius: 13, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF18', borderWidth: 1, borderColor: '#FFFFFF30' },
     heroCopy: { flex: 1, minWidth: 0 },
-    pageTitle: {
-      fontSize: 18,
-      fontWeight: '800',
-      letterSpacing: -0.35,
-      color: '#FFFFFF',
-    },
-    subtitle: {
-      fontSize: 12.5,
-      marginTop: 3,
-      color: 'rgba(255,255,255,0.78)',
-      fontWeight: '500',
-    },
-    heroStats: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginTop: 16,
-      paddingTop: 13,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: 'rgba(255,255,255,0.24)',
-      zIndex: 1,
-    },
-    heroStat: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      minWidth: 0,
-    },
-    heroStatIcon: {
-      width: 24,
-      height: 24,
-      borderRadius: 8,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginRight: 7,
-      backgroundColor: 'rgba(255,255,255,0.14)',
-    },
-    heroStatText: {
-      flexShrink: 1,
-      fontSize: 11.5,
-      fontWeight: '700',
-      color: '#FFFFFF',
-    },
-    heroStatDivider: {
-      width: StyleSheet.hairlineWidth,
-      height: 22,
-      marginHorizontal: 12,
-      backgroundColor: 'rgba(255,255,255,0.24)',
-    },
-    filterRow: {
-      flexDirection: 'row',
-      padding: 4,
-      marginHorizontal: 16,
-      marginBottom: 6,
-      gap: 4,
-      borderRadius: 16,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(15,23,42,0.045)',
-      width: '92%',
-      maxWidth: 640,
-      alignSelf: 'center',
-    },
-    filterChip: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: 42,
-      paddingHorizontal: 10,
-      borderRadius: 12,
-      gap: 7,
-    },
-    filterChipActive: {
-      backgroundColor: isDark ? schoolColorWithAlpha(c.primary, 0.35) : '#FFFFFF',
-      ...Platform.select({
-        ios: {
-          shadowColor: '#0F172A',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: isDark ? 0 : 0.08,
-          shadowRadius: 6,
-        },
-        android: { elevation: 1 },
-        web: {
-          boxShadow: isDark ? 'none' : '0 3px 9px rgba(15,23,42,0.08)',
-        } as object,
-      }),
-    },
-    filterChipPressed: { opacity: 0.82 },
-    filterChipText: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: isDark ? '#CBD5E1' : '#475569',
-    },
-    filterChipTextActive: {
-      color: isDark ? '#F8FAFC' : c.primaryDark,
-    },
-    filterCount: {
-      minWidth: 23,
-      height: 23,
-      paddingHorizontal: 6,
-      borderRadius: 8,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.06)',
-    },
-    filterCountActive: {
-      backgroundColor: isDark ? c.primary : c.primary,
-    },
-    filterCountText: {
-      fontSize: 11,
-      fontWeight: '800',
-      color: isDark ? '#E2E8F0' : '#334155',
-    },
-    filterCountTextActive: { color: '#FFFFFF' },
-    errorBanner: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginHorizontal: 16,
-      marginTop: 2,
-      marginBottom: 4,
-      paddingHorizontal: 12,
-      minHeight: 38,
-      borderRadius: 12,
-      backgroundColor: isDark ? 'rgba(245,158,11,0.10)' : '#FFFBEB',
-      borderWidth: 1,
-      borderColor: isDark ? 'rgba(245,158,11,0.18)' : '#FDE68A',
-      width: '92%',
-      maxWidth: 640,
-      alignSelf: 'center',
-    },
-    errorBannerText: {
-      flex: 1,
-      marginHorizontal: 8,
-      color: isDark ? '#FDE68A' : '#92400E',
-      fontSize: 11.5,
-      fontWeight: '600',
-    },
+    heroMeta: { color: '#EEE4F8', fontSize: 11, lineHeight: 17, marginTop: 3 },
+    pageTitle: { fontSize: 20, fontWeight: '800', letterSpacing: -0.7, color: '#FFFFFF' },
+    filterRow: { flexDirection: 'row', padding: 5, marginBottom: 6, gap: 5, borderRadius: 15, backgroundColor: isDark ? '#222237' : '#EAE5F1', width: '92%', maxWidth: 640, alignSelf: 'center' },
+    filterChip: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 44, paddingHorizontal: 8, borderRadius: 12, gap: 7 },
+    filterChipActive: { backgroundColor: isDark ? '#443359' : '#FFFFFF', ...Platform.select({ web: { boxShadow: isDark ? 'none' : '0 2px 6px #3320470C' } as object }) },
+    filterChipPressed: { opacity: 0.75 },
+    filterChipText: { fontSize: 13, fontWeight: '700', color: muted },
+    filterChipTextActive: { color: isDark ? '#F1E8FF' : c.primaryDark },
+    filterCount: { minWidth: 23, height: 23, paddingHorizontal: 6, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: isDark ? '#FFFFFF10' : '#DCD5E6' },
+    filterCountActive: { backgroundColor: isDark ? '#AE8BE0' : c.primary },
+    filterCountText: { fontSize: 11, fontWeight: '800', color: muted },
+    filterCountTextActive: { color: isDark ? '#251638' : '#FFFFFF' },
+    errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, marginBottom: 8, borderRadius: 12, backgroundColor: isDark ? '#3B3022' : '#FFF5DF', width: '92%', maxWidth: 640, alignSelf: 'center' },
+    errorBannerText: { flex: 1, color: isDark ? '#FDE68A' : '#92400E', fontSize: 12 },
     loader: { marginTop: 56, alignSelf: 'center' },
-    listContainer: {
-      paddingHorizontal: 16,
-      paddingTop: 10,
-      paddingBottom: 48,
-      flexGrow: 1,
-      width: '100%',
-      maxWidth: 640,
-      alignSelf: 'center',
-    },
-    monthRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 12,
-      marginTop: 6,
-      gap: 8,
-    },
-    monthIcon: {
-      width: 26,
-      height: 26,
-      borderRadius: 9,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: schoolColorWithAlpha(c.primary, isDark ? 0.18 : 0.09),
-    },
-    monthRule: {
-      flex: 1,
-      height: StyleSheet.hairlineWidth,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(15,23,42,0.1)',
-    },
-    monthLabel: {
-      fontSize: 11,
-      fontWeight: '800',
-      letterSpacing: 0.8,
-      textTransform: 'uppercase',
-      color: isDark ? '#94A3B8' : '#64748B',
-    },
-    timelineItem: { marginBottom: 12 },
-    timelineItemLast: { marginBottom: 6 },
-    leftCol: {
-      width: 56,
-      minHeight: 66,
-      borderRadius: 16,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 6,
-      backgroundColor: schoolColorWithAlpha(c.primary, isDark ? 0.15 : 0.08),
-      borderWidth: 1,
-      borderColor: schoolColorWithAlpha(c.primary, isDark ? 0.22 : 0.11),
-    },
-    leftColImportant: {
-      backgroundColor: isDark ? 'rgba(239,68,68,0.12)' : '#FFF1F2',
-      borderColor: isDark ? 'rgba(248,113,113,0.24)' : '#FFE4E6',
-    },
-    dateFallbackText: { fontSize: 12, fontWeight: '700', color: c.textPrimary },
-    dateRelative: {
-      marginBottom: 1,
-      fontSize: 8,
-      lineHeight: 10,
-      fontWeight: '800',
-      textTransform: 'uppercase',
-      color: isDark ? c.primaryLight : c.primary,
-    },
-    dateRelativeImportant: { color: c.danger },
-    timeText: {
-      fontSize: 10.5,
-      color: c.textMuted,
-      fontWeight: '700',
-    },
-    calendarPill: {
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    calendarMonth: {
-      color: isDark ? c.primaryLight : c.primaryDark,
-      fontSize: 9,
-      lineHeight: 11,
-      fontWeight: '900',
-      letterSpacing: 0.8,
-    },
-    calendarMonthImportant: { color: c.danger },
-    calendarDay: {
-      fontSize: 23,
-      lineHeight: 25,
-      fontWeight: '900',
-      color: c.textStrong,
-      letterSpacing: -0.8,
-    },
-    calendarDayImportant: { color: c.danger },
-    calendarYear: {
-      fontSize: 8,
-      lineHeight: 10,
-      fontWeight: '700',
-      color: c.textMuted,
-    },
-    card: {
-      borderRadius: 20,
-      padding: 16,
-      paddingLeft: 18,
-      borderWidth: 1,
-      position: 'relative',
-      overflow: 'hidden',
-      ...Platform.select({
-        ios: {
-          shadowColor: '#334155',
-          shadowOffset: { width: 0, height: 7 },
-          shadowOpacity: isDark ? 0 : 0.09,
-          shadowRadius: 15,
-        },
-        android: { elevation: 3 },
-        web: {
-          boxShadow: isDark ? 'none' : '0 12px 28px -18px rgba(15,23,42,0.34)',
-        } as object,
-      }),
-    },
-    importantRail: {
-      position: 'absolute',
-      left: 0,
-      top: 18,
-      bottom: 18,
-      width: 4,
-      borderTopRightRadius: 4,
-      borderBottomRightRadius: 4,
-      backgroundColor: c.danger,
-    },
-    cardHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 12,
-      zIndex: 1,
-    },
-    cardHeading: {
-      flex: 1,
-      minWidth: 0,
-      alignSelf: 'stretch',
-      justifyContent: 'center',
-      marginLeft: 12,
-      marginRight: 5,
-    },
-    cardTitle: {
-      fontSize: 16,
-      fontWeight: '800',
-      letterSpacing: -0.2,
-      lineHeight: 22,
-    },
-    badge: {
-      alignSelf: 'flex-start',
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      paddingHorizontal: 7,
-      paddingVertical: 3,
-      borderRadius: 7,
-      borderWidth: 1,
-      marginBottom: 4,
-      backgroundColor: isDark ? 'rgba(239,68,68,0.14)' : '#FFF1F2',
-      borderColor: 'rgba(239, 68, 68, 0.22)',
-      zIndex: 1,
-    },
-    badgeText: {
-      fontSize: 9.5,
-      fontWeight: '800',
-      color: '#EF4444',
-      textTransform: 'uppercase',
-      letterSpacing: 0.6,
-    },
-    message: { fontSize: 14, lineHeight: 21.5, zIndex: 1, fontWeight: '500' },
-    cardFooter: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginTop: 12,
-      paddingTop: 11,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)',
-      zIndex: 1,
-      gap: 8,
-    },
-    footerSpacer: { flex: 1 },
-    authorWrap: {
-      flex: 1,
-      minWidth: 0,
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    authorIcon: {
-      width: 22,
-      height: 22,
-      borderRadius: 7,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginRight: 6,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.045)',
-    },
-    authorText: {
-      flex: 1,
-      fontSize: 11.5,
-      fontWeight: '600',
-      color: c.textMuted,
-    },
-    readMoreWrap: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-    readMore: { fontSize: 12, fontWeight: '800' },
-    timeRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      alignSelf: 'flex-end',
-      marginTop: 8,
-      gap: 4,
-      zIndex: 1,
-    },
-    bgIcon: {
-      position: 'absolute',
-      right: 6,
-      bottom: 8,
-      transform: [{ scale: 2.5 }],
-      opacity: isDark ? 0.055 : 0.045,
-    },
-    emptyWrap: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingTop: 56,
-      paddingHorizontal: 28,
-    },
-    emptyIconWell: {
-      width: 64,
-      height: 64,
-      borderRadius: 22,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 14,
-      backgroundColor: schoolColorWithAlpha(c.primary, isDark ? 0.16 : 0.1),
-    },
-    emptyTitle: {
-      fontSize: 18,
-      fontWeight: '800',
-      color: c.textStrong,
-      textAlign: 'center',
-      letterSpacing: -0.3,
-    },
-    emptySubtitle: {
-      marginTop: 6,
-      fontSize: 14,
-      lineHeight: 20,
-      color: c.textSecondary,
-      textAlign: 'center',
-    },
-    retryBtn: {
-      marginTop: 16,
-      paddingHorizontal: 16,
-      paddingVertical: 10,
-      borderRadius: 14,
-      backgroundColor: c.primary,
-    },
-    retryText: { color: '#FFFFFF', fontWeight: '800', fontSize: 13 },
+    listContainer: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 48, flexGrow: 1, width: '100%', maxWidth: 672, alignSelf: 'center' },
+    monthRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, marginTop: 6, gap: 8 },
+    monthIcon: { width: 23, height: 23, borderRadius: 7, alignItems: 'center', justifyContent: 'center', backgroundColor: schoolColorWithAlpha(c.primary, isDark ? 0.18 : 0.08) },
+    monthRule: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: isDark ? '#FFFFFF18' : '#DCD5E6' },
+    monthLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', color: muted },
+    timelineItem: { marginBottom: 10 },
+    timelineItemLast: { marginBottom: 8 },
+    leftCol: { width: 44, minHeight: 54, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingVertical: 5, backgroundColor: isDark ? '#FFFFFF08' : '#FFFFFFCC', borderWidth: 1, borderColor: isDark ? '#FFFFFF15' : '#E8DFF1' },
+    leftColImportant: { backgroundColor: isDark ? '#FCA5A50C' : '#FFFFFFDD', borderColor: isDark ? '#FDA4AF25' : '#F3D8DF' },
+    dateFallbackText: { fontSize: 12, fontWeight: '700', color: ink },
+    dateRelative: { marginBottom: 3, fontSize: 8, lineHeight: 10, fontWeight: '700', textTransform: 'uppercase', color: isDark ? c.primaryLight : c.primary },
+    dateRelativeImportant: { color: isDark ? '#FDA4AF' : '#BE3456' },
+    calendarPill: { alignItems: 'center', justifyContent: 'center' },
+    calendarMonth: { textTransform: 'uppercase', color: isDark ? '#C4B5FD' : c.primaryDark, fontSize: 9, lineHeight: 12, fontWeight: '800', letterSpacing: 1 },
+    calendarMonthImportant: { color: isDark ? '#FDA4AF' : '#BE3456' },
+    calendarDay: { fontSize: 21, lineHeight: 24, fontWeight: '800', color: ink, letterSpacing: -0.8 },
+    calendarDayImportant: { color: isDark ? '#FCE7EB' : '#9B2947' },
+    calendarYear: { fontSize: 8, lineHeight: 12, fontWeight: '600', color: muted },
+    card: { borderRadius: 18, padding: 13, borderWidth: 1, borderColor: isDark ? '#49405B' : '#E5DBEF', backgroundColor: isDark ? '#1F2236' : '#FFFFFF', overflow: 'hidden', ...Platform.select({ ios: { shadowColor: '#392347', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.06, shadowRadius: 14 }, android: { elevation: 2 }, web: { boxShadow: isDark ? '0 8px 22px #00000018' : '0 8px 22px -12px #49335F28' } as object }) },
+    cardImportant: { borderColor: isDark ? '#6B394F' : '#EFCAD4' },
+    cardAccent: { position: 'absolute', top: 0, left: 24, width: 42, height: 3, borderBottomLeftRadius: 3, borderBottomRightRadius: 3 },
+    cardTopline: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: 6, rowGap: 3, marginBottom: 5 },
+    categoryBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 6, paddingHorizontal: 5, paddingVertical: 3, backgroundColor: isDark ? '#C4B5FD12' : '#EFE8FA' },
+    categoryBadgeImportant: { backgroundColor: isDark ? '#FDA4AF14' : '#FCE5EC' },
+    categoryText: { fontSize: 9, fontWeight: '700', letterSpacing: 0.2 },
+    timeText: { fontSize: 9, color: muted },
+    compactCardRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    cardCopy: { flex: 1, minWidth: 0 },
+    cardTitle: { fontSize: 16, lineHeight: 22, fontWeight: '700', letterSpacing: -0.45, color: ink },
+    message: { fontSize: 13, lineHeight: 19, color: isDark ? '#C9C1D8' : '#6B6278', marginTop: 5 },
+    expandButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 5, minHeight: 44, paddingRight: 12 },
+    readMore: { fontSize: 12, fontWeight: '700' },
+    authorWrap: { flexDirection: 'row', alignItems: 'center', gap: 5, minWidth: 0, marginTop: 6 },
+    authorText: { flex: 1, fontSize: 10, lineHeight: 15, fontWeight: '600', color: isDark ? '#DCD3E9' : '#675A79' },
+    emptyWrap: { alignItems: 'center', paddingTop: 56, paddingHorizontal: 28 },
+    emptyIconWell: { width: 64, height: 64, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 14, backgroundColor: schoolColorWithAlpha(c.primary, isDark ? 0.16 : 0.1) },
+    emptyTitle: { fontSize: 18, fontWeight: '700', color: ink, textAlign: 'center' },
+    emptySubtitle: { marginTop: 6, fontSize: 14, lineHeight: 20, color: muted, textAlign: 'center' },
+    retryBtn: { marginTop: 16, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 14, backgroundColor: c.primary },
+    retryText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
   });
 };

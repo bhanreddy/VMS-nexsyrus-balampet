@@ -31,6 +31,8 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
+import { useFlatSurface } from '../contexts/SurfaceAppearanceContext';
+import { useSurfaceStyleMap } from '../theme/surfaceStyles';
 import { useFeatures } from '../hooks/useFeatures';
 import type { FeatureKey } from '../config/featureFlags';
 import { schoolColorWithAlpha } from '../constants/schoolConfig';
@@ -95,6 +97,9 @@ interface Props {
     photoUrl?: string | null;
     menuItems?: MenuItem[];
     onNavigate?: (link: string) => void;
+    roleLabel?: string;
+    profileRoute?: string;
+    searchLabel?: string;
 }
 
 export interface MenuItem {
@@ -111,6 +116,7 @@ export interface MenuItem {
 
 /* ─── Individual Menu Item with press animation ─── */
 const MenuItemCard: React.FC<{ item: MenuItem; isDark: boolean; onPress: () => void }> = ({ item, isDark, onPress }) => {
+    const styles = useSurfaceStyleMap(baseStyles);
     const accentColor = item.accent || '#4F46E5';
     const textClr = isDark ? '#E2E8F0' : '#1E293B';
     const hintClr = isDark ? '#94A3B8' : '#64748B';
@@ -139,7 +145,9 @@ const MenuItemCard: React.FC<{ item: MenuItem; isDark: boolean; onPress: () => v
 };
 
 /* ─── Main Component ─── */
-const MenuOverlay: React.FC<Props> = ({ visible, onClose, userType = 'student', photoUrl, menuItems, onNavigate }) => {
+const MenuOverlay: React.FC<Props> = ({ visible, onClose, userType = 'student', photoUrl, menuItems, onNavigate, roleLabel, profileRoute = '/staff/profile', searchLabel = 'Search staff tools' }) => {
+    const styles = useSurfaceStyleMap(baseStyles);
+    const flat = useFlatSurface();
     const { t } = useTranslation();
     const [query, setQuery] = useState('');
     useEffect(() => { if (!visible) setQuery(''); }, [visible]);
@@ -334,15 +342,15 @@ const MenuOverlay: React.FC<Props> = ({ visible, onClose, userType = 'student', 
                         drawerStyle
                     ]}>
                         {/* Frosted Acrylic Blur Surface */}
-                        <BlurView
+                        {!flat && <BlurView
                             intensity={isDark ? 50 : 70}
                             tint={isDark ? 'dark' : 'light'}
                             style={StyleSheet.absoluteFill}
-                        />
+                        />}
 
                         {/* Branded gradient sheeting layer */}
                         <LinearGradient
-                            colors={backgroundColors}
+                            colors={flat ? [theme.colors.card, theme.colors.card] : backgroundColors}
                             start={{ x: 0, y: 0 }}
                             end={{ x: 1, y: 1 }}
                             style={StyleSheet.absoluteFill}
@@ -362,13 +370,13 @@ const MenuOverlay: React.FC<Props> = ({ visible, onClose, userType = 'student', 
                                     <Pressable
                                         style={styles.profileTap}
                                         disabled={userType !== 'staff'}
-                                        onPress={userType === 'staff' ? () => handlePress('/staff/profile') : undefined}
+                                        onPress={userType === 'staff' ? () => handlePress(profileRoute) : undefined}
                                         accessibilityRole={userType === 'staff' ? 'button' : undefined}
                                         accessibilityLabel={userType === 'staff' ? 'Open my profile' : undefined}
                                     >
                                     {/* Double ring avatar featuring school brand colors */}
                                     <LinearGradient
-                                        colors={[accentColor, primaryLightColor]}
+                                        colors={[accentColor, flat ? accentColor : primaryLightColor]}
                                         style={[styles.avatarRing, { shadowColor: accentColor }]}
                                         start={{ x: 0, y: 0 }}
                                         end={{ x: 1, y: 1 }}
@@ -390,7 +398,7 @@ const MenuOverlay: React.FC<Props> = ({ visible, onClose, userType = 'student', 
                                             borderColor: isDark ? 'rgba(255,255,255,0.1)' : roleTheme.roleBorder,
                                         }]}>
                                             <Text style={[styles.roleText, { color: isDark ? '#94A3B8' : roleTheme.roleText }]}>
-                                                {userType === 'driver' ? t('driver_ui.driver') : userType === 'staff' ? 'Staff' : 'Student'}
+                                                {roleLabel || (userType === 'driver' ? t('driver_ui.driver') : userType === 'staff' ? 'Staff' : 'Student')}
                                             </Text>
                                         </View>
                                     </View>
@@ -424,7 +432,7 @@ const MenuOverlay: React.FC<Props> = ({ visible, onClose, userType = 'student', 
                                         value={query}
                                         onChangeText={setQuery}
                                         placeholder="Search by name or task"
-                                        accessibilityLabel="Search staff tools"
+                                        accessibilityLabel={searchLabel}
                                         placeholderTextColor={theme.colors.textSecondary}
                                         style={[styles.searchInput, { color: theme.colors.textStrong }]}
                                         autoCapitalize="none"
@@ -507,7 +515,7 @@ export default MenuOverlay;
 
 /* ======================= STYLES ======================= */
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
     backdrop: {
         ...StyleSheet.absoluteFillObject,
         backgroundColor: 'rgba(15,23,42,0.3)',

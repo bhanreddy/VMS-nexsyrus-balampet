@@ -20,6 +20,7 @@ import * as IntentLauncher from 'expo-intent-launcher';
 import { useNotifications } from '../src/hooks/useNotifications';
 import { useAuthGuard } from '../src/hooks/useAuthGuard';
 import { useNotificationObserver } from '../src/hooks/useNotificationObserver';
+import { useAdminScreenUsage } from '../src/hooks/useAdminScreenUsage';
 import { AuthGate } from '../src/components/AuthGate';
 import FingerprintLockGate from '../src/components/FingerprintLockGate';
 import SchoolRibbon, {
@@ -225,6 +226,7 @@ function ThemeSyncWrapper({ playUpdate }: { playUpdate: PlayStoreUpdateControlle
                 <Stack.Screen name="admin" options={{ headerShown: false }} />
                 <Stack.Screen name="staff" options={{ headerShown: false }} />
                 <Stack.Screen name="accounts" options={{ headerShown: false }} />
+                <Stack.Screen name="library" options={{ headerShown: false }} />
                 <Stack.Screen name="Screen" options={{ headerShown: false }} />
                 <Stack.Screen name="notifications" options={{ headerShown: false }} />
                 <Stack.Screen name="updates" options={{ headerShown: false }} />
@@ -268,6 +270,7 @@ const styles = StyleSheet.create({
  * Renders nothing visually.
  */
 function NavigationReady() {
+  useAdminScreenUsage();
   const { user, authChecked } = useAuth();
   useAuthGuard();
   useNotifications();

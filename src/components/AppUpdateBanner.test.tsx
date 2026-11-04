@@ -22,7 +22,7 @@ it('renders nothing when no update has been confirmed', async () => {
 it('connects the banner update and dismiss buttons to the controller', async () => {
   const controller = update();
   await act(async () => { root = create(<AppUpdateBanner update={controller} />); });
-  expect(JSON.stringify(root.toJSON())).toContain('A new version is available');
+  expect(JSON.stringify(root.toJSON())).toContain('Update available');
   await act(async () => { root.root.findByProps({ accessibilityLabel: 'Update app now' }).props.onPress(); });
   expect(controller.startUpdate).toHaveBeenCalledTimes(1);
   await act(async () => { root.root.findByProps({ accessibilityLabel: 'Dismiss update reminder' }).props.onPress(); });
@@ -39,7 +39,7 @@ it('shows accessible download progress and removes the start/dismiss controls du
 it('offers restart after download and sends it to completeUpdate', async () => {
   const controller = update({ downloaded: true });
   await act(async () => { root = create(<AppUpdateBanner update={controller} />); });
-  expect(JSON.stringify(root.toJSON())).toContain('Restart');
+  expect(JSON.stringify(root.toJSON())).toContain('Restart now');
   expect(root.root.findAllByProps({ accessibilityLabel: 'Dismiss update reminder' })).toHaveLength(0);
   await act(async () => { root.root.findByProps({ accessibilityLabel: 'Restart to install update' }).props.onPress(); });
   expect(controller.completeUpdate).toHaveBeenCalledTimes(1);

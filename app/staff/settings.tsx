@@ -1,12 +1,13 @@
 import { TourTarget, TourScrollView } from '@/src/features/app-tour';
 import React, { useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Switch, Linking } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Switch, Linking } from 'react-native';
 import { alertCompat } from '../../src/utils/crossPlatformAlert';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import StaffHeader from '../../src/components/StaffHeader';
 import ViewAsBanner from '../../src/components/ViewAsBanner';
 import AccountSwitcherSheet from '../../src/components/AccountSwitcherSheet';
+import PortalSwitcherSheet from '../../src/components/PortalSwitcherSheet';
 import { AvatarUploader, type AvatarUploaderHandle } from '../../src/components/AvatarUploader';
 import { useRouter } from 'expo-router';
 import Constants from 'expo-constants';
@@ -15,6 +16,7 @@ import { useEffectiveStaffId } from '../../src/hooks/useEffectiveStaffId';
 import { useFingerprintAuth } from '../../src/hooks/useFingerprintAuth';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../src/hooks/useTheme';
+import { useSurfaceStyleMap } from '../../src/theme/surfaceStyles';
 import { ThemeColors } from '../../src/theme/themes';
 import { Staff, StaffService } from '../../src/services/staffService';
 import { describeFingerprintFailure } from '../../src/services/fingerprintGate';
@@ -35,16 +37,18 @@ function getHumanId(user: any): string {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export default function StaffSettings() {
+export default function StaffSettings({ portal = 'staff' }: { portal?: 'staff' | 'library' }) {
     const router = useRouter();
     const { t, i18n } = useTranslation();
     const { user, signOut } = useAuth();
     const fingerprint = useFingerprintAuth();
     const { theme, isDark, toggleTheme } = useTheme();
-    const styles = React.useMemo(() => getStyles(theme.colors), [theme]);
+    const styles = useSurfaceStyleMap(React.useMemo(() => getStyles(theme.colors), [theme]));
     const [switcherOpen, setSwitcherOpen] = useState(false);
+    const [portalSwitcherOpen, setPortalSwitcherOpen] = useState(false);
     const [birthdaySoundEnabled, setBirthdaySoundEnabled] = useState(true);
-    const { staffId, isViewingAsAdmin, viewAsName } = useEffectiveStaffId();
+    const { staffId, isViewingAsAdmin: staffViewAs, viewAsName } = useEffectiveStaffId();
+    const isViewingAsAdmin = portal === 'staff' && staffViewAs;
     const avatarUploaderRef = useRef<AvatarUploaderHandle>(null);
     const [viewedStaff, setViewedStaff] = useState<Staff | null>(null);
 
@@ -101,7 +105,7 @@ export default function StaffSettings() {
     return (
         <View style={styles.container}>
             <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-            <TourTarget id="screen.staff-settings.overview"><StaffHeader title="Settings" showBackButton /></TourTarget>
+            <TourTarget id="screen.staff-settings.overview"><StaffHeader portal={portal} title="Settings" showBackButton /></TourTarget>
             {isViewingAsAdmin && <ViewAsBanner name={viewAsName} />}
 
             <TourTarget id="screen.staff-settings.workspace" native><TourScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -161,10 +165,15 @@ export default function StaffSettings() {
                         icon="people-circle" iconColor="#2563EB" iconBg="#EFF6FF"
                         label="Switch account"
                         sublabel="Parent login, staff login, or another child"
-                        isLast
+                        isLast={portal !== 'library'}
                         onPress={() => setSwitcherOpen(true)}
                         rightElement={chevron}
                     />
+                    {portal === 'library' && <SettingRow
+                        icon="grid-outline" iconColor="#6366F1" iconBg="#EEF2FF"
+                        label="Switch portal" sublabel="Open another profile linked to this login"
+                        isLast onPress={() => setPortalSwitcherOpen(true)} rightElement={chevron}
+                    />}
                 </Group>
 
                 {/* ── General ── */}
@@ -314,6 +323,7 @@ export default function StaffSettings() {
 
             </TourScrollView></TourTarget>
             <AccountSwitcherSheet visible={switcherOpen} onClose={() => setSwitcherOpen(false)} />
+            {portal === 'library' && <PortalSwitcherSheet visible={portalSwitcherOpen} onClose={() => setPortalSwitcherOpen(false)} />}
         </View>
     );
 }

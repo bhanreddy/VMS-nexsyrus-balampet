@@ -33,6 +33,7 @@ export function useAuthGuard() {
     const inStaffGroup = segments[0] === 'staff';
     const inAccountsGroup = segments[0] === 'accounts';
     const inDriverGroup = segments[0] === 'driver';
+    const inLibraryGroup = currentSegment === 'library';
     const inAdmissionPublic = segments[0] === 'admission' && (segments[1] === 'login' || segments[1] === 'enquiry');
     const inAdmissionProtected = segments[0] === 'admission' && segments[1] === 'dashboard';
 
@@ -89,6 +90,11 @@ export function useAuthGuard() {
         return;
       }
 
+      if (inLibraryGroup && !['librarian', 'admin', 'principal'].includes(roleCode)) {
+        router.replace(homeRoute);
+        return;
+      }
+
       if (inDriverGroup && roleCode !== 'driver') {
         router.replace(homeRoute);
         return;
@@ -129,7 +135,7 @@ export function useAuthGuard() {
         return;
       }
       // If trying to access protected areas, redirect to login
-      if (inTabsGroup || inAdminGroup || inStaffGroup || inAccountsGroup || inDriverGroup) {
+      if (inTabsGroup || inAdminGroup || inStaffGroup || inAccountsGroup || inDriverGroup || inLibraryGroup) {
         if (__DEV__) {}
         // Before redirecting to /welcome, check if a student session exists in storage.
         // Students should NEVER be redirected to welcome — their sessions persist forever.

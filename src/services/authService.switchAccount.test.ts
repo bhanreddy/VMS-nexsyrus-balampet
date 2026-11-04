@@ -39,9 +39,9 @@ function account(userId: string, role = 'student'): VaultAccount {
     userId, displayName: userId, photoUrl: null, admissionNo: userId,
     supabaseSession: {
       access_token: `${userId}-access`, refresh_token: `${userId}-refresh`,
-      expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id: userId },
+      expires_at: Math.floor(Date.now() / 1000) + 3600, expires_in: 3600, user: { id: userId },
     } as Session,
-    validatedUser: { userId, schoolId: 12, role: { code: role }, classId: `${userId}-class` } as VaultAccount['validatedUser'],
+    validatedUser: { userId, schoolId: 12, displayName: userId, admission_no: userId, role: { code: role }, classId: `${userId}-class` } as VaultAccount['validatedUser'],
   };
 }
 function deferred<T>() {
@@ -68,7 +68,7 @@ beforeEach(async () => {
   (supabase.auth.getSession as jest.Mock).mockImplementation(async () => ({ data: { session: live } }));
   (supabase.auth.setSession as jest.Mock).mockImplementation(async ({ access_token, refresh_token }) => {
     const entry = accounts.find((a) => a.userId === access_token.split('-')[0])!;
-    live = { ...entry.supabaseSession, access_token, refresh_token };
+    live = { ...entry.supabaseSession, access_token, refresh_token, expires_in: 3500 };
     return { data: { session: live }, error: null };
   });
   (supabase.auth.signInWithPassword as jest.Mock).mockResolvedValue({ data: { session: null }, error: { message: 'rejected' } });
@@ -117,8 +117,66 @@ it('preserves all accounts, backup tokens and recovery credentials across A → 
   expect((await vault.getQrRecoveryCredential('a'))?.qrPayload).toBe('a-qr');
   expect(supabase.auth.signOut).not.toHaveBeenCalled();
   expect(SecureTokenStore.removeItem).not.toHaveBeenCalled();
-  // One target vault write per switch; unchanged outgoing sessions need no rewrite.
-  expect(SecureTokenStore.setItem.mock.calls.filter(([key]: [string]) => key === 'vault_accounts_v1')).toHaveLength(2);
+  // Fresh server validation still runs, but unchanged encrypted records need no rewrite.
+  expect(api.post).toHaveBeenCalledTimes(2);
+  expect(SecureTokenStore.setItem.mock.calls.filter(([key]: [string]) =>
+    key === 'vault_accounts_v1' || key === 'vault_refresh_tokens_v1'
+  )).toHaveLength(0);
+});
+
+it('validates the target while saving rotated outgoing tokens, before changing the live client', async () => {
+  live = { ...accounts[0].supabaseSession, refresh_token: 'a-rotated-refresh' };
+  const saved = deferred<void>();
+  const saving = deferred<void>();
+  const validationStarted = deferred<void>();
+  const write = SecureTokenStore.setItem.getMockImplementation();
+  SecureTokenStore.setItem.mockImplementation(async (key: string, value: string) => {
+    if (key === 'vault_accounts_v1') { saving.resolve(); await saved.promise; }
+    return write(key, value);
+  });
+  (api.post as jest.Mock).mockImplementationOnce(async () => {
+    validationStarted.resolve();
+    return accounts[1].validatedUser;
+  });
+  try {
+    const switching = AuthService.switchAccount('b');
+    await Promise.all([saving.promise, validationStarted.promise]);
+    expect(supabase.auth.setSession).not.toHaveBeenCalled();
+    saved.resolve();
+    expect((await switching).session?.validatedUser.userId).toBe('b');
+    expect(await vault.getBackupRefreshTokenForUser('a')).toBe('a-rotated-refresh');
+  } finally {
+    saved.resolve();
+    SecureTokenStore.setItem.mockImplementation(write);
+  }
+});
+
+it('persists refreshed profile data alongside the active session, committing the pointer only after both', async () => {
+  await vault.patchAccountMetadata('b', { classLabel: 'Class 5', schoolName: 'Test School' });
+  const saved = deferred<void>();
+  const saving = deferred<void>();
+  const vaultSaved = deferred<void>();
+  const write = SecureTokenStore.setItem.getMockImplementation();
+  SecureTokenStore.setItem.mockImplementation(async (key: string, value: string) => {
+    if (key === 'auth_session') { saving.resolve(); await saved.promise; }
+    await write(key, value);
+    if (key === 'vault_accounts_v1') vaultSaved.resolve();
+  });
+  (api.post as jest.Mock).mockResolvedValueOnce({ ...accounts[1].validatedUser, classId: 'new-class' });
+  try {
+    const switching = AuthService.switchAccount('b');
+    await Promise.all([saving.promise, vaultSaved.promise]);
+    expect(await vault.getActiveAccountId()).toBe('a');
+    saved.resolve();
+    expect((await switching).session?.validatedUser.classId).toBe('new-class');
+    const target = (await vault.listAccounts()).find((entry) => entry.userId === 'b');
+    expect(target).toMatchObject({ schoolName: 'Test School', validatedUser: { classId: 'new-class' } });
+    expect(target?.classLabel).toBeUndefined();
+    expect(await vault.getActiveAccountId()).toBe('b');
+  } finally {
+    saved.resolve();
+    SecureTokenStore.setItem.mockImplementation(write);
+  }
 });
 
 it('snapshots rotated outgoing tokens before leaving that account', async () => {
@@ -127,6 +185,39 @@ it('snapshots rotated outgoing tokens before leaving that account', async () => 
   const outgoing = (await vault.listAccounts()).find((a) => a.userId === 'a')!;
   expect(outgoing.supabaseSession.refresh_token).toBe('a-rotated-refresh');
   expect(await vault.getBackupRefreshTokenForUser('a')).toBe('a-rotated-refresh');
+});
+
+it('settles a concurrent vault save before rolling back a failed active-session write', async () => {
+  const vaultSave = deferred<void>();
+  const vaultStarted = deferred<void>();
+  const persistenceFailed = deferred<void>();
+  const write = SecureTokenStore.setItem.getMockImplementation();
+  SecureTokenStore.setItem.mockImplementation(async (key: string, value: string) => {
+    if (key === 'auth_session' && JSON.parse(value).validatedUser.userId === 'b') {
+      persistenceFailed.resolve();
+      throw new Error('storage unavailable');
+    }
+    if (key === 'vault_accounts_v1') { vaultStarted.resolve(); await vaultSave.promise; }
+    return write(key, value);
+  });
+  (api.post as jest.Mock).mockResolvedValueOnce({ ...accounts[1].validatedUser, classId: 'new-class' });
+  let completed = false;
+  try {
+    const switching = AuthService.switchAccount('b').then((result) => { completed = true; return result; });
+    await Promise.all([vaultStarted.promise, persistenceFailed.promise]);
+    expect(completed).toBe(false);
+    expect(isInternalSessionSwap()).toBe(true);
+    expect(await vault.getActiveAccountId()).toBe('a');
+    vaultSave.resolve();
+    expect((await switching).error).toBe('storage unavailable');
+    expect(live?.user.id).toBe('a');
+    expect(JSON.parse(store.get('auth_session')).validatedUser.userId).toBe('a');
+    expect(await vault.listAccounts()).toHaveLength(3);
+    expect(isInternalSessionSwap()).toBe(false);
+  } finally {
+    vaultSave.resolve();
+    SecureTokenStore.setItem.mockImplementation(write);
+  }
 });
 
 it('refreshes an expired account with its own token and preserves dormant logins', async () => {

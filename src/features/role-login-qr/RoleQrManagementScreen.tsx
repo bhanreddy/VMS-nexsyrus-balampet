@@ -1,3 +1,4 @@
+import { useStaffQrStyles } from '../library/useStaffQrStyles';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -90,9 +91,10 @@ function printOptionsFor(credentials: IssuedRoleLoginQr[], school: LoginQrSchool
   };
 }
 
-function FilterPicker({ label, value, options, onChange }: {
-  label: string; value: string; options: PickerOption[]; onChange: (value: string) => void;
+function FilterPicker({ label, value, options, onChange, staffAppearance = false }: {
+  label: string; value: string; options: PickerOption[]; onChange: (value: string) => void; staffAppearance?: boolean;
 }) {
+  const styles = useStaffQrStyles(baseStyles, staffAppearance);
   const [open, setOpen] = useState(false);
   const selected = options.find((option) => option.value === value);
   return <>
@@ -107,7 +109,7 @@ function FilterPicker({ label, value, options, onChange }: {
           <FlatList data={[{ value: '', label: 'All roles' }, ...options]} keyExtractor={(item) => item.value || 'all'} renderItem={({ item }) => (
             <Pressable style={[styles.pickerOption, item.value === value && styles.pickerOptionActive]} onPress={() => { onChange(item.value); setOpen(false); }}>
               <Text style={[styles.pickerOptionText, item.value === value && styles.pickerOptionTextActive]}>{item.label}</Text>
-              {item.value === value ? <Ionicons name="checkmark-circle" size={20} color="#0F766E" /> : null}
+              {item.value === value ? <Ionicons name="checkmark-circle" size={20} color={styles.primaryAction.backgroundColor} /> : null}
             </Pressable>
           )} />
         </Pressable>
@@ -116,12 +118,14 @@ function FilterPicker({ label, value, options, onChange }: {
   </>;
 }
 
-function PreviewModal({ credential, school, onClose, onRegenerated }: {
+function PreviewModal({ credential, school, onClose, onRegenerated, staffAppearance = false }: {
+  staffAppearance?: boolean;
   credential: IssuedRoleLoginQr | null;
   school: LoginQrSchool | null;
   onClose: () => void;
   onRegenerated: (credential: IssuedRoleLoginQr) => void;
 }) {
+  const styles = useStaffQrStyles(baseStyles, staffAppearance);
   const qrRef = useRef<{ toDataURL: (callback: (data: string) => void) => void } | null>(null);
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState('Working…');
@@ -230,11 +234,11 @@ function PreviewModal({ credential, school, onClose, onRegenerated }: {
             </Pressable>
             <View style={styles.actionGrid}>
               <Pressable disabled={busy} style={styles.secondaryButton} onPress={() => { void downloadPng(); }}>
-                <Ionicons name="image-outline" size={18} color="#0F766E" />
+                <Ionicons name="image-outline" size={18} color={styles.primaryAction.backgroundColor} />
                 <View style={styles.actionCopy}><Text style={styles.secondaryButtonText}>Save QR image</Text><Text style={styles.secondaryButtonHint}>PNG for WhatsApp or files</Text></View>
               </Pressable>
               <Pressable disabled={busy} style={styles.secondaryButton} onPress={() => { void run('Opening print dialog…', async () => { await printStudentQrPdf(printOptions, true); await audit('print'); }); }}>
-                <Ionicons name="print-outline" size={18} color="#0F766E" />
+                <Ionicons name="print-outline" size={18} color={styles.primaryAction.backgroundColor} />
                 <View style={styles.actionCopy}><Text style={styles.secondaryButtonText}>Print now</Text><Text style={styles.secondaryButtonHint}>Opens the printer dialog</Text></View>
               </Pressable>
             </View>
@@ -252,15 +256,16 @@ function PreviewModal({ credential, school, onClose, onRegenerated }: {
           {Platform.OS !== 'web' ? <View pointerEvents="none" style={styles.hiResQr}>
             <QRCode getRef={(ref) => { qrRef.current = ref; }} value={credential.qrPayload} size={1024} ecl="M" quietZone={128} />
           </View> : null}
-          {busy ? <View style={styles.busyOverlay}><ActivityIndicator size="large" color="#0F766E" /><Text style={styles.busyLabel}>{busyLabel}</Text></View> : null}
+          {busy ? <View style={styles.busyOverlay}><ActivityIndicator size="large" color={styles.primaryAction.backgroundColor} /><Text style={styles.busyLabel}>{busyLabel}</Text></View> : null}
         </Pressable>
       </Pressable>
     </Modal>
   );
 }
 
-export default function RoleQrManagementScreen() {
-  useRequireRole('admin', 'principal', 'management', 'accountant', 'accounts');
+export default function RoleQrManagementScreen({ embedded = false }: { embedded?: boolean }) {
+  const styles = useStaffQrStyles(baseStyles, embedded);
+  useRequireRole('admin', 'principal', 'management', 'accountant', 'accounts', 'librarian');
   const { width } = useWindowDimensions();
   const { theme, isDark } = useTheme();
   const { role } = useAuth();
@@ -327,7 +332,7 @@ export default function RoleQrManagementScreen() {
   const brandedSchool = useMemo(() => brandedLoginQrSchool(metadata?.school || null), [metadata]);
   const roleLabel = roleOptions.find((option) => option.value === roleCode)?.label || 'Selected accounts';
 
-  const toggle = (id: string) => setSelected((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  const toggle = (id: string) => setSelected((current) => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   const selectAll = () => setSelected(allSelected ? new Set() : new Set(selectable.map((account) => account.id)));
   const storeIssued = (credentials: IssuedRoleLoginQr[]) => setIssued((current) => {
     const next = new Map(current); credentials.forEach((credential) => next.set(credential.account.id, credential)); return next;
@@ -452,12 +457,12 @@ export default function RoleQrManagementScreen() {
   );
 
   if (!metadata && loading) {
-    return <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>{!accountsShell ? pageHeader : null}<View style={styles.center}><ActivityIndicator size="large" color="#0F766E" /><Text style={styles.muted}>Loading secure QR workspace…</Text></View></View>;
+    return <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>{!accountsShell && !embedded ? pageHeader : null}<View style={styles.center}><ActivityIndicator size="large" color={styles.primaryAction.backgroundColor} /><Text style={styles.muted}>Loading secure QR workspace…</Text></View></View>;
   }
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
-      {!accountsShell ? pageHeader : null}
+      {!accountsShell && !embedded ? pageHeader : null}
       <FlatList
         data={accounts}
         keyExtractor={(item) => item.id}
@@ -467,27 +472,27 @@ export default function RoleQrManagementScreen() {
             <View style={styles.heroIcon}><Ionicons name="qr-code" size={28} color="#FFFFFF" /></View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.heroTitle, isDark && styles.darkText]}>Print private login cards for every role</Text>
-              <Text style={styles.heroCopy}>Staff, teachers, principals, accounts, drivers, gate keepers, and parents each scan their own card. Passwords are never shown.</Text>
+              <Text style={styles.heroCopy}>Staff, librarians, teachers, principals, accounts, drivers, gate keepers, and parents each scan their own card. Passwords are never shown.</Text>
             </View>
             <View style={styles.securityBadge}><Ionicons name="eye-off" size={14} color="#166534" /><Text style={styles.securityBadgeText}>PASSWORDS HIDDEN</Text></View>
           </View>
           <View style={[styles.filters, isWide && styles.filtersWide, isDark && styles.darkCard]}>
             <View style={styles.searchBox}><Ionicons name="search" size={18} color="#64748B" /><TextInput value={search} onChangeText={setSearch} placeholder="Search name, staff code, or login" placeholderTextColor="#94A3B8" style={styles.searchInput} autoCapitalize="none" /></View>
             <View style={styles.filterRow}>
-              <FilterPicker label="Role" value={roleCode} options={roleOptions} onChange={setRoleCode} />
+              <FilterPicker staffAppearance={embedded} label="Role" value={roleCode} options={roleOptions} onChange={setRoleCode} />
               <View style={styles.statusFilterChip}><View style={styles.activeDot} /><Text style={styles.statusFilterText}>Active accounts only</Text></View>
             </View>
           </View>
           <View style={styles.toolbar}>
-            <Pressable style={styles.selectAllButton} onPress={selectAll}><Ionicons name={allSelected ? 'checkbox' : 'square-outline'} size={21} color="#0F766E" /><Text style={styles.selectAllText}>Select this page ({selectable.length})</Text></Pressable>
-            {total > accounts.length ? <Pressable style={styles.selectAllButton} onPress={() => { void selectAllMatching(); }}><Ionicons name="checkmark-done-outline" size={21} color="#0F766E" /><Text style={styles.selectAllText}>Select every match ({total})</Text></Pressable> : null}
+            <Pressable style={styles.selectAllButton} onPress={selectAll}><Ionicons name={allSelected ? 'checkbox' : 'square-outline'} size={21} color={styles.primaryAction.backgroundColor} /><Text style={styles.selectAllText}>Select this page ({selectable.length})</Text></Pressable>
+            {total > accounts.length ? <Pressable style={styles.selectAllButton} onPress={() => { void selectAllMatching(); }}><Ionicons name="checkmark-done-outline" size={21} color={styles.primaryAction.backgroundColor} /><Text style={styles.selectAllText}>Select every match ({total})</Text></Pressable> : null}
             <Text style={styles.selectedCount}>{selected.size ? `${selected.size} selected` : `${total} accounts`}</Text>
             <View style={styles.toolbarActions}>
               <Pressable disabled={working} onPress={() => { void loadAccounts(page); }} style={styles.iconToolbarButton} accessibilityLabel="Refresh account list">
-                <Ionicons name="refresh-outline" size={18} color="#0F766E" />
+                <Ionicons name="refresh-outline" size={18} color={styles.primaryAction.backgroundColor} />
               </Pressable>
               <Pressable disabled={working || !canPrintSheet} onPress={() => { void bulkGenerate(); }} style={[styles.outlineButton, !canPrintSheet && styles.disabledAction]}>
-                <Ionicons name="qr-code-outline" size={17} color="#0F766E" />
+                <Ionicons name="qr-code-outline" size={17} color={styles.primaryAction.backgroundColor} />
                 <Text style={styles.outlineButtonText}>{selected.size ? `Issue selected (${selected.size})` : roleCode ? 'Issue this role' : 'Issue QR codes'}</Text>
               </Pressable>
               <Pressable disabled={working || !canPrintSheet} onPress={downloadA4} style={[styles.primaryAction, !canPrintSheet && styles.disabledAction]}>
@@ -504,7 +509,7 @@ export default function RoleQrManagementScreen() {
                 : 'Select accounts, or choose a role, to print an A4 sheet of QR cards.'}
           </Text>
           {error ? <View style={styles.errorBanner}><Ionicons name="alert-circle" size={18} color="#B91C1C" /><Text style={styles.errorBannerText}>{error}</Text><Pressable onPress={() => { void loadAccounts(page); }}><Text style={styles.retryText}>Retry</Text></Pressable></View> : null}
-          {working ? <View style={styles.workingBanner}><ActivityIndicator size="small" color="#0F766E" /><Text style={styles.workingText}>Preparing login QR cards…</Text></View> : null}
+          {working ? <View style={styles.workingBanner}><ActivityIndicator size="small" color={styles.primaryAction.backgroundColor} /><Text style={styles.workingText}>Preparing login QR cards…</Text></View> : null}
           {isWide ? <View style={styles.tableHeader}><Text style={[styles.headerCell, { width: 54 }]}>SELECT</Text><Text style={[styles.headerCell, { flex: 2 }]}>PERSON</Text><Text style={[styles.headerCell, { flex: 1.2 }]}>ROLE</Text><Text style={[styles.headerCell, { flex: 1.3 }]}>STATUS</Text><Text style={[styles.headerCell, { width: 116 }]}>ACTION</Text></View> : null}
         </>}
         renderItem={({ item }) => {
@@ -513,11 +518,11 @@ export default function RoleQrManagementScreen() {
           const opening = openingId === item.id;
           const subtitle = [item.staff_code, item.designation, item.login_email].filter(Boolean).join(' · ');
           return <View style={[styles.studentRow, !isWide && styles.studentCard, isDark && styles.darkCard]}>
-            <Pressable disabled={!item.login_configured} onPress={() => toggle(item.id)} style={styles.checkboxCell}><Ionicons name={checked ? 'checkbox' : 'square-outline'} size={23} color={item.login_configured ? '#0F766E' : '#CBD5E1'} /></Pressable>
+            <Pressable disabled={!item.login_configured} onPress={() => toggle(item.id)} style={styles.checkboxCell}><Ionicons name={checked ? 'checkbox' : 'square-outline'} size={23} color={item.login_configured ? styles.primaryAction.backgroundColor : '#CBD5E1'} /></Pressable>
             <View style={styles.studentMain}><View style={styles.avatar}><Text style={styles.avatarText}>{(item.name || '?').slice(0, 1).toUpperCase()}</Text></View><View style={{ flex: 1 }}><Text numberOfLines={2} style={[styles.studentName, isDark && styles.darkText]}>{item.name || 'Unnamed account'}</Text><Text style={styles.studentSub}>{subtitle || 'No staff code yet'}</Text></View></View>
             <Text style={[styles.classCell, !isWide && styles.mobileMeta]}>{item.role_label}</Text>
             <View style={[styles.statusCell, status.tone === 'ready' ? styles.readyStatus : status.tone === 'idle' ? styles.idleStatus : styles.missingStatus]}>
-              <View style={[styles.statusDot, { backgroundColor: status.tone === 'ready' ? '#16A34A' : status.tone === 'idle' ? '#0F766E' : '#D97706' }]} />
+              <View style={[styles.statusDot, { backgroundColor: status.tone === 'ready' ? '#16A34A' : status.tone === 'idle' ? styles.primaryAction.backgroundColor : '#D97706' }]} />
               <Text style={[styles.statusText, { color: status.tone === 'ready' ? '#166534' : status.tone === 'idle' ? '#115E59' : '#92400E' }]}>{status.label}</Text>
             </View>
             <Pressable
@@ -525,7 +530,7 @@ export default function RoleQrManagementScreen() {
               style={[styles.rowAction, !item.login_configured && styles.configureAction]}
               onPress={() => { if (item.login_configured) void generateOne(item); }}
             >
-              {opening ? <ActivityIndicator size="small" color="#0F766E" /> : <Ionicons name={item.login_configured ? (status.tone === 'ready' ? 'eye-outline' : 'qr-code-outline') : 'key-outline'} size={16} color={item.login_configured ? '#0F766E' : '#92400E'} />}
+              {opening ? <ActivityIndicator size="small" color={styles.primaryAction.backgroundColor} /> : <Ionicons name={item.login_configured ? (status.tone === 'ready' ? 'eye-outline' : 'qr-code-outline') : 'key-outline'} size={16} color={item.login_configured ? styles.primaryAction.backgroundColor : '#92400E'} />}
               <Text style={[styles.rowActionText, !item.login_configured && { color: '#92400E' }]}>
                 {item.login_configured ? (opening ? 'Opening' : status.tone === 'ready' ? 'View QR' : 'Create QR') : 'Needs login'}
               </Text>
@@ -533,7 +538,7 @@ export default function RoleQrManagementScreen() {
           </View>;
         }}
         ListEmptyComponent={!loading ? <View style={styles.empty}><Ionicons name="people-outline" size={42} color="#94A3B8" /><Text style={[styles.emptyTitle, isDark && styles.darkText]}>No accounts found</Text><Text style={styles.muted}>Try another role or search.</Text></View> : null}
-        ListFooterComponent={loading ? <View style={styles.center}><ActivityIndicator color="#0F766E" /><Text style={styles.muted}>Loading accounts…</Text></View> : <View style={styles.pagination}>
+        ListFooterComponent={loading ? <View style={styles.center}><ActivityIndicator color={styles.primaryAction.backgroundColor} /><Text style={styles.muted}>Loading accounts…</Text></View> : <View style={styles.pagination}>
           <Text style={styles.footerNote}>{total} active accounts · page {page} of {totalPages}</Text>
           {totalPages > 1 ? <View style={styles.pagerRow}>
             <Pressable disabled={page <= 1 || working} onPress={() => { void loadAccounts(page - 1); }} style={[styles.pagerButton, page <= 1 && styles.pagerDisabled]}><Text style={styles.pagerText}>Previous</Text></Pressable>
@@ -541,12 +546,12 @@ export default function RoleQrManagementScreen() {
           </View> : null}
         </View>}
       />
-      <PreviewModal credential={preview} school={brandedSchool} onClose={() => setPreview(null)} onRegenerated={(next) => { storeIssued([next]); setPreview(next); void loadAccounts(page); }} />
+      <PreviewModal staffAppearance={embedded} credential={preview} school={brandedSchool} onClose={() => setPreview(null)} onRegenerated={(next) => { storeIssued([next]); setPreview(next); void loadAccounts(page); }} />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   screen: { flex: 1 }, content: { padding: 18, paddingBottom: 44, maxWidth: 1180, width: '100%', alignSelf: 'center' }, center: { minHeight: 180, alignItems: 'center', justifyContent: 'center', gap: 12 }, muted: { color: '#64748B', fontSize: 13, textAlign: 'center' }, darkText: { color: '#F8FAFC' }, darkCard: { backgroundColor: '#121827', borderColor: '#263044' },
   hero: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 22, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 14 }, heroIcon: { width: 54, height: 54, borderRadius: 17, backgroundColor: '#0F766E', alignItems: 'center', justifyContent: 'center' }, heroTitle: { color: '#0F172A', fontSize: 19, fontWeight: '800' }, heroCopy: { color: '#64748B', fontSize: 13, lineHeight: 19, marginTop: 3 }, securityBadge: { flexDirection: 'row', gap: 5, alignItems: 'center', backgroundColor: '#DCFCE7', borderRadius: 99, paddingHorizontal: 10, paddingVertical: 7 }, securityBadgeText: { color: '#166534', fontSize: 9, fontWeight: '900', letterSpacing: .7 },
   filters: { borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#FFFFFF', borderRadius: 18, padding: 14, marginBottom: 14 }, filtersWide: { flexDirection: 'row', alignItems: 'center', gap: 12 }, searchBox: { flex: 1.3, minWidth: 220, height: 48, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#CBD5E1', backgroundColor: '#FFFFFF', borderRadius: 12, paddingHorizontal: 13 }, searchInput: { flex: 1, color: '#0F172A', fontSize: 14, outlineStyle: 'none' } as never, filterRow: { flex: 2, flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 10 }, filterField: { minWidth: 160, flex: 1, borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC', borderRadius: 11, paddingHorizontal: 11, paddingVertical: 7 }, filterLabel: { color: '#64748B', fontSize: 9, fontWeight: '800', letterSpacing: .5, textTransform: 'uppercase' }, filterValueRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }, filterValue: { flex: 1, color: '#1E293B', fontWeight: '700', fontSize: 12 }, activeDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#22C55E' },

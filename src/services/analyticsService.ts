@@ -4,31 +4,31 @@
  * Calls the backend REST API and returns strongly-typed data.
  */
 
-import { api as apiClient } from './apiClient';
+import { api as apiClient } from "./apiClient";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
-export type TimeRange = 'month' | 'quarter' | 'year';
+export type TimeRange = "month" | "quarter" | "year";
 
 export interface TrendPoint {
-  label: string;   // e.g. "Jan", "Week 1", "2024-03-01"
+  label: string; // e.g. "Jan", "Week 1", "2024-03-01"
   value: number;
 }
 
 // ── Financials ──────────────────────────────────────────────────────────────
 export interface FeeCollectionSummary {
-  total_collected: number;        // ₹ amount (selected range)
-  today_collection: number;       // ₹ collected today
-  lifetime_collected: number;     // ₹ collected all-time
-  outstanding_dues: number;       // ₹ amount
-  collection_efficiency: number;  // 0-100 %
-  total_invoiced: number;         // total billed
-  discount_given: number;         // total discounts
-  refunds_issued: number;         // total refunds
-  new_enrollments: number;        // students enrolled this period
-  trend: TrendPoint[];            // time-series for chart
-  by_class: ClassFeeBreakdown[];  // per-class breakdown
-  top_pending: PendingStudent[];  // top defaulters
+  total_collected: number; // ₹ amount (selected range)
+  today_collection: number; // ₹ collected today
+  lifetime_collected: number; // ₹ collected all-time
+  outstanding_dues: number; // ₹ amount
+  collection_efficiency: number; // 0-100 %
+  total_invoiced: number; // total billed
+  discount_given: number; // total discounts
+  refunds_issued: number; // total refunds
+  new_enrollments: number; // students enrolled this period
+  trend: TrendPoint[]; // time-series for chart
+  by_class: ClassFeeBreakdown[]; // per-class breakdown
+  top_pending: PendingStudent[]; // top defaulters
 }
 
 export interface ClassFeeBreakdown {
@@ -48,22 +48,22 @@ export interface PendingStudent {
 
 // ── Attendance ──────────────────────────────────────────────────────────────
 export interface AttendancePeriod {
-  from: string;   // ISO date (inclusive) — window start
-  to: string;     // ISO date (inclusive) — window end (today)
-  label: string;  // e.g. "2026-27" (academic year code) or "Jul 2026"
+  from: string; // ISO date (inclusive) — window start
+  to: string; // ISO date (inclusive) — window end (today)
+  label: string; // e.g. "2026-27" (academic year code) or "Jul 2026"
 }
 
 export interface AttendanceSummary {
-  period: AttendancePeriod;        // window the cards describe
+  period: AttendancePeriod; // window the cards describe
   // number | null — null means NO attendance data exists for the window.
   // Render "—" / "No data", NEVER "0%". 0 is only for a genuine zero.
-  avg_attendance: number | null;   // 0-100 %
-  chronic_absentees: number;       // count of active students < 75% YTD (0 is real)
-  total_present_days: number;      // aggregate student-days present
+  avg_attendance: number | null; // 0-100 %
+  chronic_absentees: number; // count of active students < 75% YTD (0 is real)
+  total_present_days: number; // aggregate student-days present
   total_working_days: number | null; // school working days in range (null = no data)
   staff_attendance: number | null; // 0-100 % for staff (null = not tracked / no data)
-  trend: TrendPoint[];             // daily/weekly %
-  by_class: ClassAttendanceRow[];  // per class breakdown
+  trend: TrendPoint[]; // daily/weekly %
+  by_class: ClassAttendanceRow[]; // per class breakdown
   low_attendance_students: LowAttendanceStudent[];
 }
 
@@ -84,8 +84,8 @@ export interface LowAttendanceStudent {
 
 // ── Academics ───────────────────────────────────────────────────────────────
 export interface AcademicSummary {
-  avg_score: number;               // overall avg exam score
-  pass_rate: number;               // % students passing
+  avg_score: number; // overall avg exam score
+  pass_rate: number; // % students passing
   top_subject: string;
   weakest_subject: string;
   exams_conducted: number;
@@ -121,8 +121,8 @@ export interface StaffSummary {
 // ── Insights ────────────────────────────────────────────────────────────────
 export interface Insight {
   id: string;
-  severity: 'high' | 'medium' | 'low';
-  category: 'finance' | 'attendance' | 'academic' | 'staff';
+  severity: "high" | "medium" | "low";
+  category: "finance" | "attendance" | "academic" | "staff";
   message: string;
   action_label?: string;
   action_route?: string;
@@ -140,20 +140,91 @@ export interface AnalyticsData {
   insights: Insight[];
 }
 
+export type AnalyticsModule =
+  "financials" | "attendance" | "academics" | "staff" | "insights";
+export type AnalyticsSnapshot = Partial<AnalyticsData> & {
+  unavailable_sections?: AnalyticsModule[];
+};
+
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 export const AnalyticsService = {
-
   /**
    * Fetch the full analytics snapshot for a given time range.
    * GET /admin/analytics?range=month|quarter|year
    */
-  async getAnalytics(range: TimeRange, force = false): Promise<AnalyticsData | null> {
+  async getAnalytics(
+    range: TimeRange,
+    force = false,
+  ): Promise<AnalyticsSnapshot | null> {
     // Silent: useAnalytics/reports screens surface errors inline (retry cards),
     // not via the global apiClient "Network Error" modal.
-    const params = force ? { range, force: 'true' } : { range };
-    const data = await apiClient.get<AnalyticsData | null>('/admin/analytics', params, { silent: true });
-    return data;
+    const params = force ? { range, force: "true" } : { range };
+    try {
+      return await apiClient.get<AnalyticsData | null>(
+        "/admin/analytics",
+        params,
+        { silent: true },
+      );
+    } catch (error: unknown) {
+      const status =
+        (
+          error as {
+            statusCode?: number;
+            status?: number;
+            response?: { status?: number };
+          }
+        )?.statusCode ??
+        (error as { status?: number })?.status ??
+        (error as { response?: { status?: number } })?.response?.status;
+      // The combined endpoint uses Promise.all: a failing module must not hide
+      // healthy modules. Keep auth/network/rate-limit failures on their normal path.
+      if (status !== 404 && status !== 500) throw error;
+      const [financials, attendance, academics, staff] =
+        await Promise.allSettled([
+          apiClient.get<FeeCollectionSummary>(
+            "/admin/analytics/financials",
+            params,
+            { silent: true },
+          ),
+          apiClient.get<AttendanceSummary>(
+            "/admin/analytics/attendance",
+            params,
+            { silent: true },
+          ),
+          apiClient.get<AcademicSummary>("/admin/analytics/academics", params, {
+            silent: true,
+          }),
+          apiClient.get<StaffSummary>("/admin/analytics/staff", params, {
+            silent: true,
+          }),
+        ]);
+      const sections = { financials, attendance, academics, staff };
+      if (
+        Object.values(sections).every(
+          (result) => result.status === "rejected" || result.value == null,
+        )
+      )
+        throw error;
+      const snapshot: AnalyticsSnapshot = {
+        range,
+        insights: [],
+        unavailable_sections: ["insights"],
+      };
+      if (financials.status === "fulfilled" && financials.value != null)
+        snapshot.financials = financials.value;
+      else snapshot.unavailable_sections!.push("financials");
+      if (attendance.status === "fulfilled" && attendance.value != null)
+        snapshot.attendance = attendance.value;
+      else snapshot.unavailable_sections!.push("attendance");
+      if (academics.status === "fulfilled" && academics.value != null)
+        snapshot.academics = academics.value;
+      else snapshot.unavailable_sections!.push("academics");
+      if (staff.status === "fulfilled" && staff.value != null)
+        snapshot.staff = staff.value;
+      else snapshot.unavailable_sections!.push("staff");
+      return snapshot;
+    }
   },
 
   /**
@@ -161,7 +232,10 @@ export const AnalyticsService = {
    * GET /admin/analytics/financials?range=...
    */
   async getFinancials(range: TimeRange): Promise<FeeCollectionSummary> {
-    const data = await apiClient.get<FeeCollectionSummary>('/admin/analytics/financials', { range });
+    const data = await apiClient.get<FeeCollectionSummary>(
+      "/admin/analytics/financials",
+      { range },
+    );
     return data;
   },
 
@@ -170,7 +244,10 @@ export const AnalyticsService = {
    * GET /admin/analytics/attendance?range=...
    */
   async getAttendance(range: TimeRange): Promise<AttendanceSummary> {
-    const data = await apiClient.get<AttendanceSummary>('/admin/analytics/attendance', { range });
+    const data = await apiClient.get<AttendanceSummary>(
+      "/admin/analytics/attendance",
+      { range },
+    );
     return data;
   },
 
@@ -179,7 +256,10 @@ export const AnalyticsService = {
    * GET /admin/analytics/academics?range=...
    */
   async getAcademics(range: TimeRange): Promise<AcademicSummary> {
-    const data = await apiClient.get<AcademicSummary>('/admin/analytics/academics', { range });
+    const data = await apiClient.get<AcademicSummary>(
+      "/admin/analytics/academics",
+      { range },
+    );
     return data;
   },
 
@@ -188,7 +268,9 @@ export const AnalyticsService = {
    * GET /admin/analytics/staff?range=...
    */
   async getStaff(range: TimeRange): Promise<StaffSummary> {
-    const data = await apiClient.get<StaffSummary>('/admin/analytics/staff', { range });
+    const data = await apiClient.get<StaffSummary>("/admin/analytics/staff", {
+      range,
+    });
     return data;
   },
 
@@ -197,7 +279,9 @@ export const AnalyticsService = {
    * GET /admin/analytics/insights?range=...
    */
   async getInsights(range: TimeRange): Promise<Insight[]> {
-    const data = await apiClient.get<Insight[]>('/admin/analytics/insights', { range });
+    const data = await apiClient.get<Insight[]>("/admin/analytics/insights", {
+      range,
+    });
     return data;
   },
 
@@ -214,7 +298,10 @@ export const AnalyticsService = {
    * POST /admin/analytics/export
    */
   async exportReport(range: TimeRange): Promise<{ download_url: string }> {
-    const data = await apiClient.post<{ download_url: string }>('/admin/analytics/export', { range });
+    const data = await apiClient.post<{ download_url: string }>(
+      "/admin/analytics/export",
+      { range },
+    );
     return data;
   },
 };

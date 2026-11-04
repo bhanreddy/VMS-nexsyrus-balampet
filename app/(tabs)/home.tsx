@@ -1263,7 +1263,7 @@ const HomeScreen = () => {
 
   const inchargeLabel = useMemo(() => {
     const teacher = student?.current_enrollment?.class_teacher?.trim();
-    if (!teacher) return t('studentHome.studentFallback');
+    if (!teacher) return null;
     return `${t('studentHome.incharge', 'Incharge')} · ${teacher}`;
   }, [student, t]);
 
@@ -1294,7 +1294,7 @@ const HomeScreen = () => {
           {refreshing && <View style={S.loaderRow}><LogoLoader size={28} /></View>}
 
           {/* ── HERO ── */}
-          <View style={[S.hero, { backgroundColor: SCHOOL_CONFIG.theme.ribbonGradient[0], marginTop: -1 }]}>
+          <View style={[S.hero, { backgroundColor: P.bg }]}>
             <View
               style={[
                 S.heroOuter,

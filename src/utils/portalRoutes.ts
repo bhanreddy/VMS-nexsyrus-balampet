@@ -20,6 +20,8 @@ export function getHomeRouteForRole(roleCode: string | null | undefined): any {
     case 'staff':
     case 'teacher':
       return '/staff/dashboard';
+    case 'librarian':
+      return '/library/dashboard';
     case 'driver':
       return '/driver/dashboard';
     case 'gate_keeper':
@@ -51,6 +53,8 @@ export function getPortalLabelForRole(roleCode: string | null | undefined): stri
     case 'accountant':
     case 'accounts':
       return 'Accounts';
+    case 'librarian':
+      return 'Librarian';
     case 'driver':
       return 'Driver';
     case 'gate_keeper':

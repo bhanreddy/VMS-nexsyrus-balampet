@@ -16,3 +16,16 @@ export function rankQuickActionsByUsage<T extends { route: string }>(
     })
     .map(({ action }) => action);
 }
+
+/** Nested records belong to their closest quick-action screen; query changes aren't new screens. */
+export function resolveQuickActionRoute(
+  pathname: string,
+  routes: readonly string[],
+): string | null {
+  const path = pathname.split(/[?#]/)[0].replace(/\/$/, "");
+  return (
+    routes
+      .filter((route) => path === route || path.startsWith(`${route}/`))
+      .sort((a, b) => b.length - a.length)[0] || null
+  );
+}

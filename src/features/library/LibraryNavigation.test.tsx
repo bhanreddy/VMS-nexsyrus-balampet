@@ -1,0 +1,71 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+import React from 'react';
+import { Text } from 'react-native';
+import StaffHeader from '../../components/StaffHeader';
+import StaffFooter from '../../components/StaffFooter';
+import StaffToolsDrawer from '../../components/StaffToolsDrawer';
+import MenuOverlay from '../../components/MenuOverlay';
+import { useStaffPortalConfig } from '../../hooks/useStaffPortalConfig';
+import { LIBRARY_DESTINATIONS, LIBRARY_FOOTER_TABS } from '../../config/libraryNavigation';
+const { create, act } = require('react-test-renderer');
+const mockNavigate = jest.fn();
+const mockPush = jest.fn();
+const mockEmit = jest.fn(() => ({ defaultPrevented: false }));
+const mockNavigation = { navigate: mockNavigate, emit: mockEmit };
+jest.mock('expo-router', () => ({ useNavigation: () => mockNavigation, useRouter: () => ({ push: mockPush, canGoBack: () => false }) }));
+jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }) }));
+jest.mock('@expo/vector-icons', () => ({ Ionicons: 'Icon', Feather: 'Icon' }));
+jest.mock('../../features/app-tour', () => ({ TourTarget: ({ children }: any) => children, AppTourHeaderButton: () => null }));
+jest.mock('../../hooks/useTheme', () => ({ useTheme: () => ({ theme: require('../../theme/types').defaultLightTheme, isDark: false }) }));
+jest.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { userId: 'librarian-1', displayName: 'Librarian', photoUrl: null } }) }));
+jest.mock('../../hooks/useEffectiveStaffId', () => ({ useEffectiveStaffId: () => ({ isViewingAsAdmin: true, staffId: 'previous-staff', actorUserId: 'previous-admin' }) }));
+jest.mock('../../hooks/useStaffPortalConfig', () => ({ useStaffPortalConfig: jest.fn(() => ({ payslipsEnabled: true, loading: false })) }));
+jest.mock('../../components/MenuOverlay', () => ({ __esModule: true, default: () => null }));
+jest.mock('../../services/staffPortalExit', () => ({ exitStaffPortalToAdmin: jest.fn() }));
+jest.mock('../../utils/haptics', () => ({ impactAsync: jest.fn(), ImpactFeedbackStyle: { Light: 'light' } }));
+let tree: any;
+const press = (label: string) => tree.root.findAll((n: any) => n.props.accessibilityLabel === label && typeof n.props.onPress === 'function')[0].props.onPress();
+afterEach(() => { act(() => tree?.unmount()); jest.clearAllMocks(); });
+
+it('uses the staff header with librarian menu, settings, and home destinations', () => {
+  act(() => { tree = create(<StaffHeader portal="library" title="Books & copies" showBackButton />); });
+  act(() => press('Open librarian settings'));
+  expect(mockNavigate).toHaveBeenCalledWith('account-settings');
+  act(() => press('Go back'));
+  expect(mockNavigate).toHaveBeenCalledWith('dashboard');
+  expect(mockPush).not.toHaveBeenCalled();
+});
+it('uses the staff drawer without fetching teacher configuration or leaking teacher routes', () => {
+  act(() => { tree = create(<StaffToolsDrawer portal="library" onClose={jest.fn()} />); });
+  const props = tree.root.findByType(MenuOverlay).props;
+  expect(props.userType).toBe('staff');
+  expect(props.roleLabel).toBe('Librarian');
+  expect(props.profileRoute).toBe('/library/account-settings');
+  expect(props.searchLabel).toBe('Search librarian tools');
+  expect(props.menuItems.map((v: any) => v.link)).toEqual(LIBRARY_DESTINATIONS.map((v) => v.route));
+  for (const item of props.menuItems) props.onNavigate(item.link);
+  expect(mockNavigate).toHaveBeenCalledWith('role-login-qr');
+  expect(mockNavigate).toHaveBeenCalledWith('student-login-qr');
+  expect(mockNavigate).toHaveBeenCalledWith('complaints');
+  expect(useStaffPortalConfig).not.toHaveBeenCalled();
+});
+it('keeps the staff floating footer and hides it on secondary library screens', () => {
+  const routes = ['dashboard', 'catalog', 'loans', 'reports', 'complaints'].map((name) => ({ name, key: name }));
+  const render = (index: number) => <StaffFooter state={{ routes, index }} navigation={mockNavigation} tabs={LIBRARY_FOOTER_TABS} preserveStaffContext={false} />;
+  act(() => { tree = create(render(0)); });
+  expect(tree.root.findAllByType(Text).map((n: any) => n.props.children)).toEqual(['Home', 'Books', 'Lending', 'Reports']);
+  act(() => press('Books'));
+  expect(mockNavigate).toHaveBeenCalledWith('catalog', undefined);
+  act(() => { tree.update(render(4)); });
+  expect(tree.root.findAllByType(Text)).toHaveLength(0);
+  act(() => { tree.update(render(2)); });
+  expect(tree.root.findAllByType(Text)).toHaveLength(4);
+});
+it('preserves the default staff footer destinations', () => {
+  const routes = ['dashboard', 'manage-students', 'timetable', 'results'].map((name) => ({ name, key: name }));
+  act(() => { tree = create(<StaffFooter state={{ routes, index: 0 }} navigation={mockNavigation} />); });
+  expect(tree.root.findAllByType(Text).map((n: any) => n.props.children)).toEqual(['Home', 'Attendance', 'Timetable', 'Results']);
+  act(() => press('Attendance'));
+  expect(mockNavigate).toHaveBeenCalledWith('manage-students', expect.objectContaining({ staffId: 'previous-staff', viewAsActorId: 'previous-admin' }));
+});

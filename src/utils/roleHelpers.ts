@@ -14,6 +14,7 @@ export const STAFF_ADD_LOGIN_ROLE_OPTIONS = [
   { code: 'principal', label: 'Principal', portal: 'staff' as const },
   { code: 'admin', label: 'Administrator', portal: 'admin' as const },
   { code: 'driver', label: 'Driver', portal: 'driver' as const },
+  { code: 'librarian', label: 'Librarian', portal: 'library' as const },
   { code: 'gate_keeper', label: 'Gate Keeper', portal: 'gatekeeper' as const },
 ] as const;
 
@@ -34,6 +35,7 @@ export function resolveRoleFromDesignation(designationName: string | null | unde
   if (name === 'principal') return 'principal';
   if (name.includes('admin')) return 'admin';
   if (name === 'driver') return 'driver';
+  if (name.includes('librarian')) return 'librarian';
   if (name.includes('gate') || name.includes('security')) return 'gate_keeper';
   return 'staff';
 }
@@ -81,6 +83,7 @@ export function isPersistentSessionRole(roleCode: string | null | undefined): bo
     'teacher',
     'principal',
     'applicant',
+    'librarian',
   ].includes(roleCode);
 }
 

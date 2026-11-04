@@ -1,24 +1,52 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { usePathname, useRouter } from 'expo-router';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  FadeInDown,
-  Easing,
-} from 'react-native-reanimated';
-import * as Haptics from '../utils/haptics';
-import { useTheme } from '../hooks/useTheme';
-import { SCHOOL_NAME } from '../constants/school';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  Image,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import { usePathname, useRouter } from "expo-router";
+import { useReducedMotion } from "react-native-reanimated";
+import { SCHOOL_NAME } from "../constants/school";
+import { SCHOOL_CONFIG } from "../constants/schoolConfig";
+import {
+  buildSidebarSections,
+  COMPACT_SIDEBAR_GROUPS,
+  sidebarRouteActive,
+} from "../constants/adminSidebarPresentation";
+import { useAuth } from "../hooks/useAuth";
+import { useTheme } from "../hooks/useTheme";
+import { useAdminWebChrome } from "../contexts/AdminWebChromeContext";
+import { useAdminAppSearch } from "./AdminAppSearch";
+import AppTextInput from "./AppTextInput";
+import {
+  MotionPressable as Pressable,
+  dashboardData,
+} from "./admin-dashboard/DashboardInteractions";
+import SidebarTooltip from "./admin-dashboard/SidebarTooltip";
+import SidebarModuleFlyout, {
+  SidebarFlyoutModule,
+} from "./admin-dashboard/SidebarModuleFlyout";
+import {
+  useSidebarPalette,
+  sidebarAccent,
+  SidebarPalette,
+} from "./admin-dashboard/sidebarPalette";
+export { ADMIN_SIDEBAR_GROUPS } from "../constants/adminSidebarPresentation";
 
-export const DASHBOARD_SIDEBAR_EXPANDED = 272;
-export const DASHBOARD_SIDEBAR_COLLAPSED = 74;
-
-type IconName = React.ComponentProps<typeof Ionicons>['name'];
-
+export const DASHBOARD_SIDEBAR_EXPANDED = 256;
+export const DASHBOARD_SIDEBAR_COLLAPSED = 76;
+type IconName = React.ComponentProps<typeof Ionicons>["name"];
 export interface WebSidebarActionItem {
   title: string;
   icon: IconName;
@@ -27,920 +55,973 @@ export interface WebSidebarActionItem {
   badge?: number;
   category?: string;
 }
+type Anchor = { left: number; top: number; width: number; height: number };
 
-const CATEGORY_ORDER = [
-  'Overview',
-  'Academic',
-  'Students',
-  'Finance',
-  'Analytics',
-  'AI',
-  'Comms',
-  'Support',
-  'Ops',
-  'HR',
-  'Security',
-] as const;
-
-type CategoryKey = (typeof CATEGORY_ORDER)[number] | string;
-
-type CategoryMeta = {
-  icon: IconName;
-  accent: string;
-  accentDeep: string;
-  soft: string;
-  softDark: string;
-  label: string;
-  gradient: [string, string];
-};
-
-const CATEGORY_META: Record<string, CategoryMeta> = {
-  Overview: {
-    icon: 'grid-outline',
-    accent: '#3B82F6',
-    accentDeep: '#1D4ED8',
-    soft: 'rgba(59,130,246,0.12)',
-    softDark: 'rgba(59,130,246,0.18)',
-    label: 'Overview',
-    gradient: ['#60A5FA', '#2563EB'],
-  },
-  Academic: {
-    icon: 'school-outline',
-    accent: '#3B82F6',
-    accentDeep: '#1D4ED8',
-    soft: 'rgba(59,130,246,0.12)',
-    softDark: 'rgba(59,130,246,0.18)',
-    label: 'Academic',
-    gradient: ['#60A5FA', '#2563EB'],
-  },
-  Students: {
-    icon: 'people-outline',
-    accent: '#14B8A6',
-    accentDeep: '#0F766E',
-    soft: 'rgba(20,184,166,0.12)',
-    softDark: 'rgba(20,184,166,0.18)',
-    label: 'Students',
-    gradient: ['#2DD4BF', '#0F766E'],
-  },
-  Finance: {
-    icon: 'wallet-outline',
-    accent: '#14B8A6',
-    accentDeep: '#0F766E',
-    soft: 'rgba(20,184,166,0.12)',
-    softDark: 'rgba(20,184,166,0.18)',
-    label: 'Finance',
-    gradient: ['#2DD4BF', '#0D9488'],
-  },
-  Analytics: {
-    icon: 'bar-chart-outline',
-    accent: '#38BDF8',
-    accentDeep: '#0284C7',
-    soft: 'rgba(56,189,248,0.12)',
-    softDark: 'rgba(56,189,248,0.18)',
-    label: 'Analytics',
-    gradient: ['#7DD3FC', '#0EA5E9'],
-  },
-  AI: {
-    icon: 'bulb-outline',
-    accent: '#22D3EE',
-    accentDeep: '#0891B2',
-    soft: 'rgba(34,211,238,0.12)',
-    softDark: 'rgba(34,211,238,0.18)',
-    label: 'Insights',
-    gradient: ['#67E8F9', '#06B6D4'],
-  },
-  Comms: {
-    icon: 'megaphone-outline',
-    accent: '#C45C4A',
-    accentDeep: '#7B1A2C',
-    soft: 'rgba(93,16,29,0.08)',
-    softDark: 'rgba(196,92,74,0.16)',
-    label: 'Comms',
-    gradient: ['#9B2C3C', '#5D101D'],
-  },
-  Support: {
-    icon: 'chatbubble-ellipses-outline',
-    accent: '#FB7185',
-    accentDeep: '#E11D48',
-    soft: 'rgba(251,113,133,0.14)',
-    softDark: 'rgba(251,113,133,0.18)',
-    label: 'Support',
-    gradient: ['#FDA4AF', '#F43F5E'],
-  },
-  Ops: {
-    icon: 'bus-outline',
-    accent: '#FBBF24',
-    accentDeep: '#B45309',
-    soft: 'rgba(251,191,36,0.16)',
-    softDark: 'rgba(251,191,36,0.18)',
-    label: 'Operations',
-    gradient: ['#FCD34D', '#D97706'],
-  },
-  HR: {
-    icon: 'people-outline',
-    accent: '#F472B6',
-    accentDeep: '#BE185D',
-    soft: 'rgba(244,114,182,0.14)',
-    softDark: 'rgba(244,114,182,0.18)',
-    label: 'People',
-    gradient: ['#F9A8D4', '#DB2777'],
-  },
-  Security: {
-    icon: 'shield-checkmark-outline',
-    accent: '#F87171',
-    accentDeep: '#B91C1C',
-    soft: 'rgba(248,113,113,0.14)',
-    softDark: 'rgba(248,113,113,0.18)',
-    label: 'Security',
-    gradient: ['#FCA5A5', '#DC2626'],
-  },
-};
-
-function routeIsActive(pathname: string, itemRoute: string): boolean {
-  if (pathname === itemRoute) return true;
-  if (itemRoute === '/admin' || itemRoute === '/admin/dashboard') return false;
-  return pathname.startsWith(`${itemRoute}/`);
-}
-
-function getCategoryMeta(category: string): CategoryMeta {
-  return (
-    CATEGORY_META[category] ?? {
-      icon: 'grid-outline' as IconName,
-      accent: '#3B82F6',
-      accentDeep: '#1D4ED8',
-      soft: 'rgba(59,130,246,0.12)',
-      softDark: 'rgba(59,130,246,0.18)',
-      label: category,
-      gradient: ['#60A5FA', '#2563EB'],
-    }
-  );
-}
-
-interface DashboardWebSidebarProps {
+export default function DashboardWebSidebar({
+  collapsed,
+  items,
+  onNavigate,
+  onClose,
+  widthOverride,
+}: {
   collapsed: boolean;
   items: WebSidebarActionItem[];
-}
-
-function SubItem({
-  item,
-  collapsed,
-  active,
-  isDark,
-  meta,
-  onNavigate,
-  styles,
-}: {
-  item: WebSidebarActionItem;
-  collapsed: boolean;
-  active: boolean;
-  isDark: boolean;
-  meta: CategoryMeta;
-  onNavigate: (route: string) => void;
-  styles: ReturnType<typeof createStyles>;
+  onNavigate?: (route: string) => void;
+  onClose?: () => void;
+  widthOverride?: number;
 }) {
-  const [hovered, setHovered] = useState(false);
-  const showBadge = item.badge !== undefined && item.badge > 0;
-
-  return (
-    <Pressable
-      onPress={() => onNavigate(item.route)}
-      onHoverIn={() => setHovered(true)}
-      onHoverOut={() => setHovered(false)}
-      style={[Platform.OS === 'web' && { cursor: 'pointer' }]}
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-    >
-      <View
-        style={[
-          styles.subItem,
-          collapsed && styles.subItemCollapsed,
-          active && styles.subItemActiveShell,
-          !active &&
-            hovered && {
-              backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.92)',
-              transform: [{ translateX: 2 }],
-            },
-          !active &&
-            !hovered && {
-              backgroundColor: isDark ? 'rgba(255,255,255,0.035)' : 'rgba(255,255,255,0.55)',
-            },
+  const pathname = usePathname();
+  const router = useRouter();
+  const { user } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
+  const p = useSidebarPalette();
+  const s = useMemo(() => createStyles(p), [p]);
+  const themeAction = isDark ? "Switch to light mode" : "Switch to dark mode";
+  const { setSidebarCollapsed } = useAdminWebChrome();
+  const { openSearch } = useAdminAppSearch();
+  const reduced = useReducedMotion();
+  const [query, setQuery] = useState("");
+  const [openGroups, setOpenGroups] = useState<string[]>([]);
+  const [flyout, setFlyout] = useState<SidebarFlyoutModule | null>(null);
+  const [tooltip, setTooltip] = useState<{
+    id: string;
+    label: string;
+    anchor: Anchor;
+  } | null>(null);
+  const searchInput = useRef<React.ElementRef<typeof AppTextInput>>(null);
+  const grouped = useMemo(
+    () => buildSidebarSections(items, query),
+    [items, query],
+  );
+  const unfiltered = useMemo(() => buildSidebarSections(items), [items]);
+  const closeFlyout = useCallback(() => setFlyout(null), []);
+  const changeTheme = () => {
+    setTooltip(null);
+    toggleTheme();
+  };
+  useEffect(() => {
+    const current = unfiltered.sections.find((section) =>
+      section.items.some((item) => sidebarRouteActive(pathname, item.route)),
+    );
+    if (current)
+      setOpenGroups((previous) =>
+        previous.includes(current.category)
+          ? previous
+          : [...previous, current.category],
+      );
+  }, [pathname, unfiltered]);
+  useEffect(() => {
+    setFlyout(null);
+    setTooltip(null);
+    setQuery("");
+  }, [collapsed, pathname]);
+  const navigate = (route: string) => {
+    setFlyout(null);
+    setTooltip(null);
+    if (onNavigate) onNavigate(route);
+    else router.push(route as any);
+  };
+  const anchorFor = (target: unknown): Anchor => {
+    if (Platform.OS === "web" && target instanceof HTMLElement) {
+      const rect = target.getBoundingClientRect();
+      return {
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+      };
+    }
+    return { left: 12, top: 110, width: 52, height: 44 };
+  };
+  const revealTooltip = (id: string, label: string, target: unknown) => {
+    if (collapsed && !flyout)
+      setTooltip({ id, label, anchor: anchorFor(target) });
+  };
+  const tooltipProps = (id: string, label: string) => ({
+    onHoverIn: (event: { currentTarget: unknown }) =>
+      revealTooltip(id, label, event.currentTarget),
+    onFocus: (event: { currentTarget: unknown }) =>
+      revealTooltip(id, label, event.currentTarget),
+    onHoverOut: () => setTooltip(null),
+    onBlur: () => setTooltip(null),
+    "aria-describedby": tooltip?.id === id ? id : undefined,
+  });
+  const renderItem = (item: WebSidebarActionItem, nested = false) => {
+    const active = sidebarRouteActive(pathname, item.route);
+    const id = `sidebar-tool-${item.route.replace(/[^a-z0-9]/gi, "-")}`;
+    return (
+      <Pressable
+        key={item.route}
+        accessibilityRole="button"
+        accessibilityLabel={item.title}
+        accessibilityState={{ selected: active }}
+        aria-current={active ? "page" : undefined}
+        {...tooltipProps(id, item.title)}
+        onPress={() => navigate(item.route)}
+        style={({ hovered, pressed }) => [
+          s.item,
+          nested && s.nestedItem,
+          collapsed && s.railItem,
+          active && s.activeItem,
+          hovered && !active && s.hoveredItem,
+          pressed && { opacity: 0.88 },
         ]}
       >
-        {active ? (
+        {active && (
           <>
-            <View
-              style={[
-                styles.subActiveRail,
-                { backgroundColor: meta.accentDeep },
-              ]}
+            <LinearGradient
               pointerEvents="none"
+              colors={p.activeGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[StyleSheet.absoluteFill, { borderRadius: 10 }]}
             />
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                {
-                  backgroundColor: isDark ? `${meta.accent}22` : `${meta.accent}18`,
-                  borderRadius: 12,
-                },
-              ]}
-              pointerEvents="none"
-            />
+            <View style={s.activeMark} />
           </>
-        ) : null}
-
+        )}
         <View
           style={[
-            styles.subIcon,
-            collapsed && styles.subIconCollapsed,
-            active
-              ? {
-                  backgroundColor: isDark ? meta.softDark : meta.soft,
-                  borderColor: `${meta.accent}44`,
-                }
-              : {
-                  backgroundColor: isDark ? meta.softDark : meta.soft,
-                  borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.7)',
-                },
+            s.itemIcon,
+            active && {
+              backgroundColor: p.activeIconBg,
+              borderColor: p.activeIconBorder,
+            },
           ]}
         >
           <Ionicons
             name={item.icon}
-            size={collapsed ? 17 : 14}
-            color={active ? meta.accentDeep : meta.accentDeep}
+            size={18}
+            color={active ? p.activeIcon : p.icon}
           />
-          {collapsed && showBadge ? <View style={styles.badgeDot} /> : null}
         </View>
-
-        {!collapsed ? (
-          <Text style={[styles.subTitle, active && styles.subTitleActive, active && { color: isDark ? '#F8FAFC' : meta.accentDeep }]} numberOfLines={1}>
+        {!collapsed && (
+          <Text numberOfLines={1} style={[s.itemText, active && s.activeText]}>
             {item.title}
           </Text>
-        ) : null}
-
-        {!collapsed && showBadge ? (
+        )}
+        {!!item.badge &&
+          item.badge > 0 &&
+          (collapsed ? (
+            <View style={s.railBadge} />
+          ) : (
+            <Text style={s.badge}>{item.badge > 99 ? "99+" : item.badge}</Text>
+          ))}
+        {!collapsed && active && (
+          <Ionicons name="chevron-forward" size={11} color={p.accent} />
+        )}
+      </Pressable>
+    );
+  };
+  const renderGroup = (section: (typeof grouped.sections)[number]) => {
+    const { meta, category } = section;
+    const color = sidebarAccent(meta.color, isDark);
+    const active = section.items.some((item) =>
+      sidebarRouteActive(pathname, item.route),
+    );
+    const open = !!query.trim() || openGroups.includes(category);
+    const badge = section.items.reduce(
+      (sum, item) => sum + Math.max(0, item.badge || 0),
+      0,
+    );
+    const id = `sidebar-group-${category}`;
+    return (
+      <View key={category}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={meta.label}
+          accessibilityState={{
+            expanded: collapsed ? flyout?.key === category : open,
+          }}
+          aria-expanded={collapsed ? flyout?.key === category : open}
+          aria-haspopup={collapsed ? "dialog" : undefined}
+          {...tooltipProps(id, meta.label)}
+          onPress={(event) => {
+            const anchor = anchorFor(event.currentTarget);
+            setTooltip(null);
+            if (collapsed)
+              setFlyout((current) =>
+                current?.key === category
+                  ? null
+                  : {
+                      key: category,
+                      label: meta.shortLabel,
+                      icon: meta.icon,
+                      color: meta.color,
+                      items: section.items,
+                      anchor,
+                    },
+              );
+            else
+              setOpenGroups((current) =>
+                current.includes(category)
+                  ? current.filter((key) => key !== category)
+                  : [...current, category],
+              );
+          }}
+          style={({ hovered }) => [
+            s.item,
+            collapsed && s.railItem,
+            (hovered || flyout?.key === category) && s.hoveredItem,
+            active && !open && { backgroundColor: p.hover },
+          ]}
+        >
           <View
             style={[
-              styles.badge,
+              s.itemIcon,
               {
-                backgroundColor: active
-                  ? meta.accentDeep
-                  : isDark
-                    ? 'rgba(255,255,255,0.12)'
-                    : meta.accentDeep,
+                backgroundColor: `${color}${isDark ? "0D" : "0C"}`,
+                borderColor: `${color}${isDark ? "12" : "1C"}`,
               },
             ]}
           >
-            <Text style={styles.badgeText}>{item.badge! > 99 ? '99+' : item.badge}</Text>
+            <Ionicons name={meta.icon} size={18} color={color} />
           </View>
-        ) : null}
-      </View>
-    </Pressable>
-  );
-}
-
-function CategorySection({
-  category,
-  items,
-  expanded,
-  onToggle,
-  collapsed,
-  isDark,
-  pathname,
-  onNavigate,
-  styles,
-}: {
-  category: CategoryKey;
-  items: WebSidebarActionItem[];
-  expanded: boolean;
-  onToggle: () => void;
-  collapsed: boolean;
-  isDark: boolean;
-  pathname: string;
-  onNavigate: (route: string) => void;
-  styles: ReturnType<typeof createStyles>;
-}) {
-  const meta = getCategoryMeta(String(category));
-  const hasActive = items.some((it) => routeIsActive(pathname, it.route));
-  const badgeTotal = items.reduce((sum, it) => sum + (it.badge && it.badge > 0 ? it.badge : 0), 0);
-  const [headerHovered, setHeaderHovered] = useState(false);
-  const chevron = useSharedValue(expanded ? 1 : 0);
-
-  useEffect(() => {
-    chevron.value = withTiming(expanded ? 1 : 0, {
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-    });
-  }, [expanded, chevron]);
-
-  const chevronStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${chevron.value * 90}deg` }],
-  }));
-
-  if (collapsed) {
-    return (
-      <View style={styles.collapsedGroup}>
-        {items.map((item) => (
-          <SubItem
-            key={item.route}
-            item={item}
-            collapsed
-            active={routeIsActive(pathname, item.route)}
-            isDark={isDark}
-            meta={meta}
-            onNavigate={onNavigate}
-            styles={styles}
-          />
-        ))}
+          {!collapsed && (
+            <>
+              <Text
+                numberOfLines={1}
+                style={[s.itemText, active && { color: p.accent }]}
+              >
+                {meta.shortLabel}
+              </Text>
+              {badge > 0 ? (
+                <Text style={s.badge}>{badge}</Text>
+              ) : (
+                <Ionicons
+                  name={open ? "chevron-down" : "chevron-forward"}
+                  size={11}
+                  color={p.muted}
+                />
+              )}
+            </>
+          )}
+          {collapsed && (badge > 0 || active) && (
+            <View style={[s.railBadge, { backgroundColor: color }]} />
+          )}
+        </Pressable>
+        {!collapsed && open && (
+          <View
+            {...dashboardData({ sidebarSubmenu: "true" })}
+            style={s.submenu}
+          >
+            {section.items.map((item) => renderItem(item, true))}
+          </View>
+        )}
       </View>
     );
-  }
-
+  };
+  const compactSections = unfiltered.sections.filter((section) =>
+    COMPACT_SIDEBAR_GROUPS.includes(section.category),
+  );
+  const moreItems = unfiltered.sections
+    .filter((section) => !COMPACT_SIDEBAR_GROUPS.includes(section.category))
+    .flatMap((section) => section.items);
+  const initials = (user?.displayName || "Admin")
+    .split(" ")
+    .filter(Boolean)
+    .map((name) => name[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
   return (
     <View
+      role="navigation"
+      accessibilityLabel="School administration"
+      {...dashboardData({
+        premiumSidebar: collapsed ? "collapsed" : "expanded",
+      })}
       style={[
-        styles.categoryWrap,
-        expanded && {
-          backgroundColor: isDark ? meta.softDark : meta.soft,
-          borderColor: isDark ? `${meta.accent}44` : `${meta.accent}33`,
-          ...(Platform.OS === 'web'
-            ? ({
-                boxShadow: `0 10px 28px ${meta.accent}18, inset 0 1px 0 rgba(255,255,255,0.55)`,
-              } as any)
-            : {}),
+        s.sidebar,
+        {
+          width:
+            widthOverride ??
+            (collapsed
+              ? DASHBOARD_SIDEBAR_COLLAPSED
+              : DASHBOARD_SIDEBAR_EXPANDED),
         },
-        !expanded && hasActive && {
-          borderColor: isDark ? `${meta.accent}40` : `${meta.accent}28`,
-          backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.55)',
-        },
+        Platform.OS === "web" &&
+          ({
+            transition: reduced
+              ? "none"
+              : "width 220ms cubic-bezier(.2,.8,.2,1)",
+          } as any),
       ]}
     >
-      <Pressable
-        onPress={onToggle}
-        onHoverIn={() => setHeaderHovered(true)}
-        onHoverOut={() => setHeaderHovered(false)}
-        style={[
-          styles.categoryHeader,
-          !expanded &&
-            headerHovered && {
-              backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.7)',
-            },
-          Platform.OS === 'web' && { cursor: 'pointer' },
-        ]}
-        accessibilityRole="button"
-        accessibilityState={{ expanded }}
-      >
-        <LinearGradient
-          colors={meta.gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[
-            styles.categoryOrb,
-            Platform.OS === 'web' &&
-              ({
-                boxShadow: `0 6px 14px ${meta.accent}44, inset 0 1px 0 rgba(255,255,255,0.35)`,
-              } as any),
-          ]}
-        >
-          <Ionicons name={meta.icon} size={15} color="#FFFFFF" />
-        </LinearGradient>
-
-        <View style={styles.categoryTextCol}>
-          <Text
-            style={[
-              styles.categoryTitle,
-              (expanded || hasActive) && { color: isDark ? '#F8FAFC' : '#0F172A' },
-            ]}
-            numberOfLines={1}
-          >
-            {meta.label}
-          </Text>
-          {expanded ? (
-            <Text style={[styles.categoryHint, { color: meta.accentDeep }]} numberOfLines={1}>
-              {items.map((it) => it.title).join(' · ')}
-            </Text>
-          ) : null}
-        </View>
-
-        {badgeTotal > 0 ? (
-          <View style={[styles.badge, { backgroundColor: meta.accentDeep }]}>
-            <Text style={styles.badgeText}>{badgeTotal > 99 ? '99+' : badgeTotal}</Text>
-          </View>
-        ) : (
-          <View
-            style={[
-              styles.countPill,
-              expanded && {
-                backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.85)',
-                borderColor: `${meta.accent}33`,
-              },
-            ]}
-          >
-            <Text style={[styles.countText, expanded && { color: meta.accentDeep }]}>
-              {items.length}
-            </Text>
-          </View>
-        )}
-
-        <Animated.View style={[styles.chevronWrap, chevronStyle]}>
-          <Ionicons
-            name="chevron-forward"
-            size={14}
-            color={expanded ? meta.accentDeep : isDark ? 'rgba(255,255,255,0.35)' : 'rgba(15,23,42,0.3)'}
-          />
-        </Animated.View>
-      </Pressable>
-
-      {expanded ? (
-        <Animated.View entering={FadeInDown.duration(200).springify().damping(18)} style={styles.subList}>
-          {items.map((item) => (
-            <SubItem
-              key={item.route}
-              item={item}
-              collapsed={false}
-              active={routeIsActive(pathname, item.route)}
-              isDark={isDark}
-              meta={meta}
-              onNavigate={onNavigate}
-              styles={styles}
-            />
-          ))}
-        </Animated.View>
-      ) : null}
-    </View>
-  );
-}
-
-export default function DashboardWebSidebar({ collapsed, items }: DashboardWebSidebarProps) {
-  const { isDark } = useTheme();
-  const pathname = usePathname();
-  const router = useRouter();
-  const width = collapsed ? DASHBOARD_SIDEBAR_COLLAPSED : DASHBOARD_SIDEBAR_EXPANDED;
-  const styles = useMemo(() => createStyles(isDark, collapsed), [isDark, collapsed]);
-
-  const grouped = useMemo(() => {
-    const buckets = new Map<string, WebSidebarActionItem[]>();
-    items.forEach((item) => {
-      const key = item.category || 'Academic';
-      const list = buckets.get(key) ?? [];
-      list.push(item);
-      buckets.set(key, list);
-    });
-
-    const ordered: Array<{ key: string; items: WebSidebarActionItem[] }> = CATEGORY_ORDER.filter((key) => buckets.has(key)).map((key) => ({
-      key,
-      items: buckets.get(key)!,
-    }));
-
-    buckets.forEach((list, key) => {
-      if (!CATEGORY_ORDER.includes(key as (typeof CATEGORY_ORDER)[number])) {
-        ordered.push({ key, items: list });
-      }
-    });
-
-    return ordered;
-  }, [items]);
-
-  const activeCategory = useMemo(() => {
-    for (const group of grouped) {
-      if (group.items.some((it) => routeIsActive(pathname, it.route))) return group.key;
-    }
-    return grouped[0]?.key ?? 'Academic';
-  }, [grouped, pathname]);
-
-  const [openKey, setOpenKey] = useState<string | null>(activeCategory);
-  const lastAuto = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (lastAuto.current === activeCategory) return;
-    lastAuto.current = activeCategory;
-    setOpenKey(activeCategory);
-  }, [activeCategory]);
-
-  const onNavigate = useCallback(
-    (route: string) => {
-      try {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        router.push(route as any);
-      } catch (e) {
-        console.error('Button action failed:', e);
-      }
-    },
-    [router],
-  );
-
-  const toggleCategory = useCallback((key: string) => {
-    Haptics.selectionAsync();
-    setOpenKey((prev) => (prev === key ? null : key));
-  }, []);
-
-  return (
-    <View style={[styles.shell, { width }]}>
       <LinearGradient
-        colors={isDark ? ['#070B14', '#0F172A', '#111827'] : ['#E8EEF8', '#F3F6FC', '#EEF2F9']}
-        locations={[0, 0.45, 1]}
+        pointerEvents="none"
+        colors={p.gradient}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+        end={{ x: 0.8, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      {Platform.OS === 'web' ? (
-        <View
-          pointerEvents="none"
-          style={[
-            StyleSheet.absoluteFill,
-            {
-              backgroundImage: isDark
-                ? 'radial-gradient(80% 45% at 10% 0%, rgba(59,130,246,0.22) 0%, transparent 55%), radial-gradient(70% 40% at 100% 100%, rgba(20,184,166,0.12) 0%, transparent 50%)'
-                : 'radial-gradient(90% 50% at 0% 0%, rgba(59,130,246,0.16) 0%, transparent 52%), radial-gradient(70% 40% at 100% 85%, rgba(20,184,166,0.10) 0%, transparent 48%), radial-gradient(50% 30% at 50% 100%, rgba(251,146,60,0.06) 0%, transparent 55%)',
-            } as any,
-          ]}
-        />
-      ) : null}
-
-      <View style={[styles.topBrand, !collapsed && styles.topBrandExpanded]}>
-        <LinearGradient
-          colors={isDark ? ['#1E3A8A', '#1D4ED8', '#0F766E'] : ['#1E40AF', '#2563EB', '#0D9488']}
-          locations={[0, 0.55, 1]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.brandPill}
-        >
-          <View style={styles.brandSheen} pointerEvents="none" />
-          <View style={styles.brandOrb}>
-            <Ionicons name="school" size={collapsed ? 17 : 19} color="#FFFFFF" />
+      <View pointerEvents="none" style={s.edgeHighlight} />
+      {Platform.OS === "web" &&
+        React.createElement(
+          "style",
+          null,
+          `
+      [data-premium-sidebar] :focus-visible,[data-sidebar-flyout] :focus-visible {outline:2px solid ${p.focus}!important;outline-offset:2px}
+      [data-sidebar-submenu] {animation:sidebar-reveal 160ms ease-out both}
+      [data-sidebar-flyout] {animation:sidebar-flyout-in 160ms cubic-bezier(.16,1,.3,1) both}
+      @keyframes sidebar-reveal {from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:translateY(0)}}
+      @keyframes sidebar-flyout-in {from{opacity:0;transform:translateX(-5px)}to{opacity:1;transform:translateX(0)}}
+      @media(prefers-reduced-motion:reduce){[data-premium-sidebar],[data-sidebar-submenu],[data-sidebar-flyout]{animation:none!important;transition:none!important}}
+    `,
+        )}
+      <View style={[s.brand, collapsed && s.brandCollapsed]}>
+        <View style={s.logoRim}>
+          <View style={s.logo}>
+            <Image
+              source={SCHOOL_CONFIG.logo}
+              style={{ width: 29, height: 29, resizeMode: "contain" }}
+            />
           </View>
-          {!collapsed ? (
-            <View style={styles.brandTextWrap}>
-              <Text style={styles.brandName} numberOfLines={1}>
-                {SCHOOL_NAME || 'SchoolIMS'}
-              </Text>
-              <View style={styles.brandSubRow}>
-                <View style={styles.brandLiveDot} />
-                <Text style={styles.brandSub}>Admin Console</Text>
-              </View>
-            </View>
-          ) : null}
-        </LinearGradient>
-      </View>
-
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {!collapsed ? (
+        </View>
+        {!collapsed && (
           <>
-            <View style={styles.sectionHead}>
-              <Text style={styles.sectionHeadLabel}>Workspace</Text>
-              <View style={styles.sectionHeadLine} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text numberOfLines={2} style={s.schoolName}>
+                {SCHOOL_NAME}
+              </Text>
+              <Text style={s.brandCaption}>SCHOOL WORKSPACE</Text>
             </View>
-            <View style={styles.categoriesStack}>
-              {grouped.map((group) => (
-                <CategorySection
-                  key={group.key}
-                  category={group.key}
-                  items={group.items}
-                  expanded={openKey === group.key}
-                  onToggle={() => toggleCategory(group.key)}
-                  collapsed={false}
-                  isDark={isDark}
-                  pathname={pathname}
-                  onNavigate={onNavigate}
-                  styles={styles}
-                />
-              ))}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                onClose ? "Close navigation" : "Collapse sidebar"
+              }
+              onPress={onClose ?? (() => setSidebarCollapsed(true))}
+              style={s.smallControl}
+            >
+              <Ionicons
+                name={onClose ? "close-outline" : "contract-outline"}
+                size={16}
+                color={p.icon}
+              />
+            </Pressable>
+          </>
+        )}
+      </View>
+      {!collapsed ? (
+        <>
+          <View style={s.context}>
+            <View style={s.contextGlyph}>
+              <Ionicons name="layers-outline" size={14} color={p.accent} />
             </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.contextTitle}>Administration</Text>
+              <Text style={s.contextSubtitle}>Your school, connected</Text>
+            </View>
+            <Ionicons name="lock-closed-outline" size={11} color={p.muted} />
+          </View>
+          <View style={s.search}>
+            <Ionicons name="search-outline" size={15} color={p.muted} />
+            <AppTextInput
+              ref={searchInput}
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Find a tool…"
+              placeholderTextColor={p.muted}
+              accessibilityLabel="Search sidebar tools"
+              onSubmitEditing={() => {
+                const result =
+                  grouped.overview[0] || grouped.sections[0]?.items[0];
+                if (query.trim() && result) navigate(result.route);
+              }}
+              style={s.searchInput}
+            />
+            {query ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Clear sidebar search"
+                onPress={() => {
+                  setQuery("");
+                  searchInput.current?.focus();
+                }}
+                style={s.clearSearch}
+              >
+                <Ionicons name="close-circle" size={15} color={p.icon} />
+              </Pressable>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Open command search"
+                onPress={openSearch}
+                style={s.commandKey}
+              >
+                <Text style={s.keyText}>
+                  {Platform.OS === "web" &&
+                  typeof navigator !== "undefined" &&
+                  /Mac|iPhone|iPad/.test(navigator.platform)
+                    ? "⌘ K"
+                    : "Ctrl K"}
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        </>
+      ) : (
+        <View style={s.railControls}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Expand sidebar"
+            onPress={() => setSidebarCollapsed(false)}
+            {...tooltipProps("sidebar-expand", "Expand sidebar")}
+            style={({ hovered }) => [s.railControl, hovered && s.hoveredItem]}
+          >
+            <Ionicons name="expand-outline" size={17} color={p.icon} />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Search school tools"
+            onPress={openSearch}
+            {...tooltipProps("sidebar-search", "Search school tools · ⌘ K")}
+            style={({ hovered }) => [s.railControl, hovered && s.hoveredItem]}
+          >
+            <Ionicons name="search-outline" size={19} color={p.icon} />
+          </Pressable>
+        </View>
+      )}
+      <ScrollView
+        style={{ flex: 1, minHeight: 0 }}
+        onScroll={() => setTooltip(null)}
+        scrollEventThrottle={100}
+        contentContainerStyle={{
+          paddingHorizontal: collapsed ? 12 : 14,
+          paddingBottom: 16,
+        }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {!collapsed && grouped.overview.length > 0 && (
+          <Text style={s.sectionLabel}>WORKSPACE</Text>
+        )}
+        {(collapsed ? unfiltered.overview : grouped.overview).map((item) =>
+          renderItem(item),
+        )}
+        {collapsed ? (
+          <>
+            <View style={s.railDivider} />
+            {compactSections.map(renderGroup)}
+            {moreItems.length > 0 && (
+              <>
+                <View style={s.railDivider} />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="More school tools"
+                  aria-haspopup="dialog"
+                  aria-expanded={flyout?.key === "more"}
+                  {...tooltipProps(
+                    "sidebar-more",
+                    "More tools · Administration & support",
+                  )}
+                  onPress={(event) => {
+                    setTooltip(null);
+                    setFlyout({
+                      key: "more",
+                      label: "More school tools",
+                      icon: "apps-outline",
+                      color: "#BCA8F0",
+                      items: moreItems,
+                      anchor: anchorFor(event.currentTarget),
+                    });
+                  }}
+                  style={({ hovered }) => [
+                    s.item,
+                    s.railItem,
+                    hovered && s.hoveredItem,
+                  ]}
+                >
+                  <Ionicons name="apps-outline" size={19} color={p.accent} />
+                </Pressable>
+              </>
+            )}
           </>
         ) : (
-          grouped.map((group) => (
-            <CategorySection
-              key={group.key}
-              category={group.key}
-              items={group.items}
-              expanded={false}
-              onToggle={() => {}}
-              collapsed
-              isDark={isDark}
-              pathname={pathname}
-              onNavigate={onNavigate}
-              styles={styles}
-            />
+          grouped.sections.map((section, index) => (
+            <React.Fragment key={section.category}>
+              {grouped.sections[index - 1]?.meta.cluster !==
+                section.meta.cluster && (
+                <View style={s.sectionHead}>
+                  <Text style={s.sectionLabel}>
+                    {section.meta.cluster.toUpperCase()}
+                  </Text>
+                  <Text style={s.sectionCounter}>
+                    {
+                      grouped.sections.filter(
+                        (group) => group.meta.cluster === section.meta.cluster,
+                      ).length
+                    }
+                  </Text>
+                </View>
+              )}
+              {renderGroup(section)}
+            </React.Fragment>
           ))
         )}
+        {!collapsed && !grouped.overview.length && !grouped.sections.length && (
+          <View style={s.empty}>
+            <Ionicons name="search-outline" size={23} color={p.accent} />
+            <Text style={s.emptyTitle}>No matching tools</Text>
+            <Text style={s.emptyText}>Try a name, module or activity.</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Reset sidebar search"
+              onPress={() => setQuery("")}
+              style={s.reset}
+            >
+              <Text style={s.resetText}>Clear search</Text>
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
+      <View style={[s.footer, collapsed && { paddingHorizontal: 12 }]}>
+        <Pressable
+          accessibilityRole="switch"
+          accessibilityLabel="Dark mode"
+          accessibilityHint={themeAction}
+          accessibilityState={{ checked: isDark }}
+          aria-checked={isDark}
+          onPress={changeTheme}
+          {...(Platform.OS === "web"
+            ? {
+                onKeyDown: (event: React.KeyboardEvent) => {
+                  if (event.key === " ") {
+                    event.preventDefault();
+                    if (!event.repeat) changeTheme();
+                  }
+                },
+              }
+            : {})}
+          {...tooltipProps("sidebar-theme", themeAction)}
+          style={({ hovered }) => [
+            s.themeControl,
+            collapsed && { justifyContent: "center", paddingHorizontal: 0 },
+            hovered && s.hoveredItem,
+          ]}
+        >
+          <Ionicons
+            name={isDark ? "moon-outline" : "sunny-outline"}
+            size={18}
+            color={isDark ? p.accent : p.modeIcon}
+          />
+          {!collapsed && (
+            <>
+              <Text style={s.settingsText}>
+                {isDark ? "Dark mode" : "Light mode"}
+              </Text>
+              <View
+                pointerEvents="none"
+                style={[
+                  s.themeTrack,
+                  isDark && {
+                    backgroundColor: p.switchOn,
+                    borderColor: p.switchOnLine,
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    s.themeThumb,
+                    { alignSelf: isDark ? "flex-end" : "flex-start" },
+                  ]}
+                />
+              </View>
+            </>
+          )}
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="School settings"
+          onPress={() => navigate("/admin/settings")}
+          {...tooltipProps("sidebar-settings", "School settings")}
+          style={({ hovered }) => [
+            s.settings,
+            collapsed && { justifyContent: "center", paddingHorizontal: 0 },
+            hovered && s.hoveredItem,
+          ]}
+        >
+          <Ionicons name="settings-outline" size={18} color={p.icon} />
+          {!collapsed && (
+            <>
+              <Text style={s.settingsText}>Workspace settings</Text>
+              <Ionicons name="chevron-forward" size={11} color={p.muted} />
+            </>
+          )}
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Your profile and settings"
+          onPress={() => navigate("/admin/settings")}
+          {...tooltipProps(
+            "sidebar-profile",
+            user?.displayName || "Your profile",
+          )}
+          style={({ hovered }) => [
+            s.profile,
+            collapsed && { justifyContent: "center", paddingHorizontal: 0 },
+            hovered && { backgroundColor: p.hover },
+          ]}
+        >
+          <LinearGradient colors={p.avatarGradient} style={s.avatar}>
+            <Text style={s.initials}>{initials}</Text>
+          </LinearGradient>
+          {!collapsed && (
+            <>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text numberOfLines={1} style={s.profileName}>
+                  {user?.displayName || "Administrator"}
+                </Text>
+                <Text numberOfLines={1} style={s.profileRole}>
+                  {user?.role?.name || "School administrator"}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={12} color={p.muted} />
+            </>
+          )}
+        </Pressable>
+      </View>
+      {tooltip && !flyout && (
+        <SidebarTooltip
+          id={tooltip.id}
+          label={tooltip.label}
+          anchor={tooltip.anchor}
+        />
+      )}
+      <SidebarModuleFlyout
+        module={flyout}
+        pathname={pathname}
+        onClose={closeFlyout}
+        onNavigate={navigate}
+      />
     </View>
   );
 }
-
-function createStyles(isDark: boolean, collapsed: boolean) {
-  const fgMuted = isDark ? 'rgba(248,250,252,0.45)' : 'rgba(15,23,42,0.42)';
-
-  return StyleSheet.create({
-    shell: {
-      alignSelf: 'stretch',
-      flexShrink: 0,
-      position: 'relative',
-      overflow: 'hidden',
+const createStyles = (p: SidebarPalette) =>
+  StyleSheet.create({
+    sidebar: {
+      height: "100%",
+      minHeight: 0,
+      backgroundColor: p.surface,
       borderRightWidth: 1,
-      borderRightColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(148,163,184,0.25)',
-      ...(Platform.OS === 'web'
-        ? ({
-            boxShadow: isDark
-              ? '4px 0 24px rgba(0,0,0,0.35)'
-              : '4px 0 24px rgba(15,23,42,0.05)',
-          } as any)
-        : {}),
+      borderRightColor: p.line,
+      zIndex: 20,
     },
-    topBrand: {
-      paddingHorizontal: collapsed ? 10 : 14,
-      paddingTop: 16,
-      paddingBottom: 8,
-      justifyContent: 'center',
-      alignItems: 'center',
-      zIndex: 2,
+    edgeHighlight: {
+      position: "absolute",
+      right: 0,
+      top: 0,
+      bottom: 0,
+      width: 1,
+      backgroundColor: p.edge,
     },
-    topBrandExpanded: {
-      alignItems: 'stretch',
-    },
-    brandPill: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderRadius: 18,
-      paddingVertical: 12,
-      paddingHorizontal: collapsed ? 12 : 13,
-      gap: 11,
-      overflow: 'hidden',
-      borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.2)',
-      ...(Platform.OS === 'web'
-        ? ({
-            boxShadow:
-              '0 14px 32px rgba(29,78,216,0.32), 0 2px 0 rgba(255,255,255,0.2) inset',
-          } as any)
-        : {
-            shadowColor: '#1D4ED8',
-            shadowOffset: { width: 0, height: 10 },
-            shadowOpacity: 0.3,
-            shadowRadius: 16,
-            elevation: 8,
-          }),
-    },
-    brandSheen: {
-      ...StyleSheet.absoluteFillObject,
-      ...(Platform.OS === 'web'
-        ? ({
-            backgroundImage:
-              'linear-gradient(115deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.05) 38%, transparent 55%)',
-          } as any)
-        : { backgroundColor: 'rgba(255,255,255,0.08)' }),
-    },
-    brandOrb: {
-      width: 38,
-      height: 38,
-      borderRadius: 13,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: 'rgba(255,255,255,0.18)',
-      borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.3)',
-    },
-    brandTextWrap: {
-      flex: 1,
-      minWidth: 0,
-    },
-    brandName: {
-      fontSize: 14,
-      fontWeight: '800',
-      color: '#FFFFFF',
-      letterSpacing: -0.3,
-    },
-    brandSubRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      marginTop: 3,
-    },
-    brandLiveDot: {
-      width: 6,
-      height: 6,
-      borderRadius: 3,
-      backgroundColor: '#5EEAD4',
-    },
-    brandSub: {
-      fontSize: 9.5,
-      fontWeight: '700',
-      letterSpacing: 1.3,
-      color: 'rgba(255,255,255,0.78)',
-      textTransform: 'uppercase',
-    },
-    scroll: { flex: 1, minHeight: 0, zIndex: 2 },
-    scrollContent: {
-      paddingHorizontal: collapsed ? 10 : 12,
-      paddingBottom: 32,
-      paddingTop: 6,
-    },
-    sectionHead: {
-      flexDirection: 'row',
-      alignItems: 'center',
+    brand: {
+      minHeight: 84,
+      flexDirection: "row",
+      alignItems: "center",
       gap: 10,
-      marginBottom: 12,
-      paddingHorizontal: 4,
+      paddingHorizontal: 16,
+      paddingTop: 19,
+      paddingBottom: 16,
     },
-    sectionHeadLabel: {
-      fontSize: 10,
-      fontWeight: '800',
-      letterSpacing: 1.8,
-      color: fgMuted,
-      textTransform: 'uppercase',
+    brandCollapsed: {
+      paddingHorizontal: 15,
+      justifyContent: "center",
+      minHeight: 80,
     },
-    sectionHeadLine: {
-      flex: 1,
-      height: StyleSheet.hairlineWidth,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)',
-    },
-    categoriesStack: {
-      gap: 8,
-    },
-    categoryWrap: {
-      borderRadius: 16,
+    logoRim: {
+      width: 43,
+      height: 43,
+      borderRadius: 14,
+      padding: 3,
+      backgroundColor: p.rimBg,
       borderWidth: 1,
-      borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.7)',
-      backgroundColor: isDark ? 'rgba(15,23,42,0.55)' : 'rgba(255,255,255,0.62)',
-      overflow: 'hidden',
-      ...(Platform.OS === 'web'
-        ? ({
-            boxShadow: isDark
-              ? '0 6px 16px rgba(0,0,0,0.2)'
-              : '0 6px 18px rgba(15,23,42,0.04), inset 0 1px 0 rgba(255,255,255,0.85)',
-            backdropFilter: 'blur(12px)',
-            transition: 'background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease',
-          } as any)
-        : {
-            shadowColor: '#0F172A',
-            shadowOffset: { width: 0, height: 3 },
-            shadowOpacity: 0.05,
-            shadowRadius: 8,
-            elevation: 2,
-          }),
+      borderColor: p.rim,
     },
-    categoryHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 10,
-      paddingVertical: 10,
-      gap: 10,
-      borderRadius: 16,
-    },
-    categoryOrb: {
-      width: 32,
-      height: 32,
-      borderRadius: 11,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.28)',
-    },
-    categoryTextCol: {
+    logo: {
       flex: 1,
-      minWidth: 0,
-    },
-    categoryTitle: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: fgMuted,
-      letterSpacing: -0.2,
-    },
-    categoryHint: {
-      fontSize: 10,
-      fontWeight: '600',
-      marginTop: 1,
-      letterSpacing: 0.1,
-    },
-    countPill: {
-      minWidth: 22,
-      height: 20,
-      paddingHorizontal: 7,
+      backgroundColor: "#FFF",
       borderRadius: 10,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(15,23,42,0.05)',
-      borderWidth: 1,
-      borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(15,23,42,0.04)',
+      justifyContent: "center",
+      alignItems: "center",
     },
-    countText: {
-      fontSize: 10.5,
-      fontWeight: '700',
-      color: fgMuted,
+    schoolName: {
+      color: p.text,
+      fontSize: 13,
+      lineHeight: 18,
+      fontWeight: "700",
+      letterSpacing: -0.15,
     },
-    chevronWrap: {
-      width: 20,
-      height: 20,
-      alignItems: 'center',
-      justifyContent: 'center',
+    brandCaption: {
+      color: p.muted,
+      fontSize: 7,
+      letterSpacing: 1.6,
+      marginTop: 5,
+      fontWeight: "500",
     },
-    subList: {
-      paddingHorizontal: 8,
-      paddingBottom: 10,
-      gap: 5,
+    smallControl: {
+      width: 26,
+      height: 32,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 7,
     },
-    subItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderRadius: 12,
-      minHeight: 38,
-      paddingHorizontal: 8,
-      paddingVertical: 6,
+    context: {
+      marginHorizontal: 16,
+      marginBottom: 13,
+      flexDirection: "row",
+      alignItems: "center",
       gap: 9,
       borderWidth: 1,
-      borderColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.55)',
-      overflow: 'hidden',
-      position: 'relative',
-      ...(Platform.OS === 'web'
-        ? ({
-            transition: 'transform 140ms ease, background-color 140ms ease, box-shadow 160ms ease',
-          } as any)
-        : {}),
+      borderColor: p.contextLine,
+      borderRadius: 11,
+      padding: 10,
+      backgroundColor: p.context,
     },
-    subItemCollapsed: {
-      justifyContent: 'center',
-      minHeight: 44,
-      marginBottom: 5,
+    contextGlyph: {
+      width: 28,
+      height: 28,
+      borderRadius: 8,
+      backgroundColor: p.accentSoft,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    contextTitle: {
+      color: p.text,
+      fontSize: 11,
+      fontWeight: "600",
+      lineHeight: 16,
+    },
+    contextSubtitle: { color: p.muted, fontSize: 9, lineHeight: 14 },
+    search: {
+      minHeight: 39,
+      marginHorizontal: 16,
+      marginBottom: 8,
+      paddingHorizontal: 9,
+      borderRadius: 9,
+      borderWidth: 1,
+      borderColor: p.searchLine,
+      backgroundColor: p.search,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 7,
+    },
+    searchInput: {
+      flex: 1,
+      minWidth: 0,
+      minHeight: 37,
       paddingHorizontal: 0,
-      borderRadius: 13,
+      paddingVertical: 0,
+      borderWidth: 0,
+      backgroundColor: "transparent",
+      color: p.input,
+      fontSize: 11,
+      borderRadius: 0,
     },
-    subItemActiveShell: {
-      borderColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(15,23,42,0.08)',
-      ...(Platform.OS === 'web'
-        ? ({
-            boxShadow: 'none',
-          } as any)
-        : {
-            elevation: 0,
-          }),
+    clearSearch: {
+      width: 24,
+      height: 28,
+      justifyContent: "center",
+      alignItems: "center",
     },
-    subActiveRail: {
-      position: 'absolute',
-      left: 0,
-      top: 6,
-      bottom: 6,
+    commandKey: {
+      paddingHorizontal: 5,
+      minHeight: 22,
+      justifyContent: "center",
+      borderRadius: 4,
+      borderWidth: 1,
+      borderColor: p.commandLine,
+      backgroundColor: p.command,
+    },
+    keyText: { color: p.muted, fontSize: 8, fontWeight: "500" },
+    sectionHead: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginTop: 10,
+    },
+    sectionLabel: {
+      color: p.muted,
+      fontSize: 8,
+      fontWeight: "600",
+      letterSpacing: 1.3,
+      marginLeft: 10,
+      marginTop: 13,
+      marginBottom: 9,
+    },
+    sectionCounter: {
+      color: p.muted,
+      fontSize: 8,
+      paddingRight: 11,
+      paddingTop: 3,
+    },
+    item: {
+      flexDirection: "row",
+      alignItems: "center",
+      minHeight: 43,
+      paddingHorizontal: 9,
+      borderRadius: 10,
+      marginBottom: 4,
+      gap: 9,
+      borderWidth: 1,
+      borderColor: "transparent",
+    },
+    itemIcon: {
+      width: 28,
+      height: 28,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: "transparent",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    itemText: { color: p.secondary, fontSize: 11, lineHeight: 17, flex: 1 },
+    activeText: { color: p.activeText, fontWeight: "600" },
+    activeItem: { borderColor: p.activeBorder },
+    activeMark: {
+      position: "absolute",
+      left: -1,
+      height: 18,
       width: 3,
       borderRadius: 2,
-      zIndex: 2,
+      backgroundColor: p.activeMark,
     },
-    subIcon: {
-      width: 26,
-      height: 26,
-      borderRadius: 8,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-      zIndex: 1,
-    },
-    subIconCollapsed: {
-      width: 40,
-      height: 40,
-      borderRadius: 12,
-    },
-    subTitle: {
-      flex: 1,
-      fontSize: 12.5,
-      fontWeight: '600',
-      color: isDark ? 'rgba(248,250,252,0.82)' : 'rgba(15,23,42,0.78)',
-      letterSpacing: -0.15,
-      zIndex: 1,
-    },
-    subTitleActive: {
-      fontWeight: '700',
+    hoveredItem: { backgroundColor: p.hover, borderColor: p.hoverBorder },
+    nestedItem: { minHeight: 38, paddingLeft: 10, gap: 7 },
+    submenu: {
+      marginLeft: 21,
+      marginTop: 3,
+      marginBottom: 7,
+      paddingLeft: 7,
+      borderLeftWidth: 1,
+      borderLeftColor: p.submenuLine,
     },
     badge: {
-      minWidth: 20,
-      height: 20,
-      paddingHorizontal: 6,
+      minWidth: 19,
+      overflow: "hidden",
+      textAlign: "center",
+      paddingHorizontal: 5,
+      paddingVertical: 2,
+      color: p.badgeText,
+      backgroundColor: p.badge,
+      borderRadius: 5,
+      fontSize: 9,
+      fontWeight: "600",
+    },
+    railItem: {
+      height: 44,
+      paddingHorizontal: 0,
+      justifyContent: "center",
+      marginBottom: 5,
+    },
+    railControls: { alignItems: "center", gap: 2, marginBottom: 12 },
+    railControl: {
+      width: 44,
+      height: 36,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 9,
+    },
+    railDivider: {
+      height: 1,
+      backgroundColor: p.divider,
+      marginHorizontal: 9,
+      marginVertical: 10,
+    },
+    railBadge: {
+      position: "absolute",
+      right: 8,
+      top: 8,
+      width: 5,
+      height: 5,
+      borderRadius: 3,
+      backgroundColor: p.accent,
+    },
+    footer: {
+      padding: 12,
+      borderTopWidth: 1,
+      borderTopColor: p.divider,
+      backgroundColor: p.footer,
+    },
+    settings: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      minHeight: 35,
+      paddingHorizontal: 11,
+      borderRadius: 9,
+      marginBottom: 7,
+    },
+    themeControl: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      minHeight: 38,
+      paddingHorizontal: 11,
+      borderRadius: 9,
+      marginBottom: 4,
+    },
+    themeTrack: {
+      width: 30,
+      height: 18,
       borderRadius: 10,
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1,
+      borderWidth: 1,
+      borderColor: p.switchLine,
+      backgroundColor: p.switchOff,
+      padding: 2,
+      justifyContent: "center",
     },
-    badgeText: {
-      color: '#FFFFFF',
-      fontSize: 10,
-      fontWeight: '800',
+    themeThumb: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      backgroundColor: p.switchThumb,
     },
-    badgeDot: {
-      position: 'absolute',
-      top: 4,
-      right: 4,
-      width: 7,
-      height: 7,
-      borderRadius: 4,
-      backgroundColor: '#FB7185',
-      borderWidth: 1.5,
-      borderColor: isDark ? '#070B14' : '#E8EEF8',
+    settingsText: { color: p.secondary, fontSize: 11, flex: 1 },
+    profile: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      paddingHorizontal: 7,
+      paddingVertical: 7,
+      borderRadius: 10,
     },
-    collapsedGroup: {
-      marginBottom: 8,
-      paddingBottom: 8,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.06)',
+    avatar: {
+      width: 34,
+      height: 34,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 11,
+      borderWidth: 1,
+      borderColor: p.avatarLine,
     },
+    initials: {
+      color: p.avatarText,
+      fontSize: 11,
+      fontWeight: "600",
+      letterSpacing: 0.2,
+    },
+    profileName: {
+      color: p.text,
+      fontSize: 11,
+      lineHeight: 17,
+      fontWeight: "600",
+    },
+    profileRole: { color: p.muted, fontSize: 9, lineHeight: 15 },
+    empty: { alignItems: "center", padding: 20, gap: 9 },
+    emptyTitle: { color: p.text, fontSize: 12, fontWeight: "600" },
+    emptyText: {
+      color: p.muted,
+      fontSize: 11,
+      lineHeight: 17,
+      textAlign: "center",
+    },
+    reset: {
+      marginTop: 4,
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: 8,
+      backgroundColor: p.reset,
+    },
+    resetText: { color: p.resetText, fontSize: 11, fontWeight: "600" },
   });
-}

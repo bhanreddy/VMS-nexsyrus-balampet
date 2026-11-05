@@ -6,6 +6,17 @@ For the Android rendering crash fixes and their required native release checks, 
 
 This guide takes NexSyrus developers step-by-step through the process of compiling Android Application Packages (APKs) for preview builds or App Bundles (AABs) for store deployment after seeding a new school in the Super Admin console.
 
+## Cloudflare Web Builds
+
+Use `npm run build` as the Cloudflare build command. It exports the web app to
+`dist` and limits Metro to two workers to reduce simultaneous file usage on
+build runners. The supported Expo `--max-workers` option is documented in the
+[Expo CLI reference](https://docs.expo.dev/more/expo-cli/).
+
+If a build fails with `EMFILE: too many open files` while reading a dependency
+such as `expo-speech/package.json`, retry with this worker limit before changing
+the dependency. npm deprecation and audit warnings are separate from that error.
+
 ## 1. Prerequisites
 **Install Expo EAS CLI**
 Ensure you have the EAS CLI globally configured on your machine.

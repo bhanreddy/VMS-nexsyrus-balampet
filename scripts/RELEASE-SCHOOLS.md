@@ -85,6 +85,16 @@ npm run push:nexsyrus1
 npm run push:nexsyrus1 -- --execute
 ```
 
+For the `nexsyrus` schools (GHS, Global, Samskruthe, Slate, and VMS), use:
+
+```bash
+# Preview
+npm run push:nexsyrus
+
+# Apply school files, commit and push; no Expo or EAS commands
+npm run push:nexsyrus -- --execute
+```
+
 This uses the existing school/account mapping and preserves repository history.
 It skips dependency installation, Expo login/logout, project access checks, Android
 prebuild and EAS build submission. Only GitHub authentication is needed. The master

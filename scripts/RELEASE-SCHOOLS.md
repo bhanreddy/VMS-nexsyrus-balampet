@@ -220,6 +220,9 @@ interactive terminal; manual groups require a terminal whenever login must chang
    optional `google-services.json` replace their counterparts. Shared files absent
    from the SSD remain in the master copy. Every SSD constant overrides the matching
    master constant, so keep those school-scoped copies current too.
+   Shared runtime exports belong outside `src/constants/` (for example,
+   `src/config/adminCoreQuickActions.ts`), so an older school catalogue cannot
+   erase a new export needed during startup.
 3. Read `.env` or, for VMS, `env`. SSD environment files must contain public Expo
    values only. The production profile wins on conflicting values. The resolved
    public values go into both a private workspace `.env` and the selected EAS
@@ -229,7 +232,11 @@ interactive terminal; manual groups require a terminal whenever login must chang
    Files only present in the destination repo are removed from the new commit.
    Changes are committed and pushed normally; there is no force push. A concurrent
    remote change makes Git reject the push.
-5. Install with `npm ci`, verify project access, push, then run the workspace's local
+5. Install with `npm ci`, generate Expo's ignored type declarations and run
+   `tsc --noEmit` against the final school source using
+   `node scripts/check-release-types.cjs`. Missing exports or other type errors
+   stop the run before push or build submission. Verify project access, push,
+   then run the workspace's local
    `expo prebuild --platform android --clean --no-install`. Prebuild changing source
    files stops the run for inspection rather than uploading different source from
    the pushed commit.

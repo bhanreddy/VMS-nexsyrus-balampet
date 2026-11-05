@@ -503,8 +503,8 @@ export default function StaffDiary() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       if (netResult.flushed > 0) {
         toast(classSectionIds.length > 1
-          ? `Diary posted to ${classSectionIds.length} classes. Parent alerts: 5:30 PM IST.`
-          : 'Diary posted. Parent alerts: 5:30 PM IST.'
+          ? `Diary posted to ${classSectionIds.length} classes. Parent alerts: 4:30 PM IST.`
+          : 'Diary posted. Parent alerts: 4:30 PM IST.'
         );
       } else {
         toast('Saved. Will sync automatically.', 'info');
@@ -1043,7 +1043,7 @@ export default function StaffDiary() {
       setClassDiaryReviewOpen(false);
       setClassDiaryFailedOpen(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      toast(sendOriginal ? 'Class diary photo posted. Parent alerts: 5:30 PM IST.' : 'Class diary published. Parent alerts: 5:30 PM IST.');
+      toast(sendOriginal ? 'Class diary photo posted. Parent alerts: 4:30 PM IST.' : 'Class diary published. Parent alerts: 4:30 PM IST.');
       void loadLive();
     } catch {
       await enqueueDiary(teacherId, {
@@ -1343,7 +1343,7 @@ export default function StaffDiary() {
                 )}
               </View>
               <Text style={[styles.alertTimeNotice, { color: theme.colors.textTertiary }]}>
-                Parents are notified at 5:30 PM
+                Parents are notified at 4:30 PM
               </Text>
             </View>
 
@@ -1847,7 +1847,7 @@ export default function StaffDiary() {
           <ClaySheen isDark={isDark} radius={Radii.xl} />
           <Ionicons name="time-outline" size={18} color={theme.colors.primary} />
           <Text style={[styles.retentionText, { color: theme.colors.textSecondary }]}>
-            Parents can view these pages. Alerts go out at 5:30 PM IST. Photos are kept for 1 month.
+            Parents can view these pages. Alerts go out at 4:30 PM IST. Photos are kept for 1 month.
           </Text>
         </View>
 
@@ -2340,7 +2340,7 @@ export default function StaffDiary() {
           <ClaySheen isDark={isDark} radius={Radii.xl} />
           <Ionicons name="information-circle-outline" size={18} color={theme.colors.primary} />
           <Text style={[styles.retentionText, { color: theme.colors.textSecondary }]}>
-            We read each subject from the photo. You can edit the list before parents see it. Photos are kept for 1 month. Alerts go out at 5:30 PM IST.
+            We read each subject from the photo. You can edit the list before parents see it. Photos are kept for 1 month. Alerts go out at 4:30 PM IST.
           </Text>
         </View>
         <View style={styles.sheetActions}>

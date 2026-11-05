@@ -19,6 +19,7 @@ import * as accountVault from '../services/accountVault';
 import { invalidateApiQueryCache } from './useApiQuery';
 import { persistentQueryCache } from '../services/persistentQueryCache';
 import { StorageService } from '../services/storageService';
+import { withStartupDeadline } from '../utils/withStartupDeadline';
 import type { PortalContextsPayload } from '../types/context';
 import {
   fetchPortalContexts,
@@ -321,21 +322,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (disposed) return;
       try {
         // Durable local state decides whether the app has a remembered login.
-        // Network speed and access-token age do not participate in this boot gate.
+        // A network failure must not turn that remembered login into a logout.
         const storedSession = await AuthService.getSession();
+        if (disposed || signingOut.current) return;
         if (storedSession) {
-          // Publish the remembered identity immediately, then block the startup
-          // overlay until the live Supabase client has been rebuilt. This
-          // prevents mounted screens from firing requests against a null SDK
-          // session after Android recreation or a browser reload.
+          // Give the SDK time to hydrate before mounting protected screens, but
+          // keep the remembered identity usable when offline token recovery
+          // stalls. The shared recovery continues in the background.
           sessionRef.current = storedSession;
           authSessionSnapshotRef.current = storedSession;
           setSession(storedSession);
           const restoredRole = storedSession.validatedUser?.role?.code;
-          if (restoredRole && !(await SessionPolicy.getStoredRole())) {
-            await SessionPolicy.startSession(restoredRole as any);
-          }
-          const liveSession = await AuthService.restorePersistedSession();
+          void (async () => {
+            if (restoredRole && !(await SessionPolicy.getStoredRole()) &&
+                !disposed && !signingOut.current &&
+                sessionRef.current?.validatedUser.userId === storedSession.validatedUser.userId) {
+              await SessionPolicy.startSession(restoredRole as any);
+            }
+          })().catch(() => {});
+          const liveSession = await withStartupDeadline(
+            AuthService.restorePersistedSession().catch(() => null),
+            8000,
+            null,
+          );
+          if (disposed || signingOut.current ||
+              sessionRef.current?.validatedUser.userId !== storedSession.validatedUser.userId) return;
           if (liveSession) {
             sessionRef.current = liveSession;
             authSessionSnapshotRef.current = liveSession;

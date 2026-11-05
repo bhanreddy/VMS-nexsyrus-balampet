@@ -56,6 +56,7 @@ beforeEach(() => {
   jest.useFakeTimers();
   (stopDriverLocationUpdates as jest.Mock).mockResolvedValue(undefined);
   (SessionPolicy.startSession as jest.Mock).mockResolvedValue(undefined);
+  (SessionPolicy.getStoredRole as jest.Mock).mockResolvedValue('staff');
   Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
   Object.defineProperty(AppState, 'currentState', { value: 'active', configurable: true });
   jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, callback) => {
@@ -106,6 +107,48 @@ it('keeps the boot gate and retries when secure storage is temporarily locked', 
   await tick(2000);
   expect(context.authChecked).toBe(true);
   expect(context.user?.userId).toBe('staff-1');
+});
+
+it('opens with the remembered login after the live SDK restore stalls', async () => {
+  (AuthService.restorePersistedSession as jest.Mock).mockReturnValue(new Promise(() => {}));
+  (AuthService.refreshSession as jest.Mock).mockReturnValue(new Promise(() => {}));
+  await mount();
+  expect(context.loading).toBe(true);
+  expect(context.authChecked).toBe(false);
+  await tick(7999);
+  expect(context.loading).toBe(true);
+  await tick(1);
+  expect(context.loading).toBe(false);
+  expect(context.authChecked).toBe(true);
+  expect(context.user?.userId).toBe('staff-1');
+  expect(AuthService.refreshSession).toHaveBeenCalledWith({ force: false });
+  expect(AuthService.signOut).not.toHaveBeenCalled();
+});
+
+it('keeps a saved login usable when SDK restoration rejects', async () => {
+  (AuthService.restorePersistedSession as jest.Mock).mockRejectedValue(new Error('offline'));
+  await mount();
+  expect(context.authChecked).toBe(true);
+  expect(context.loading).toBe(false);
+  expect(context.user?.userId).toBe('staff-1');
+});
+
+it('does not block startup on session-policy metadata', async () => {
+  (SessionPolicy.getStoredRole as jest.Mock).mockReturnValue(new Promise(() => {}));
+  await mount();
+  expect(context.authChecked).toBe(true);
+  expect(context.loading).toBe(false);
+  expect(context.user?.userId).toBe('staff-1');
+});
+
+it('does not subscribe or publish a late restore after unmount', async () => {
+  let finish!: (value: typeof saved) => void;
+  (AuthService.restorePersistedSession as jest.Mock).mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+  await mount();
+  await act(async () => { root?.unmount(); });
+  root = undefined;
+  await act(async () => { finish(saved); });
+  expect(supabase.auth.onAuthStateChange).not.toHaveBeenCalled();
 });
 
 it('does not rotate a healthy session on every native foreground transition', async () => {

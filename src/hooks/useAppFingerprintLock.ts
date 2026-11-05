@@ -12,6 +12,7 @@ import {
 } from '../services/fingerprintGate';
 import { isFingerprintEligibleRole } from '../utils/roleHelpers';
 import { useAuth } from './useAuth';
+import { withStartupDeadline } from '../utils/withStartupDeadline';
 
 /**
  * useAppFingerprintLock — cold-start and resume protection for an opted-in
@@ -157,13 +158,14 @@ export function useAppFingerprintLock(): AppFingerprintLock {
       // 'unknown' (SecureStore unreadable for an eligible account) locks too:
       // we cannot prove this account is unprotected, so we fail closed and let
       // the user fall back to email and password.
-      const state = await getFingerprintOptInState({
+      const state = await withStartupDeadline(getFingerprintOptInState({
         schoolId: SCHOOL_ID,
         userId: target.userId,
         roleCode: target.roleCode,
-      });
+      }).catch(() => 'unknown' as const), 5000, 'unknown');
       if (state === 'off') {
         lastEvaluatedTargetRef.current = targetKey;
+        lockedUserIdRef.current = null;
         if (mountedRef.current) {
           setPrivacyCovered(false);
           setStatus('unlocked');
@@ -176,6 +178,13 @@ export function useAppFingerprintLock(): AppFingerprintLock {
       lockedUserIdRef.current = target.userId;
       setFailureMessage(null);
       setStatus('locked');
+      if (state === 'unknown') {
+        // A stalled/unreadable keychain must offer password recovery rather
+        // than leave an empty resolving cover or bypass fingerprint protection.
+        setPrivacyCovered(false);
+        setFailureMessage(describeFingerprintFailure('storage_error'));
+        return;
+      }
       await runPrompt(target);
     } finally {
       busyRef.current = false;
@@ -218,7 +227,6 @@ export function useAppFingerprintLock(): AppFingerprintLock {
       // Android and iOS both emit repeats of the same state; only transitions
       // matter here, so an echoed 'active' can never open a second prompt.
       if (nextState === lastState) return;
-      const previousState = lastState;
       lastState = nextState;
 
       // Paint the cover on inactive/background before the OS captures the
@@ -248,7 +256,6 @@ export function useAppFingerprintLock(): AppFingerprintLock {
       const wasBackgrounded = backgroundedAt !== null;
       const awayFor = wasBackgrounded ? Date.now() - (backgroundedAt as number) : 0;
       backgroundedAt = null;
-      if (previousState === 'unknown') return;
       if (promptingRef.current) {
         setPrivacyCovered(false);
         return;

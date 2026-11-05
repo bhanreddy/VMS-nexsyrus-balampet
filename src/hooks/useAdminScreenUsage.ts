@@ -3,10 +3,8 @@ import { usePathname } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "./useAuth";
 import { usePermissions } from "./usePermissions";
-import {
-  ADMIN_CORE_QUICK_ACTIONS,
-  buildAdminQuickActions,
-} from "../constants/adminQuickActions";
+import { buildAdminQuickActions } from "../constants/adminQuickActions";
+import { ADMIN_CORE_QUICK_ACTIONS } from "../config/adminCoreQuickActions";
 import { recordAdminScreenOpen } from "../services/adminQuickActionUsage";
 import { resolveQuickActionRoute } from "../utils/quickActionRanking";
 
@@ -22,13 +20,17 @@ export function useAdminScreenUsage() {
     role === "principal" ||
     user?.roles?.some((value) => value === "admin" || value === "principal");
   const routes = useMemo(
-    () =>
-      [...ADMIN_CORE_QUICK_ACTIONS, ...buildAdminQuickActions(t)]
+    () => {
+      // This hook mounts before login for every role. Admin analytics must not
+      // evaluate a school's admin catalogue while the public app is starting.
+      if (!enabled) return [];
+      return [...ADMIN_CORE_QUICK_ACTIONS, ...buildAdminQuickActions(t)]
         .filter(
           (action) => !action.permission || hasPermission(action.permission),
         )
-        .map((action) => action.route),
-    [t, hasPermission],
+        .map((action) => action.route);
+    },
+    [enabled, t, hasPermission],
   );
   const route = resolveQuickActionRoute(pathname, routes);
   useEffect(() => {

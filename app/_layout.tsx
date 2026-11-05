@@ -1,10 +1,8 @@
 import { Stack } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { CustomAlertProvider, ensurePortalRoot } from '../src/components/CustomAlert';
-export { ErrorBoundary } from '@/src/components/ErrorBoundary';
 import { validateBuildConfig } from '../src/constants/school';
 import '../src/i18n';
-import { AuthService } from '../src/services/authService';
 import { AuthProvider, useAuth } from '../src/hooks/useAuth';
 import { ThemeProvider, ThemeContext } from '../src/context/ThemeContext';
 import { ThemeProvider as NavThemeProvider, DefaultTheme, DarkTheme } from '@react-navigation/native';
@@ -51,16 +49,24 @@ import FestivalPosterGate from '../src/components/FestivalPosterGate';
 import PopupQueueProvider from '../src/features/popups/components/PopupQueueProvider';
 import { TourProvider, TourOverlayHost } from '../src/features/app-tour';
 import { selectDisposableVersionCacheKeys } from '../src/utils/updateCachePolicy';
+import AppStartupScreen from '../src/components/AppStartupScreen';
+
+export { default as ErrorBoundary } from '../src/components/RouteErrorBoundary';
 
 // Keep the splash screen visible while we fetch resources
-SplashScreen.preventAutoHideAsync();
+void SplashScreen.preventAutoHideAsync().catch(() => {});
+
+function hideSplash() {
+  void SplashScreen.hideAsync().catch(() => {});
+}
 
 export default function Layout() {
   const [loaded, error] = useFonts({
     ...FontAwesome5.font
   });
 
-  const [appReady, setAppReady] = useState(false);
+  const [fontWaitExpired, setFontWaitExpired] = useState(false);
+  const appReady = loaded || Boolean(error) || fontWaitExpired;
   const [buildConfigError, setBuildConfigError] = useState<string | null>(null);
   const { updateRequired } = useVersionCheck();
   const playUpdate = usePlayStoreUpdate(updateRequired);
@@ -84,7 +90,7 @@ export default function Layout() {
       const stale = keys.filter((k) => k.startsWith('mlkit_tx_') || k.startsWith('tx_cache_'));
       if (stale.length > 0) await AsyncStorage.multiRemove(stale);
     };
-    clearOldCache();
+    void clearOldCache().catch(() => {});
 
     // Cache invalidation based on app version updates
     const checkAppVersion = async () => {
@@ -103,7 +109,7 @@ export default function Layout() {
       }
       await AsyncStorage.setItem('app_version', currentVersion);
     };
-    checkAppVersion();
+    void checkAppVersion().catch(() => {});
 
     // Note: scheduleMidnightCheck was removed from AuthService if it existed
   }, []);
@@ -111,30 +117,34 @@ export default function Layout() {
   // Initialize notification channels once at app startup
   useEffect(() => {
     if (Platform.OS === 'android') {
-      notificationManager.createChannels();
+      void notificationManager.createChannels().catch(() => {});
     }
   }, []);
 
 
 
   useEffect(() => {
-    if (loaded || error) {
-      setAppReady(true);
-      SplashScreen.hideAsync();
-    }
+    if (loaded || error) return;
+    // Icons can finish loading later; they must never hold the entire app open.
+    const timer = setTimeout(() => setFontWaitExpired(true), 3000);
+    return () => clearTimeout(timer);
   }, [loaded, error]);
 
   if (!appReady) {
-    return null;
+    return <AppStartupScreen onLayout={hideSplash} />;
   }
 
   if (updateRequired) {
-    return <ForceUpdateScreen update={playUpdate} />;
+    return (
+      <View style={styles.gestureRoot} onLayout={hideSplash}>
+        <ForceUpdateScreen update={playUpdate} />
+      </View>
+    );
   }
 
   if (buildConfigError && __DEV__) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#ffebe6', padding: 24, justifyContent: 'center' }}>
+      <View onLayout={hideSplash} style={{ flex: 1, backgroundColor: '#ffebe6', padding: 24, justifyContent: 'center' }}>
         <Text style={{ fontSize: 22, fontWeight: 'bold', color: '#DE350B', marginBottom: 12 }}>
           Build Configuration Error
         </Text>
@@ -151,16 +161,18 @@ export default function Layout() {
   }
 
   return (
-    <AuthProvider>
-      <ThemeProvider>
-        <KeyboardProvider>
-          <CustomAlertProvider>
-            <TourProvider><ThemeSyncWrapper playUpdate={playUpdate} /></TourProvider>
-          </CustomAlertProvider>
-        </KeyboardProvider>
-      </ThemeProvider>
-    </AuthProvider>);
-
+    <View style={[styles.gestureRoot, { backgroundColor: '#FFFFFF' }]} onLayout={hideSplash}>
+      <AuthProvider>
+        <ThemeProvider>
+          <KeyboardProvider>
+            <CustomAlertProvider>
+              <TourProvider><ThemeSyncWrapper playUpdate={playUpdate} /></TourProvider>
+            </CustomAlertProvider>
+          </KeyboardProvider>
+        </ThemeProvider>
+      </AuthProvider>
+    </View>
+  );
 }
 
 function ThemeSyncWrapper({ playUpdate }: { playUpdate: PlayStoreUpdateController }) {

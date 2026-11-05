@@ -1,4 +1,5 @@
 'use strict';
+/* global Buffer, __dirname */
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -36,7 +37,8 @@ function fixture(t) {
   write(path.join(source, 'eas.json'), eas);
   write(path.join(source, 'package.json'), { name: 'test', version: '1.0.0' });
   write(path.join(source, 'package-lock.json'), {});
-  write(path.join(source, '.gitignore'), 'node_modules/\n.env\n/android/\n');
+  write(path.join(source, '.gitignore'), 'node_modules/\n.env\n/android/\n.expo/\nexpo-env.d.ts\n');
+  write(path.join(source, 'scripts/check-release-types.cjs'), fs.readFileSync(path.join(__dirname, 'check-release-types.cjs'), 'utf8'));
   write(path.join(source, 'google-services.json'), { client: [{ client_info: { android_client_info: { package_name: 'com.test.school' } } }] });
   write(path.join(source, 'common.txt'), 'original');
   write(path.join(source, 'obsolete.txt'), 'remove in next release');
@@ -73,6 +75,8 @@ const fs=require('node:fs'),path=require('node:path');
 if(process.argv[2]==='--version'){console.log('10.0');process.exit(0);}
 const p=path.join(process.cwd(),'node_modules/.bin/expo');fs.mkdirSync(path.dirname(p),{recursive:true});
 fs.writeFileSync(p,'#!/usr/bin/env node\\nprocess.exit(0);\\n');fs.chmodSync(p,0o755);
+const tsc=path.join(process.cwd(),'node_modules/.bin/tsc');
+fs.writeFileSync(tsc,'#!/usr/bin/env node\\nconst fs=require("node:fs");fs.appendFileSync(process.env.MOCK_TYPECHECK_CALLS,process.cwd()+"\\\\n");process.exit(process.env.MOCK_FAIL_TYPECHECK==="1"?1:0);\\n');fs.chmodSync(tsc,0o755);
 `, true);
   write(path.join(source, 'node_modules', '.bin', 'eas'), `#!/usr/bin/env node
 const fs=require('node:fs');
@@ -86,7 +90,7 @@ else if(cmd==='build'){
 }else{console.error('Unexpected EAS command');process.exit(1);}
 `, true);
   const env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, MOCK_REMOTE: remote,
-    RELEASE_TEST_TOKEN: 'good-token', MOCK_BUILD_CALLS: path.join(root, 'build-calls'),
+    RELEASE_TEST_TOKEN: 'good-token', MOCK_BUILD_CALLS: path.join(root, 'build-calls'), MOCK_TYPECHECK_CALLS: path.join(root, 'typecheck-calls'),
     GIT_AUTHOR_NAME: 'Fixture', GIT_AUTHOR_EMAIL: 'fixture@example.invalid', GIT_COMMITTER_NAME: 'Fixture', GIT_COMMITTER_EMAIL: 'fixture@example.invalid' };
   return { root, source, remote, configFile, env, config };
 }
@@ -165,8 +169,20 @@ test('full release preserves source, pushes overlay, submits once, resumes witho
   const calls = fs.readFileSync(f.env.MOCK_BUILD_CALLS, 'utf8').trim().split('\n').map(JSON.parse);
   assert.ok(calls[0].args.includes('--no-wait'));
   assert.equal(calls[0].envSchool, '7');
+  assert.match(fs.readFileSync(f.env.MOCK_TYPECHECK_CALLS, 'utf8'), /work[/\\]test/);
   run(process.execPath, [runner, '--resume', dir, '--execute'], { env: f.env });
   assert.equal(fs.readFileSync(f.env.MOCK_BUILD_CALLS, 'utf8').trim().split('\n').length, 1);
+});
+test('a school-overlay typecheck failure blocks push and build', t => {
+  const f = fixture(t);
+  const original = run('git', ['--git-dir', f.remote, 'rev-parse', 'main']);
+  const result = spawnSync(process.execPath, [runner, '--config', f.configFile, '--execute'], {
+    env: { ...f.env, MOCK_FAIL_TYPECHECK: '1' }, encoding: 'utf8',
+  });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /tsc --noEmit failed/);
+  assert.equal(run('git', ['--git-dir', f.remote, 'rev-parse', 'main']), original);
+  assert.equal(fs.existsSync(f.env.MOCK_BUILD_CALLS), false);
 });
 test('uncertain upload requires explicit retry after reconciliation', t => {
   const f = fixture(t);

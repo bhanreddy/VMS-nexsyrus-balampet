@@ -1,0 +1,35 @@
+{
+  "date": "2026-11-05",
+  "package": "com.nexsyrussims.geetanjalihighschool",
+  "version": "5.1.9",
+  "versionCode": 28,
+  "releasedBuildId": "5c3ac0a8-c692-44a3-b799-7b59228c44fc",
+  "releasedAabSha256": "adde825b2e45dd7877af3fdf06bbe78752ad47a3a0fb2a2ec15530a2adba83e1",
+  "emulator": {
+    "android": 15,
+    "api": 35,
+    "abi": "arm64-v8a"
+  },
+  "observations": {
+    "releasedFreshLaunch": "blank; TypeError in useAdminScreenUsage",
+    "fixedUpdateInPlace": "welcome screen",
+    "fixedClearedDataColdLaunch": "welcome screen; no startup TypeError"
+  },
+  "testArtifact": "Released Android native code/resources, corrected school-composed production JavaScript, local debug signature. Not a Play release.",
+  "reaEvidenceIds": {
+    "inventory": "ev_5a9bc90642d7d6fb704b49535229bdc1426a843ad19426392c99e5f6007eaf51",
+    "releasedColdLaunch": "ev_eba4c1846abf8be221d100a7cd4996a260f27b78c677a88a62355612bd5d11d6",
+    "releasedLogcat": "ev_7178d5d06966e3d7015071c74ec7542e8170cf5d8bb2d2ee987401f6d97728d9"
+  },
+  "files": {
+    "before.png": "075139d38b32df8c9cf4c3c0920eac789aaa37309a01b67e478ade9cf001bac1",
+    "after-update.png": "caf9536987a3e1a646a0c0d896bb00d7add2e4f1afd40fcdf2c7239caedd0cdd",
+    "startup-error.txt": "ae2c0561a29add472f3bd9e9b1f888c7908319cf89cbeac4667cb35a2964ba8b",
+    "after-fresh-launch.png": "797f56036b5b65d5d4fe6180da15a413fb0406191fd738f3a82a6dfdfebc371a"
+  },
+  "limitations": [
+    "One school binary observed at runtime; other schools share the missing-export source pattern.",
+    "Physical-device, authenticated-session and Play installation testing remain.",
+    "Continuous welcome-screen animations prevented UIAutomator idle-state XML capture; screenshots were visually verified."
+  ]
+}

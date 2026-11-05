@@ -27,25 +27,24 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 export const ThemeProvider = ({ children }: {children: ReactNode;}) => {
   const { user } = useAuth();
   const [isDark, setIsDark] = useState<boolean>(false);
-  const [loaded, setLoaded] = useState(false);
 
   const theme = useMemo(() => isDark ? schoolTheme.dark : schoolTheme.light, [isDark]);
 
   // Load local preference on mount
   useEffect(() => {
+    let mounted = true;
     const loadLocalTheme = async () => {
       try {
         const storedTheme = await AsyncStorage.getItem('app_theme');
-        if (storedTheme) {
+        if (mounted && storedTheme) {
           setIsDark(storedTheme === 'dark');
         }
-      } catch (e) {
-
-      } finally {
-        setLoaded(true);
+      } catch {
+        // Keep the default theme; a preference read must not block startup.
       }
     };
     loadLocalTheme();
+    return () => { mounted = false; };
   }, []);
 
   // Sync with Supabase when user logs in
@@ -99,10 +98,6 @@ export const ThemeProvider = ({ children }: {children: ReactNode;}) => {
   const toggleTheme = () => {
     setTheme(isDark ? 'light' : 'dark');
   };
-
-  if (!loaded) {
-    return null; // Or a splash screen
-  }
 
   return (
     <ThemeContext.Provider value={{ theme, isDark, toggleTheme, setTheme }}>

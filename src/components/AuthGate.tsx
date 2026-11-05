@@ -2,7 +2,7 @@ import React, { useContext } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { ThemeContext } from '../context/ThemeContext';
-import LogoLoader from './LogoLoader';
+import AppStartupScreen from './AppStartupScreen';
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
     const { loading, authChecked } = useAuth();
@@ -18,7 +18,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
             {(loading || !authChecked) && (
                 <View style={[StyleSheet.absoluteFill, styles.overlay, { backgroundColor: theme.colors.background }]}>
-                    <LogoLoader size={60} color={theme.colors.primary} />
+                    <AppStartupScreen backgroundColor={theme.colors.background} color={theme.colors.primary} />
                 </View>
             )}
         </View>

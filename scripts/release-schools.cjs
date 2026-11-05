@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 'use strict';
+/* global Buffer, __dirname */
 
 // No external dependencies. All commands use argument arrays, never a shell.
 const fs = require('node:fs');
@@ -393,6 +394,9 @@ async function main(argv = process.argv.slice(2)) {
       if (progress.phase === 'prepared') {
         if (!gitOnly) {
           command('npm', ['ci', '--no-audit', '--no-fund'], { cwd: work, env: authEnv });
+          // Validate the final school overlay, not just the shared source.
+          // Metro can bundle missing named exports that crash only at startup.
+          command(process.execPath, [path.join(work, 'scripts/check-release-types.cjs')], { cwd: work, env: authEnv });
           // Check access to the existing project before pushing or consuming build credits.
           command(easBin, ['project:info'], { cwd: work, env: authEnv });
         }

@@ -42,3 +42,6 @@ export function buildAdminQuickActions(t: TFunction): AdminNavAction[] {
     { title: 'Visitor Management', icon: 'shield-checkmark-outline', route: '/admin/visitors', tier: 'OPS', gradient: ['#047857', '#10B981'], category: 'Security', permission: 'visitors.view' },
   ];
 }
+
+// Shared runtime actions are supplied by the current SchoolIMS frontend.
+export { ADMIN_CORE_QUICK_ACTIONS } from '../config/adminCoreQuickActions';

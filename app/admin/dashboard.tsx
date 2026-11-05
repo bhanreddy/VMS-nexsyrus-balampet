@@ -47,10 +47,8 @@ import {
   SchoolStoryAuthor,
 } from "../../src/services/schoolStoriesService";
 import { supabase } from "../../src/services/supabaseConfig";
-import {
-  buildAdminQuickActions,
-  ADMIN_CORE_QUICK_ACTIONS as coreActions,
-} from "../../src/constants/adminQuickActions";
+import { buildAdminQuickActions } from "../../src/constants/adminQuickActions";
+import { ADMIN_CORE_QUICK_ACTIONS as coreActions } from "../../src/config/adminCoreQuickActions";
 import { rankQuickActionsByUsage } from "../../src/utils/quickActionRanking";
 import { useAdminQuickActionUsage } from "../../src/hooks/useAdminQuickActionUsage";
 import { SCHOOL_NAME } from "../../src/constants/school";

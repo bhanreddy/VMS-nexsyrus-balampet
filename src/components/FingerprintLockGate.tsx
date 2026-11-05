@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { ThemeContext } from '../context/ThemeContext';
 import { useAppFingerprintLock } from '../hooks/useAppFingerprintLock';
 import { isFingerprintPlatformSupported } from '../services/biometricService';
+import AppStartupScreen from './AppStartupScreen';
 
 /**
  * FingerprintLockGate — the opaque, touch-blocking cover shown over the whole
@@ -13,8 +14,9 @@ import { isFingerprintPlatformSupported } from '../services/biometricService';
  *
  * Rendered last in the layout tree (and above the auth loader's z-index) so it
  * paints over every screen, including anything the router restored. While the
- * lock decision is still being made it renders the same opaque surface with no
- * copy, so no protected content is ever briefly visible on a cold start.
+ * lock decision is still being made it renders an opaque surface with a
+ * native loader, so no protected content is visible on a cold start and a
+ * pending session/keychain read never looks like an empty, frozen screen.
  *
  * On web and Tauri desktop it renders nothing at all.
  */
@@ -58,7 +60,7 @@ export default function FingerprintLockGate() {
       accessibilityViewIsModal
       style={[StyleSheet.absoluteFill, styles.overlay, { backgroundColor: background }]}
     >
-      {resolving ? null : (
+      {resolving ? <AppStartupScreen backgroundColor={background} color={accent} /> : (
         <View style={styles.content}>
           <View style={[styles.iconRing, { borderColor: accent }]}>
             <Ionicons name="finger-print" size={44} color={accent} />

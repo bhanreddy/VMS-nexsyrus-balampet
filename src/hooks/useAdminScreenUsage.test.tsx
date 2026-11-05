@@ -2,14 +2,21 @@
 import React from "react";
 import { useAdminScreenUsage } from "./useAdminScreenUsage";
 import { recordAdminScreenOpen } from "../services/adminQuickActionUsage";
+import { buildAdminQuickActions } from "../constants/adminQuickActions";
 const { act, create } = require("react-test-renderer");
 let mockPath = "/admin/dashboard";
 let mockRole = "admin";
 let mockUserId = "admin-1";
+let mockSignedOut = false;
 const mockPermission = jest.fn(() => true);
 jest.mock("expo-router", () => ({ usePathname: () => mockPath }));
 jest.mock("./useAuth", () => ({
-  useAuth: () => ({ role: mockRole, user: { userId: mockUserId } }),
+  useAuth: () => ({ role: mockSignedOut ? null : mockRole, user: mockSignedOut ? null : { userId: mockUserId } }),
+}));
+// School overlays shipped with only this builder. Deliberately omit the newer
+// ADMIN_CORE_QUICK_ACTIONS export to reproduce the release-only startup crash.
+jest.mock("../constants/adminQuickActions", () => ({
+  buildAdminQuickActions: jest.fn(jest.requireActual("../constants/adminQuickActions").buildAdminQuickActions),
 }));
 jest.mock("./usePermissions", () => ({
   usePermissions: () => ({ hasPermission: mockPermission }),
@@ -34,6 +41,7 @@ beforeEach(async () => {
   mockPath = "/admin/dashboard";
   mockRole = "admin";
   mockUserId = "admin-1";
+  mockSignedOut = false;
   mockPermission.mockReturnValue(true);
   await act(async () => {
     tree = create(<Probe />);
@@ -65,5 +73,12 @@ it("does not track staff portal users or tools excluded by permissions", async (
   mockRole = "admin";
   mockPermission.mockReturnValue(false);
   await visit("/admin/substitutions");
+  expect(recordAdminScreenOpen).not.toHaveBeenCalled();
+});
+it("does not build the admin catalogue on a fresh signed-out launch", async () => {
+  mockSignedOut = true;
+  jest.mocked(buildAdminQuickActions).mockClear();
+  await visit("/welcome");
+  expect(buildAdminQuickActions).not.toHaveBeenCalled();
   expect(recordAdminScreenOpen).not.toHaveBeenCalled();
 });
